@@ -62,13 +62,11 @@ class ApiService {
     currentLevel: Level;
     nextLevel: Level | null;
     characterClass: CharacterClass | null;
-    equippedItems: UserItem[];
   }> {
-    const [user, stats, stamina, equippedItems] = await Promise.all([
+    const [user, stats, stamina] = await Promise.all([
       this.getUser(userId),
       this.getUserStats(userId),
       this.getUserStamina(userId),
-      this.getEquippedItems(userId),
     ]);
 
     const currentLevel = await this.getLevel(user.level);
@@ -86,7 +84,6 @@ class ApiService {
       currentLevel,
       nextLevel,
       characterClass: user.characterClass || null,
-      equippedItems,
     };
   }
 

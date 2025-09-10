@@ -23,7 +23,6 @@ const StatusTab: React.FC = () => {
     currentLevel,
     nextLevel,
     characterClass,
-    equippedItems,
     isLoading,
     error,
   } = useUserStatusStore();
@@ -265,32 +264,6 @@ const StatusTab: React.FC = () => {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Trang bị hiện tại */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Trang bị hiện tại</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {equippedItems.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
-              {equippedItems.slice(0, 6).map((item) => (
-                <div key={item.id} className="flex items-center gap-2 p-2 border rounded">
-                  <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
-                    <Sword className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.item?.name || 'Vật phẩm'}</p>
-                    <p className="text-xs text-gray-500">Cấp {item.upgradeLevel || 1}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-gray-500 py-4">Chưa có trang bị nào</p>
-          )}
         </CardContent>
       </Card>
     </div>
