@@ -41,7 +41,7 @@ class ApiService {
 
     // Get response text first to check if it's empty
     const responseText = await response.text();
-    if (!responseText || responseText.trim() === '') {
+    if (!responseText) {
       throw new Error('Empty response from server');
     }
 
@@ -50,7 +50,7 @@ class ApiService {
       return data;
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError, 'Response text:', responseText);
-      throw new Error('Invalid JSON response from server');
+      throw new Error(`Invalid JSON response from server: ${responseText}`);
     }
   }
 
