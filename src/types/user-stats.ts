@@ -1,0 +1,26 @@
+import { User } from ".";
+
+export interface UserStats {
+  id: number;
+  user: User;
+  userId: number;
+  maxHp: number;
+  currentHp: number;
+  attack: number;
+  defense: number;
+  strength: number;
+  intelligence: number;
+  dexterity: number;
+  vitality: number;
+  luck: number;
+  critRate: number;
+  critDamage: number;
+  comboRate: number;
+  counterRate: number;
+  lifesteal: number;
+  armorPen: number;
+  dodgeRate: number;
+  accuracy: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
