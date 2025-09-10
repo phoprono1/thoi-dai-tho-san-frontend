@@ -1,0 +1,31 @@
+[build]
+  publish = ".next"
+  command = "npm run build"
+
+[build.environment]
+  NEXT_PUBLIC_API_URL = "https://thoi-dai-tho-san-backend-production.up.railway.app"
+  NODE_ENV = "production"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# API proxy để tránh CORS issues
+[[redirects]]
+  from = "/api/*"
+  to = "https://thoi-dai-tho-san-backend-production.up.railway.app/:splat"
+  status = 200
+  force = true
+  headers = {X-From = "Netlify"}
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
