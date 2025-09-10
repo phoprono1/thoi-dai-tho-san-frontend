@@ -125,19 +125,23 @@ export const useRoomSocketStore = create<RoomSocketState>()(
 
       console.log('[RoomSocket] Connecting to WebSocket...');
       
-      const socket = io('http://localhost:3005/rooms', {
+      // Get auth token for WebSocket authentication
+      const token = localStorage.getItem('token');
+      
+      const socket = io(`${process.env.NEXT_PUBLIC_API_URL}/rooms`, {
         transports: ['websocket'],
         autoConnect: true,
+        auth: {
+          token: token
+        }
       });
 
       // Connection events
       socket.on('connect', () => {
-        console.log('[RoomSocket] Connected:', socket.id);
         set({ socket, isConnected: true, error: null });
       });
 
       socket.on('disconnect', () => {
-        console.log('[RoomSocket] Disconnected');
         set({ 
           isConnected: false, 
           joinedRooms: new Set(), // Clear joined rooms on disconnect

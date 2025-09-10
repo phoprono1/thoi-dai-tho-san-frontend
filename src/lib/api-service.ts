@@ -34,7 +34,6 @@ class ApiService {
     }
 
     const response = await fetch(url, config);
-    console.log(`🌐 Request to ${url} - Status: ${response.status}`);
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -42,7 +41,6 @@ class ApiService {
 
     // Get response text first to check if it's empty
     const responseText = await response.text();
-    console.log(`📝 Response text from ${url}:`, responseText);
     
     if (!responseText) {
       throw new Error('Empty response from server');
@@ -67,26 +65,18 @@ class ApiService {
     characterClass: CharacterClass | null;
     equippedItems: UserItem[];
   }> {
-    console.log('🔍 getUserStatusData called with userId:', userId);
-    
     const [user, stats, stamina, equippedItems] = await Promise.all([
       this.getUser(userId),
       this.getUserStats(userId),
       this.getUserStamina(userId),
       this.getEquippedItems(userId),
     ]);
-    
-    console.log('📊 API responses:', { user, stats, stamina, equippedItems });
 
     const currentLevel = await this.getLevel(user.level);
-    console.log('🎯 Current level fetched:', currentLevel);
-    
     let nextLevel: Level | null = null;
     try {
       nextLevel = await this.getLevel(user.level + 1);
-      console.log('⬆️ Next level fetched:', nextLevel);
-    } catch (error) {
-      console.log('❌ Next level fetch failed (probably max level):', error);
+    } catch {
       // Next level doesn't exist (max level reached)
     }
 
@@ -100,7 +90,6 @@ class ApiService {
       equippedItems,
     };
     
-    console.log('✅ getUserStatusData final result:', result);
     return result;
   }
 

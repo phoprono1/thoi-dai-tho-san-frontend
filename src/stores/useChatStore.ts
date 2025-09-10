@@ -41,9 +41,12 @@ const useChatStore = create<ChatState>((set, get) => ({
     }
 
     console.log('[ChatSocket] Connecting...');
-    const newSocket = io('http://localhost:3005/chat', {
+    const newSocket = io(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
       transports: ['websocket'],
       autoConnect: true,
+      auth: {
+        token: token
+      }
     });
 
     newSocket.on('connect', () => {
