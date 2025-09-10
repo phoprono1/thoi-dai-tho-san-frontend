@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
+import { useAutoCancelRoom } from '@/components/game/hooks/useAutoCancelRoom';
 import { RoomLobby, Dungeon } from '@/types';
 import { useState } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -36,12 +37,13 @@ export default function ExploreTab() {
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [isPrivate, setIsPrivate] = useState(false);
 
-  // Fetch room lobbies
-  const { data: roomLobbies = [], isLoading: isLoadingRooms, error: roomsError } = useQuery<RoomLobby[]>({
+  // Fetch room lobbies (we filter out cancelled rooms on the client)
+  const { data: roomLobbiesRaw = [], isLoading: isLoadingRooms, error: roomsError } = useQuery<RoomLobby[]>({
     queryKey: ['room-lobbies'],
     queryFn: () => apiService.getRoomLobbies(),
     refetchInterval: 5000, // Refetch every 5 seconds
   });
+  const roomLobbies = (roomLobbiesRaw || []).filter(r => r.status !== 'cancelled');
 
   // Fetch dungeons
   const { data: dungeons = [], isLoading: isLoadingDungeons } = useQuery({
@@ -142,7 +144,7 @@ export default function ExploreTab() {
       alert('Vui lòng đăng nhập để tham gia phòng');
       return;
     }
-    joinRoomMutation.mutate({ roomId, playerId: user.id });
+  joinRoomMutation.mutate({ roomId, playerId: user.id });
   };
 
   const handleJoinPvP = () => {
@@ -152,6 +154,10 @@ export default function ExploreTab() {
   const handleCreatePvP = () => {
     // TODO: Implement create PvP match logic
   };
+
+  // If the current user is the host of an active room, wire a best-effort auto-cancel when they navigate away
+  const hostRoom = user ? (roomLobbies as RoomLobby[]).find(r => r.host && r.host.id === user.id) : null;
+  useAutoCancelRoom(hostRoom ? hostRoom.id : null, Boolean(hostRoom));
 
   return (
     <div className="p-4">
@@ -280,63 +286,74 @@ export default function ExploreTab() {
                     </Button>
                   </div>
                 ) : (
-                  roomLobbies.map((room) => (
-                    <Card key={room.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg flex items-center space-x-2">
-                              <span>{room.name}</span>
-                              {room.isPrivate && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Riêng tư
-                                </Badge>
-                              )}
-                            </CardTitle>
-                            <CardDescription className="space-y-1">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm">Host: {room.host.username} (Lv.{room.host.level})</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm">Dungeon: {room.dungeon.name}</span>
-                                <Badge className="text-xs text-blue-600 bg-blue-100">
-                                  Lv.{room.dungeon.levelRequirement}+
-                                </Badge>
-                              </div>
-                            </CardDescription>
-                          </div>
-                          <div className="text-right space-y-2">
-                            <div className="flex items-center space-x-1 text-sm text-gray-600">
-                              <Users className="h-4 w-4" />
-                              <span>{room.currentPlayers}/{room.maxPlayers}</span>
+                  roomLobbies.map((room) => {
+                    const isHost = Boolean(user && room.host && user.id === room.host.id);
+                    return (
+                      <Card key={room.id} className="hover:shadow-md transition-shadow">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="text-lg flex items-center space-x-2">
+                                <span>{room.name}</span>
+                                {room.isPrivate && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Riêng tư
+                                  </Badge>
+                                )}
+                              </CardTitle>
+                              <CardDescription className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm">Host: {room.host.username} (Lv.{room.host.level})</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm">Dungeon: {room.dungeon.name}</span>
+                                  <Badge className="text-xs text-blue-600 bg-blue-100">
+                                    Lv.{room.dungeon.levelRequirement}+
+                                  </Badge>
+                                </div>
+                              </CardDescription>
                             </div>
-                            <Badge className={`text-xs ${getRoomStatusColor(room.status)}`}>
-                              {getRoomStatusText(room.status)}
-                            </Badge>
+                            <div className="text-right space-y-2">
+                              <div className="flex items-center space-x-1 text-sm text-gray-600">
+                                <Users className="h-4 w-4" />
+                                <span>{room.currentPlayers}/{room.maxPlayers}</span>
+                              </div>
+                              <Badge className={`text-xs ${getRoomStatusColor(room.status)}`}>
+                                {getRoomStatusText(room.status)}
+                              </Badge>
+                            </div>
                           </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm text-gray-600">
-                            Tạo: {new Date(room.createdAt).toLocaleString('vi-VN')}
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-600">
+                              Tạo: {new Date(room.createdAt).toLocaleString('vi-VN')}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {isHost && (
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => apiService.leaveRoomLobby(room.id, user?.id ?? -1).then(() => queryClient.invalidateQueries({ queryKey: ['room-lobbies'] }))}
+                                >Hủy phòng</Button>
+                              )}
+                              <Button
+                                onClick={() => handleJoinRoom(room.id)}
+                                className="ml-4"
+                                disabled={room.status !== 'waiting' || room.currentPlayers >= room.maxPlayers || joinRoomMutation.isPending}
+                                variant={room.status === 'waiting' ? 'default' : 'secondary'}
+                              >
+                                {joinRoomMutation.isPending ? 'Đang tham gia...' :
+                                 room.status === 'waiting'
+                                   ? (room.currentPlayers >= room.maxPlayers ? 'Phòng đầy' : 'Tham gia')
+                                   : getRoomStatusText(room.status)
+                                }
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            onClick={() => handleJoinRoom(room.id)}
-                            className="ml-4"
-                            disabled={room.status !== 'waiting' || room.currentPlayers >= room.maxPlayers || joinRoomMutation.isPending}
-                            variant={room.status === 'waiting' ? 'default' : 'secondary'}
-                          >
-                            {joinRoomMutation.isPending ? 'Đang tham gia...' :
-                             room.status === 'waiting'
-                               ? (room.currentPlayers >= room.maxPlayers ? 'Phòng đầy' : 'Tham gia')
-                               : getRoomStatusText(room.status)
-                            }
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
 
                 {!isLoadingRooms && !roomsError && roomLobbies.length === 0 && (

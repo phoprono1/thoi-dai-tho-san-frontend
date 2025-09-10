@@ -19,6 +19,8 @@ const GlobalChat = dynamic(() => import('@/components/global-chat/global-chat').
   ssr: false,
 });
 
+const ThemeProviderClient = dynamic(() => import('@/components/providers/ThemeProviderClient'), { ssr: false });
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -39,12 +41,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <QueryProvider>
-          <AuthProvider>
-            {children}
-            <GlobalChat />
-          </AuthProvider>
-        </QueryProvider>
+        <ThemeProviderClient>
+          <QueryProvider>
+            <AuthProvider>
+              {children}
+              <GlobalChat />
+            </AuthProvider>
+          </QueryProvider>
+        </ThemeProviderClient>
       </body>
     </html>
   );

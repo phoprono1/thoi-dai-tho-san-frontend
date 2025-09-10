@@ -1,6 +1,6 @@
-'use client';
+ 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,10 +15,11 @@ import {
   Loader2
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
 import { toast } from 'sonner';
 import { UserItem } from '@/types';
+import { useUserStatusStore } from '@/stores/user-status.store';
 
 export default function InventoryTab() {
   const [selectedItem, setSelectedItem] = useState<UserItem | null>(null);
@@ -33,6 +34,9 @@ export default function InventoryTab() {
     queryFn: () => apiService.getUserItems(userId!),
     enabled: !!userId && isAuthenticated,
   });
+
+  const queryClient = useQueryClient();
+  const setEquippedItems = useUserStatusStore((s) => s.setEquippedItems);
 
   // If not authenticated, show message
   if (!isAuthenticated || !userId) {
@@ -72,13 +76,86 @@ export default function InventoryTab() {
     }
   };
 
+  // Render correct icon based on item type
+  const renderItemIcon = (type: string | undefined, className = 'h-6 w-6 text-gray-600') => {
+    switch (type) {
+      case 'weapon':
+        return <Sword className={className} />;
+      case 'armor':
+        return <Shield className={className} />;
+      case 'accessory':
+        return <Gem className={className} />;
+      case 'consumable':
+        return <Heart className={className} />;
+      default:
+        return <Sword className={className} />;
+    }
+  };
+
   const handleEquipItem = async (userItem: UserItem) => {
     try {
-      await apiService.equipItem(userItem.id, !userItem.isEquipped);
+      const resp = await apiService.equipItem(userItem.id, !userItem.isEquipped);
+      // api returns { success, message, userItem } or the updated userItem directly
+      let updatedUserItem: UserItem | null = null;
+      if (resp && typeof resp === 'object') {
+        const asObj = resp as Record<string, unknown>;
+        if (asObj.userItem && typeof asObj.userItem === 'object') {
+          updatedUserItem = asObj.userItem as UserItem;
+        } else {
+          updatedUserItem = resp as unknown as UserItem;
+        }
+      }
       toast.success(userItem.isEquipped ? 'Đã tháo vật phẩm' : 'Đã mặc vật phẩm');
-      // Refetch items
-      // This would trigger a refetch in a real implementation
-    } catch (error) {
+      // Invalidate queries so UI refreshes equipped items and stats
+      if (userId) {
+        // Invalidate both naming styles used across the app
+        queryClient.invalidateQueries({ queryKey: ['user-items', userId] });
+        queryClient.invalidateQueries({ queryKey: ['userItems', userId] });
+        queryClient.invalidateQueries({ queryKey: ['userStats', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user', userId] });
+        // Invalidate higher-level combined/user status queries so StatusTab updates
+        queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+        queryClient.invalidateQueries({ queryKey: ['equipped-items', userId] });
+        // Update zustand store and react-query cache immediately for snappy UI
+        try {
+          const currently = useUserStatusStore.getState().equippedItems || [];
+          if (!updatedUserItem) {
+            // nothing to do
+            return;
+          }
+
+          let newEquipped: UserItem[] = [];
+          if (updatedUserItem.isEquipped) {
+            // unequip any item of the same type, then add the updated one
+            newEquipped = currently.filter((it) => it.item.type !== updatedUserItem.item.type).concat(updatedUserItem);
+          } else {
+            // remove the item from equipped list
+            newEquipped = currently.filter((it) => it.id !== updatedUserItem.id);
+          }
+          // update zustand
+          setEquippedItems(newEquipped);
+          // update react-query caches
+          queryClient.setQueryData(['equipped-items', userId], newEquipped);
+          queryClient.setQueryData(['user-status', userId], (old: unknown) => {
+            if (!old || typeof old !== 'object') return old;
+            const oldObj = old as Record<string, unknown>;
+            return { ...oldObj, equippedItems: newEquipped };
+          });
+        } catch (e) {
+          // non-critical if cache update fails
+          console.debug('cache update failed', e);
+        }
+        // Force refetch in case the queries had no active subscribers
+        try {
+          await queryClient.refetchQueries({ queryKey: ['user-status', userId], exact: true });
+          await queryClient.refetchQueries({ queryKey: ['equipped-items', userId], exact: true });
+        } catch {
+          // ignore refetch errors
+        }
+        queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user-stamina', userId] });
+      }
+    } catch {
       toast.error('Không thể thực hiện thao tác');
     }
   };
@@ -87,16 +164,32 @@ export default function InventoryTab() {
     try {
       await apiService.useConsumableItem(userItem.id);
       toast.success('Đã sử dụng vật phẩm');
-      // Refetch items
-    } catch (error) {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ['user-items', userId] });
+        queryClient.invalidateQueries({ queryKey: ['userItems', userId] });
+        queryClient.invalidateQueries({ queryKey: ['userStats', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+        queryClient.invalidateQueries({ queryKey: ['equipped-items', userId] });
+        try {
+          await queryClient.refetchQueries({ queryKey: ['user-status', userId], exact: true });
+          await queryClient.refetchQueries({ queryKey: ['equipped-items', userId], exact: true });
+        } catch {
+          // ignore
+        }
+        queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user-stamina', userId] });
+      }
+    } catch {
       toast.error('Không thể sử dụng vật phẩm');
     }
   };
 
-  const handleSellItem = async (userItem: UserItem) => {
+  const handleSellItem = async () => {
     // TODO: Implement sell item logic
     toast.info('Tính năng bán vật phẩm đang được phát triển');
   };
+
 
   return (
     <div className="p-4">
@@ -124,7 +217,7 @@ export default function InventoryTab() {
                   <CardContent className="p-3">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-gray-100 rounded-lg">
-                        <Sword className="h-6 w-6 text-gray-600" />
+                        {renderItemIcon(item.type, 'h-6 w-6 text-gray-600')}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
@@ -169,7 +262,7 @@ export default function InventoryTab() {
                       <CardContent className="p-3">
                         <div className="flex items-center space-x-3">
                           <div className="p-2 bg-gray-100 rounded-lg">
-                            <Sword className="h-6 w-6 text-gray-600" />
+                            {renderItemIcon(item.type, 'h-6 w-6 text-gray-600')}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
@@ -199,13 +292,19 @@ export default function InventoryTab() {
 
       {/* Item Detail Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+        <div
+          className="fixed inset-0 bg-[var(--overlay)] backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedItem(null)}
+        >
+          <Card
+            className="w-full max-w-md bg-[var(--card)] text-[var(--card-foreground)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-gray-100 rounded-lg">
-                    <Sword className="h-8 w-8 text-gray-600" />
+                  <div className="p-3 bg-[var(--secondary)] rounded-lg">
+                    {renderItemIcon(selectedItem.item.type, 'h-8 w-8 text-[var(--accent)]')}
                   </div>
                   <div>
                     <CardTitle className="text-lg">{selectedItem.item.name}</CardTitle>
@@ -275,7 +374,7 @@ export default function InventoryTab() {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => handleSellItem(selectedItem)}
+                  onClick={() => handleSellItem()}
                 >
                   <Coins className="h-4 w-4 mr-1" />
                   Bán
@@ -285,6 +384,23 @@ export default function InventoryTab() {
           </Card>
         </div>
       )}
+
+      {/* Close modal on Escape key */}
+      {selectedItem && (
+        <EscapeKeyListener onEscape={() => setSelectedItem(null)} />
+      )}
     </div>
   );
+}
+
+function EscapeKeyListener({ onEscape }: { onEscape: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onEscape();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onEscape]);
+
+  return null;
 }

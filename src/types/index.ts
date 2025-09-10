@@ -145,16 +145,24 @@ export interface UserItem {
   upgradeLevel: number;
   maxUpgradeLevel: number;
   upgradeStats?: {
-    attack?: number;
-    defense?: number;
-    critRate?: number;
-    critDamage?: number;
-    comboRate?: number;
-    counterRate?: number;
-    lifesteal?: number;
-    armorPen?: number;
-    dodgeRate?: number;
-    accuracy?: number;
+  attack?: number;
+  defense?: number;
+  critRate?: number;
+  critDamage?: number;
+  comboRate?: number;
+  counterRate?: number;
+  lifesteal?: number;
+  armorPen?: number;
+  dodgeRate?: number;
+  accuracy?: number;
+  // additional potential upgrade stat fields
+  strength?: number;
+  intelligence?: number;
+  dexterity?: number;
+  vitality?: number;
+  luck?: number;
+  hp?: number;
+  maxHp?: number;
   };
   isEquipped: boolean;
   createdAt: Date;
@@ -179,6 +187,15 @@ export interface Item {
     armorPen?: number;
     dodgeRate?: number;
     accuracy?: number;
+  // additional possible item stat fields used across the UI
+  strength?: number;
+  intelligence?: number;
+  dexterity?: number;
+  vitality?: number;
+  luck?: number;
+  // items may provide hp or maxHp directly
+  hp?: number;
+  maxHp?: number;
   };
   price: number;
   isConsumable: boolean;

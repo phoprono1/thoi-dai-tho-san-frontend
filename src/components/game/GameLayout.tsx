@@ -14,6 +14,7 @@ import {
   Scroll
 } from 'lucide-react';
 import { Spinner } from '../ui/spinner';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 interface GameLayoutProps {
   children: React.ReactNode;
@@ -60,11 +61,11 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[var(--background)] flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:bg-white lg:border-r lg:shadow-sm lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:z-30">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">Thời Đại Thợ Săn</h2>
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:bg-[var(--sidebar)] lg:border-r lg:shadow-sm lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:z-30">
+        <div className="p-6 border-b border-[var(--sidebar-border)]">
+          <h2 className="text-xl font-bold text-[var(--sidebar-foreground)]">Thời Đại Thợ Săn</h2>
         </div>
         <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-2">
@@ -78,18 +79,18 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
                   onClick={() => handleTabChange(tab.id)}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-[var(--sidebar-accent)] text-[var(--sidebar-primary)] border-r-2 border-[var(--sidebar-ring)]'
+                      : 'text-[var(--sidebar-foreground)] hover:text-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)]'
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? tab.color : ''}`} />
+                  <Icon className={`h-5 w-5 ${isActive ? 'text-[var(--sidebar-primary)]' : 'text-[var(--sidebar-foreground)]'}`} />
                   <span className="font-medium">{tab.label}</span>
                 </button>
               );
             })}
           </div>
         </nav>
-        <div className="p-4 border-t">
+  <div className="p-4 border-t border-[var(--sidebar-border)]">
           <Button variant="outline" onClick={logout} className="w-full">
             Thoát
           </Button>
@@ -99,7 +100,7 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         {/* Header - Desktop */}
-        <header className="hidden lg:block bg-white shadow-sm border-b">
+        <header className="hidden lg:block bg-[var(--card)] shadow-sm border-b border-[var(--border)]">
           <div className="px-6 py-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
@@ -107,19 +108,20 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
                   Lv.{user.level}
                 </Badge>
                 <div className="flex items-center space-x-2 text-sm">
-                  <Coins className="h-4 w-4 text-yellow-500" />
-                  <span className="font-medium">{user.gold.toLocaleString()}</span>
+                  <Coins className="h-4 w-4 text-[var(--chart-1)]" />
+                  <span className="font-medium text-[var(--foreground)]">{user.gold.toLocaleString()}</span>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <span className="text-sm text-gray-600">Chào mừng, {user.username}</span>
+                <span className="text-sm text-[var(--muted-foreground)]">Chào mừng, {user.username}</span>
+                <ThemeToggle />
               </div>
             </div>
           </div>
         </header>
 
         {/* Mobile Header */}
-        <header className="bg-white shadow-sm border-b sticky top-0 z-40 lg:hidden">
+        <header className="bg-[var(--card)] shadow-sm border-b border-[var(--border)] sticky top-0 z-40 lg:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-3">
               <div className="flex items-center space-x-3">
@@ -133,6 +135,7 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
                   <Coins className="h-4 w-4 text-yellow-500" />
                   <span className="font-medium">{user.gold.toLocaleString()}</span>
                 </div>
+                <ThemeToggle />
                 <Button variant="outline" size="sm" onClick={logout}>
                   Thoát
                 </Button>
@@ -149,7 +152,7 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
         </main>
 
         {/* Bottom Navigation - Mobile Only */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50 lg:hidden">
+  <nav className="fixed bottom-0 left-0 right-0 bg-[var(--card)] border-t border-[var(--border)] shadow-lg z-50 lg:hidden">
           <div className="flex justify-around items-center py-2 px-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -161,12 +164,12 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-[var(--sidebar-accent)] text-[var(--sidebar-primary)]'
+                      : 'text-[var(--muted-foreground)] hover:text-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)]'
                   }`}
                 >
-                  <Icon className={`h-6 w-6 mb-1 ${isActive ? tab.color : ''}`} />
-                  <span className={`text-xs font-medium ${isActive ? 'text-blue-600' : ''}`}>
+                  <Icon className={`h-6 w-6 mb-1 ${isActive ? 'text-[var(--sidebar-primary)]' : 'text-[var(--muted-foreground)]'}`} />
+                  <span className={`text-xs font-medium ${isActive ? 'text-[var(--sidebar-primary)]' : ''}`}>
                     {tab.label}
                   </span>
                 </button>

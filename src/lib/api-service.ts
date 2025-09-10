@@ -11,7 +11,7 @@ import {
   Dungeon,
 } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
 
 class ApiService {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {

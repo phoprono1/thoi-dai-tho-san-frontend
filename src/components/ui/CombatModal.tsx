@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
+// Badge removed (not used) - keep styling consistent with modal
 import { 
   Sword, 
   Shield, 
@@ -12,7 +13,10 @@ import {
   Play,
   Pause,
   SkipForward,
-  FastForward
+  FastForward,
+  Trophy,
+  Skull,
+  CornerUpLeft
 } from 'lucide-react';
 
 interface CombatDetails {
@@ -253,20 +257,13 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
     }
   };
 
-  const getResultColor = (result: string) => {
-    switch (result) {
-      case 'victory': return 'text-green-600 bg-green-100';
-      case 'defeat': return 'text-red-600 bg-red-100';
-      case 'escape': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
+  // getResultColor removed (unused) - icons used for result instead
 
   if (!combatResult) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+  <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5" />
@@ -275,93 +272,90 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Combat Arena */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-6 text-white relative overflow-hidden">
+          {/* Combat Arena or Result (result replaces arena when finished) */}
+          {!showResult ? (
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-6 text-white relative overflow-hidden">
             {/* Players Side */}
-            <div className="flex justify-between items-center mb-6">
-              <div className="space-y-2">
+            <div className="flex flex-col gap-4 mb-6">
+              <div className="space-y-2 w-full">
                 <h3 className="font-bold text-lg text-green-400 flex items-center gap-2">
                   <Shield className="h-4 w-4" />
                   Đội của bạn
                 </h3>
-                {combatResult?.teamStats?.members ? combatResult?.teamStats?.members.map((member) => (
-                  <div key={member.userId} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{member.username}</span>
-                      <span className="text-xs text-gray-300">
-                        {playerHp[member.userId]?.current || member.hp}/{playerHp[member.userId]?.max || member.maxHp} HP
-                      </span>
-                    </div>
-                    <Progress 
-                      value={(playerHp[member.userId]?.current || member.hp) / (playerHp[member.userId]?.max || member.maxHp) * 100} 
-                      className={`h-2 bg-gray-700 ${damageAnimation.player ? 'animate-pulse' : ''}`}
-                      style={{
-                        '--progress-foreground': 'rgb(34 197 94)' // green-500 for player team
-                      } as React.CSSProperties}
-                    />
+                {/* Compact 2-column grid for players to match enemy layout */}
+                {combatResult?.teamStats?.members ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {combatResult.teamStats.members.map(member => (
+                      <div key={member.userId} className="bg-gray-900/40 p-2 rounded text-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium truncate">{member.username}</div>
+                          <div className="text-xs text-gray-300">HP</div>
+                        </div>
+                        <div className="mt-1">
+                          <Progress
+                            value={(playerHp[member.userId]?.current || member.hp) / (playerHp[member.userId]?.max || member.maxHp) * 100}
+                            className={`h-2 bg-gray-700 ${damageAnimation.player ? 'animate-pulse' : ''}`}
+                            style={{ '--progress-foreground': 'rgb(34 197 94)' } as React.CSSProperties}
+                          />
+                          <div className="text-[11px] text-gray-300 text-center mt-1">{playerHp[member.userId]?.current || member.hp}/{playerHp[member.userId]?.max || member.maxHp} HP</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )) : <div className="text-sm text-gray-300">Không có thông tin đội</div>}
+                ) : (
+                  <div className="text-sm text-gray-300">Không có thông tin đội</div>
+                )}
               </div>
 
               {/* VS */}
-              <div className="text-4xl font-bold text-yellow-400">VS</div>
+              <div className="text-3xl font-bold text-yellow-400 self-center">VS</div>
 
-              {/* Enemy Side */}
-              <div className="space-y-2 text-right">
+              {/* Enemy Side (mobile-style): full-width 2-column grid, same on PC */}
+              <div className="space-y-2 text-right w-full">
                 <h3 className="font-bold text-lg text-red-400 flex items-center gap-2 justify-end">
                   <span>
-                    {combatResult?.enemies && combatResult?.enemies.length > 0 
-                      ? (combatResult?.enemies.length === 1 
+                    {combatResult?.enemies && combatResult?.enemies.length > 0
+                      ? (combatResult?.enemies.length === 1
                           ? combatResult?.enemies[0].name
                           : `${combatResult?.enemies.length} Quái vật`)
                       : 'Quái vật'}
                   </span>
                   <Sword className="h-4 w-4" />
                 </h3>
-                {combatResult?.enemies && combatResult?.enemies.map((enemy, index) => {
-                  // Use index as enemyId since backend sends targetIndex matching this index
-                  const enemyId = index;
-                  const currentHp = enemyHp[enemyId]?.current || enemy.hp;
-                  const maxHp = enemyHp[enemyId]?.max || enemy.maxHp;
-                  
-                  return (
-                    <div key={enemyId} className="space-y-1">
-                      <div className="flex items-center gap-2 justify-end">
-                        <span className="text-xs text-gray-300">{currentHp}/{maxHp} HP</span>
-                        <span className="text-sm font-medium">
-                          {enemy.name} #{index + 1} (Lv.{enemy.level})
-                        </span>
+
+                {/* Mobile: grid 2 columns x up to 5 rows (vertical scroll). On md+ switch to horizontal scroll for wide screens */}
+                <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto py-1 pr-2">
+                  {combatResult?.enemies && combatResult?.enemies.map((enemy, index) => {
+                    const enemyId = index;
+                    const currentHp = enemyHp[enemyId]?.current || enemy.hp;
+                    const maxHp = enemyHp[enemyId]?.max || enemy.maxHp;
+
+                    return (
+                      <div key={enemyId} className="bg-gray-900/40 p-2 rounded text-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium truncate">{enemy.name} #{index + 1}</div>
+                          <div className="text-xs text-gray-300">Lv.{enemy.level}</div>
+                        </div>
+                        <div className="mt-1">
+                          <Progress
+                            value={(currentHp / maxHp) * 100}
+                            className={`h-2 bg-gray-700 ${damageAnimation.enemy ? 'animate-pulse' : ''}`}
+                            style={{
+                              '--progress-foreground': 'rgb(239 68 68)'
+                            } as React.CSSProperties}
+                          />
+                          <div className="text-[11px] text-gray-300 text-center mt-1">{currentHp}/{maxHp} HP</div>
+                        </div>
                       </div>
-                      <Progress 
-                        value={(currentHp / maxHp) * 100} 
-                        className={`h-2 bg-gray-700 ${damageAnimation.enemy ? 'animate-pulse' : ''}`}
-                        style={{
-                          '--progress-foreground': 'rgb(239 68 68)' // red-500 for enemy
-                        } as React.CSSProperties}
-                      />
-                    </div>
-                  );
-                })}
-                
-                {/* Fallback if no enemies data */}
+                    );
+                  })}
+                </div>
+                {/* If no enemies available */}
                 {!combatResult?.enemies && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 justify-end">
-                      <span className="text-xs text-gray-300">Unknown HP</span>
-                      <span className="text-sm font-medium">Monster</span>
-                    </div>
-                    <Progress 
-                      value={50} 
-                      className={`h-2 bg-gray-700 ${damageAnimation.enemy ? 'animate-pulse' : ''}`}
-                      style={{
-                        '--progress-foreground': 'rgb(239 68 68)' // red-500 for enemy
-                      } as React.CSSProperties}
-                    />
-                  </div>
+                  <div className="text-sm text-gray-300">Không có thông tin quái vật</div>
                 )}
               </div>
             </div>
-
             {/* Damage Animations */}
             {damageAnimation.player && (
               <div className="absolute left-6 top-1/2 -translate-y-1/2 animate-bounce">
@@ -374,12 +368,69 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
               </div>
             )}
           </div>
+          ) : (
+            // Result panel replaces the combat arena when showResult === true
+            <div className="bg-gradient-to-br from-gray-800/70 to-gray-700/70 rounded-lg p-6 text-white space-y-4 border border-gray-700">
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center gap-3">
+                  {combatResult?.result === 'victory' && <Trophy className="h-6 w-6 text-yellow-300" />}
+                  {combatResult?.result === 'defeat' && <Skull className="h-6 w-6 text-red-400" />}
+                  {combatResult?.result === 'escape' && <CornerUpLeft className="h-6 w-6 text-yellow-200" />}
+                  <h2 className="text-xl font-bold">
+                    {combatResult?.result === 'victory' ? 'CHIẾN THẮNG' : combatResult?.result === 'defeat' ? 'THẤT BẠI' : 'ĐÃ CHẠY TRỐN'}
+                  </h2>
+                </div>
+
+                <div className="flex items-center gap-3 text-sm">
+                  {typeof combatResult?.rewards?.experience === 'number' && combatResult.rewards.experience > 0 && (
+                    <div className="bg-gray-900/40 px-3 py-2 rounded flex items-center gap-2">
+                      <span className="text-yellow-300 font-semibold">+{combatResult.rewards.experience}</span>
+                      <span className="text-gray-300">EXP</span>
+                    </div>
+                  )}
+                  {typeof combatResult?.rewards?.gold === 'number' && combatResult.rewards.gold > 0 && (
+                    <div className="bg-gray-900/40 px-3 py-2 rounded flex items-center gap-2">
+                      <span className="text-yellow-300 font-semibold">+{combatResult.rewards.gold}</span>
+                      <span className="text-gray-300">Gold</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-900/30 p-3 rounded">
+                <h4 className="font-semibold text-sm text-gray-200 mb-2">Phần thưởng</h4>
+                {combatResult?.rewards?.items && combatResult.rewards.items.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {combatResult.rewards.items.map((it: any, idx: number) => (
+                      <div key={idx} className="bg-gray-900/40 p-2 rounded flex items-center justify-between text-xs">
+                        <div className="truncate font-medium">{it.name ? it.name : `Item #${it.itemId}`}</div>
+                        <div className="text-gray-300 text-xs">x{it.quantity}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-300">Không có vật phẩm rơi</div>
+                )}
+              </div>
+
+              <div className="flex justify-center">
+                <Button onClick={onClose}>Đóng</Button>
+              </div>
+            </div>
+          )}
 
           {/* Action Log */}
           <div className="bg-gray-50 rounded-lg p-4 min-h-[100px]">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm font-medium text-gray-600">
-                Turn {Math.ceil(currentLogIndex / 2)} - Action {currentLogIndex + 1} / {combatResult?.logs?.length || 0}
+                {/* Clamp action index so it never exceeds total logs */}
+                {(() => {
+                  const total = combatResult?.logs?.length || 0;
+                  const actionIndex = Math.min(Math.max(0, currentLogIndex), total);
+                  const displayAction = total > 0 ? Math.min(actionIndex + 1, total) : 0;
+                  const displayTurn = Math.max(1, Math.ceil(displayAction / Math.max(1, 1)));
+                  return `Turn ${displayTurn} - Action ${displayAction} / ${total}`;
+                })()}
               </span>
             </div>
             <div className="bg-white rounded p-3 min-h-[60px] flex items-center">
@@ -439,33 +490,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
             />
           </div>
 
-          {/* Result */}
-          {showResult && (
-            <div className="bg-gray-50 rounded-lg p-6 text-center space-y-4">
-              <Badge className={`text-lg py-2 px-4 ${getResultColor(combatResult?.result)}`}>
-                {combatResult?.result === 'victory' ? '🏆 CHIẾN THẮNG!' : 
-                 combatResult?.result === 'defeat' ? '💀 THẤT BẠI!' : '🏃 ĐÃ CHẠY TRỐN!'}
-              </Badge>
-              
-              {combatResult?.rewards && (
-                <div className="space-y-2">
-                  <h4 className="font-bold">Phần thưởng:</h4>
-                  <div className="flex justify-center gap-4 text-sm">
-                    {combatResult?.rewards?.experience && (
-                      <span>+{combatResult?.rewards?.experience} EXP</span>
-                    )}
-                    {combatResult?.rewards?.gold && (
-                      <span>+{combatResult?.rewards?.gold} Gold</span>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              <Button onClick={onClose} className="mt-4">
-                Đóng
-              </Button>
-            </div>
-          )}
+          
         </div>
       </DialogContent>
     </Dialog>
