@@ -16,7 +16,7 @@ export const setupInterceptors = () => {
   // Request interceptor để thêm auth token
   api.interceptors.request.use((config) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token'); // Fixed: use 'token' instead of 'auth_token'
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -30,7 +30,7 @@ export const setupInterceptors = () => {
     (error) => {
       if (typeof window !== 'undefined' && error.response?.status === 401) {
         // Token expired, redirect to login
-        localStorage.removeItem('auth_token');
+        localStorage.removeItem('token'); // Fixed: use 'token' instead of 'auth_token'
         window.location.href = '/login';
       }
       return Promise.reject(error);

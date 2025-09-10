@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { api, setupInterceptors } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { Swords } from 'lucide-react';
 import { DataTable } from '@/components/admin/DataTable';
@@ -14,6 +14,10 @@ import { Monster, MonsterType, MonsterElement } from '@/types/monster';
 import { Item } from '@/types/item';
 
 export default function AdminMonsters() {
+  // Setup API interceptors for authentication
+  useEffect(() => {
+    setupInterceptors();
+  }, []);
   const [editingMonster, setEditingMonster] = useState<Monster | null>(null);
   const [formData, setFormData] = useState({
     name: '',
