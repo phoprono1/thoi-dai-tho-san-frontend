@@ -23,6 +23,7 @@ const StatusTab: React.FC = () => {
     currentLevel,
     nextLevel,
     characterClass,
+    equippedItems,
     isLoading,
     error,
   } = useUserStatusStore();
@@ -264,6 +265,38 @@ const StatusTab: React.FC = () => {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Equipped Items Section */}
+      <Card className="shadow-lg border-2 border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+          <CardTitle className="text-2xl font-bold text-center flex items-center gap-2 justify-center">
+            <Shield className="h-6 w-6" />
+            Trang bị hiện tại
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          {equippedItems && equippedItems.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {equippedItems.map((userItem) => (
+                <div key={userItem.id} className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-semibold text-lg">{userItem.item.name}</h4>
+                  <p className="text-sm text-gray-600 mb-2">{userItem.item.description}</p>
+                  <div className="space-y-1">
+                    <p className="text-xs"><span className="font-medium">Loại:</span> {userItem.item.type}</p>
+                    <p className="text-xs"><span className="font-medium">Rarity:</span> <Badge variant="outline">{userItem.item.rarity}</Badge></p>
+                    <p className="text-xs"><span className="font-medium">Số lượng:</span> {userItem.quantity}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Shield className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+              <p>Chưa có trang bị nào được equipped</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

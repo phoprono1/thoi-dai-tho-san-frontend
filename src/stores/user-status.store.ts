@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User, UserStats, UserStamina, Level, CharacterClass } from '@/types';
+import { User, UserStats, UserStamina, Level, CharacterClass, UserItem } from '@/types';
 
 interface UserStatusState {
   // Data
@@ -9,6 +9,7 @@ interface UserStatusState {
   currentLevel: Level | null;
   nextLevel: Level | null;
   characterClass: CharacterClass | null;
+  equippedItems: UserItem[];
 
   // Loading states
   isLoading: boolean;
@@ -21,6 +22,7 @@ interface UserStatusState {
   setCurrentLevel: (level: Level | null) => void;
   setNextLevel: (level: Level | null) => void;
   setCharacterClass: (characterClass: CharacterClass | null) => void;
+  setEquippedItems: (items: UserItem[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
@@ -32,6 +34,7 @@ interface UserStatusState {
     currentLevel: Level;
     nextLevel: Level | null;
     characterClass: CharacterClass | null;
+    equippedItems: UserItem[];
   }) => void;
 
   clearData: () => void;
@@ -45,6 +48,7 @@ export const useUserStatusStore = create<UserStatusState>((set) => ({
   currentLevel: null,
   nextLevel: null,
   characterClass: null,
+  equippedItems: [],
   isLoading: false,
   error: null,
 
@@ -55,6 +59,7 @@ export const useUserStatusStore = create<UserStatusState>((set) => ({
   setCurrentLevel: (level) => set({ currentLevel: level }),
   setNextLevel: (level) => set({ nextLevel: level }),
   setCharacterClass: (characterClass) => set({ characterClass }),
+  setEquippedItems: (items) => set({ equippedItems: items }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
@@ -66,6 +71,7 @@ export const useUserStatusStore = create<UserStatusState>((set) => ({
     currentLevel: data.currentLevel,
     nextLevel: data.nextLevel,
     characterClass: data.characterClass,
+    equippedItems: data.equippedItems,
     isLoading: false,
     error: null,
   }),
@@ -78,6 +84,7 @@ export const useUserStatusStore = create<UserStatusState>((set) => ({
     currentLevel: null,
     nextLevel: null,
     characterClass: null,
+    equippedItems: [],
     isLoading: false,
     error: null,
   }),

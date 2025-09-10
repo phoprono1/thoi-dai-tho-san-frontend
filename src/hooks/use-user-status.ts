@@ -45,3 +45,12 @@ export const useUserStamina = (userId: number) => {
     staleTime: 1000 * 30, // 30 seconds for stamina
   });
 };
+
+export const useEquippedItems = (userId: number) => {
+  return useQuery({
+    queryKey: ['equipped-items', userId],
+    queryFn: () => apiService.getEquippedItems(userId),
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2,
+  });
+};
