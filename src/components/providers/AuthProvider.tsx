@@ -89,7 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       toast.success('Đăng nhập thành công!');
       // Use window.location for reliable redirect in context
       if (typeof window !== 'undefined') {
-        window.location.href = '/';
+        window.location.href = '/game';
       }
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { message?: string } } };

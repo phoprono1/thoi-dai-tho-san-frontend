@@ -39,14 +39,6 @@ class ApiService {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
-    // Check if response has content before parsing JSON
-    const contentType = response.headers.get('Content-Type');
-    const hasJsonContent = contentType?.includes('application/json');
-    
-    if (!hasJsonContent) {
-      throw new Error('Response is not JSON');
-    }
-
     // Get response text first to check if it's empty
     const responseText = await response.text();
     if (!responseText || responseText.trim() === '') {
