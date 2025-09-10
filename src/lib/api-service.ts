@@ -39,8 +39,27 @@ class ApiService {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
-    return data;
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('Content-Type');
+    const hasJsonContent = contentType?.includes('application/json');
+    
+    if (!hasJsonContent) {
+      throw new Error('Response is not JSON');
+    }
+
+    // Get response text first to check if it's empty
+    const responseText = await response.text();
+    if (!responseText || responseText.trim() === '') {
+      throw new Error('Empty response from server');
+    }
+
+    try {
+      const data = JSON.parse(responseText);
+      return data;
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError, 'Response text:', responseText);
+      throw new Error('Invalid JSON response from server');
+    }
   }
 
   // User Status APIs (combined data)
