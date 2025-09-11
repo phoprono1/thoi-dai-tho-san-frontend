@@ -232,10 +232,10 @@ export default function AdminMonsters() {
         };
         return (
           <span className={`px-2 py-1 rounded text-xs text-white ${
-            type === MonsterType.BOSS ? 'bg-red-500' :
-            type === MonsterType.ELITE ? 'bg-yellow-500' :
-            type === MonsterType.MINI_BOSS ? 'bg-orange-500' :
-            'bg-gray-500'
+            type === MonsterType.BOSS ? 'bg-red-500 dark:bg-red-400' :
+            type === MonsterType.ELITE ? 'bg-yellow-500 dark:bg-yellow-400' :
+            type === MonsterType.MINI_BOSS ? 'bg-orange-500 dark:bg-orange-400' :
+            'bg-gray-500 dark:bg-gray-400'
           }`}>
             {typeLabels[type]}
           </span>
@@ -295,7 +295,7 @@ export default function AdminMonsters() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 dark:text-gray-100">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -305,7 +305,7 @@ export default function AdminMonsters() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{monsters?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Monster có sẵn</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Monster có sẵn</p>
           </CardContent>
         </Card>
 
@@ -316,9 +316,9 @@ export default function AdminMonsters() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {monsters?.filter(m => m.type === MonsterType.BOSS).length || 0}
+               {monsters?.filter(m => m.type === MonsterType.BOSS).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Monster boss</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Monster boss</p>
           </CardContent>
         </Card>
 
@@ -329,9 +329,9 @@ export default function AdminMonsters() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {monsters?.filter(m => m.type === MonsterType.ELITE).length || 0}
+               {monsters?.filter(m => m.type === MonsterType.ELITE).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Monster tinh anh</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Monster tinh anh</p>
           </CardContent>
         </Card>
 
@@ -346,7 +346,7 @@ export default function AdminMonsters() {
                 ? Math.round(monsters.reduce((sum, m) => sum + m.level, 0) / monsters.length)
                 : 0}
             </div>
-            <p className="text-xs text-muted-foreground">Level trung bình</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Level trung bình</p>
           </CardContent>
         </Card>
       </div>
@@ -390,7 +390,7 @@ export default function AdminMonsters() {
                   id="type"
                   value={formData.type}
                   onChange={(e) => setFormData({...formData, type: e.target.value as MonsterType})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
                 >
                   <option value={MonsterType.NORMAL}>Thường</option>
                   <option value={MonsterType.ELITE}>Tinh Anh</option>
@@ -404,7 +404,7 @@ export default function AdminMonsters() {
                   id="element"
                   value={formData.element}
                   onChange={(e) => setFormData({...formData, element: e.target.value as MonsterElement})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
                 >
                   <option value={MonsterElement.NEUTRAL}>Trung lập</option>
                   <option value={MonsterElement.FIRE}>Lửa</option>
@@ -495,11 +495,11 @@ export default function AdminMonsters() {
               </div>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {formData.dropItems.map((item, index) => (
-                  <div key={index} className="flex items-center space-x-2 p-2 border rounded">
+                  <div key={index} className="flex items-center space-x-2 p-2 border rounded bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700">
                     <select
                       value={item.itemId}
                       onChange={(e) => updateDropItem(index, 'itemId', parseInt(e.target.value) || 0)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
                     >
                       <option value={0}>Chọn item...</option>
                       {items?.map((itemOption) => (
@@ -545,7 +545,7 @@ export default function AdminMonsters() {
                   </div>
                 ))}
                 {formData.dropItems.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">Chưa có item rơi nào</p>
+                  <p className="text-sm text-gray-500 text-center py-4 dark:text-gray-400">Chưa có item rơi nào</p>
                 )}
               </div>
             </div>

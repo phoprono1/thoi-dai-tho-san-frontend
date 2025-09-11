@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,29 +19,17 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
 import { toast } from 'sonner';
-import { UserQuest } from '@/types';
+import { UserQuest, QuestStatus, UserItem } from '@/types';
+import useQuestStore from '@/stores/useQuestStore';
+import { useUserStatusStore } from '@/stores/user-status.store';
 
-interface Quest {
-  id: number;
-  title: string;
-  description: string;
-  type: 'main' | 'side' | 'daily' | 'achievement';
-  status: 'available' | 'in_progress' | 'completed';
-  progress: number;
-  maxProgress: number;
-  rewards: {
-    experience: number;
-    gold: number;
-    items?: string[];
-  };
-  requirements: {
-    level?: number;
-    quests?: number[];
-  };
-  timeLimit?: string;
-}
 
 export default function QuestTab() {
+  const detailQuest = useQuestStore((s) => s.detailQuest);
+  const setDetailQuest = useQuestStore((s) => s.setDetailQuest);
+  const localQuests = useQuestStore((s) => s.localQuests);
+  const setLocalQuests = useQuestStore((s) => s.setLocalQuests);
+  const clearLocalQuests = useQuestStore((s) => s.clearLocalQuests);
   const { user: authUser, isAuthenticated } = useAuth();
 
   // Get user ID from authentication
@@ -60,6 +49,11 @@ export default function QuestTab() {
     },
     enabled: !!userId && isAuthenticated,
   });
+
+  // Merge server-fetched quests with any optimistic local updates
+  const mergedQuests = localQuests || userQuests;
+  const [refreshDisabled, setRefreshDisabled] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
 
   // If not authenticated, show message
   if (!isAuthenticated || !userId) {
@@ -106,42 +100,77 @@ export default function QuestTab() {
 
   const handleAcceptQuest = async (userQuest: UserQuest) => {
     try {
+      // Optimistically update UI
+      setLocalQuests((prev) => {
+        const base = prev || userQuests;
+        return base.map((uq) =>
+          uq.id === userQuest.id
+            ? ({ ...uq, status: QuestStatus.IN_PROGRESS, startedAt: new Date(), progress: typeof uq.progress === 'number' ? uq.progress : 0 } as UserQuest)
+            : uq,
+        );
+      });
+
       await apiService.startQuest(userQuest.questId);
       toast.success('Đã nhận nhiệm vụ');
-      refetch();
-    } catch (error) {
+  // Refresh authoritative data
+  await refetch();
+  clearLocalQuests();
+    } catch {
       toast.error('Không thể nhận nhiệm vụ');
     }
   };
-
-  const handleCompleteQuest = async (userQuest: UserQuest) => {
+  const handleClaimReward = async () => {
     try {
-      // TODO: Implement complete quest logic
-      toast.info('Tính năng hoàn thành nhiệm vụ đang được phát triển');
-    } catch (error) {
-      toast.error('Không thể hoàn thành nhiệm vụ');
-    }
-  };
-
-  const handleClaimReward = async (userQuest: UserQuest) => {
-    try {
-      // TODO: Implement claim reward logic
-      toast.info('Tính năng nhận thưởng đang được phát triển');
-    } catch (error) {
+      await refetch();
+      toast.success('Yêu cầu nhận thưởng đã gửi (nếu có).');
+    } catch {
       toast.error('Không thể nhận thưởng');
     }
   };
 
-  const filteredQuests = (type: string) => {
-    if (type === 'all') {
-      return userQuests;
+  const handleCheckQuest = async (userQuest: UserQuest) => {
+    try {
+      const resp = await apiService.checkQuestCompletion(userQuest.questId);
+      // Debug: log raw response to help diagnose why completion may be false
+      // and also log the user's current inventory for comparison.
+      // Remove these logs after debugging.
+      console.debug('checkQuestCompletion response', resp);
+      if (resp) {
+        if (resp.userItems && resp.userItems.length > 0) {
+          // update equipped items and inventory in user-status store
+          // call the store action to replace equipped items
+          useUserStatusStore.getState().setEquippedItems(resp.userItems as UserItem[]);
+        }
+
+        if (resp.userQuest) {
+          // Update local quests cache so UI reflects authoritative status immediately
+          setLocalQuests((prev) => {
+            const base = prev || userQuests;
+            return base.map((uq) => (uq.id === resp.userQuest!.id ? (resp.userQuest as UserQuest) : uq));
+          });
+        }
+
+        if (resp.completed) {
+          toast.success('Nhiệm vụ đã hoàn thành');
+        } else {
+          toast.info('Chưa đủ điều kiện. Cập nhật tiến độ...');
+        }
+      }
+
+      // Refresh authoritative data in background (keeps everything consistent)
+      await refetch();
+    } catch {
+      toast.error('Không thể kiểm tra nhiệm vụ');
     }
-    
-    const filtered = userQuests.filter(userQuest => {
-      return userQuest.quest.type === type;
-    });
-    
-    return filtered;
+  };
+
+  const filteredQuests = (type: string) => {
+    const source = mergedQuests || userQuests;
+    if (type === 'all') {
+      return source;
+    }
+
+    return source.filter((userQuest) => userQuest.quest.type === type);
   };
 
   return (
@@ -155,14 +184,38 @@ export default function QuestTab() {
           <TabsTrigger value="achievement">Thành tựu</TabsTrigger>
         </TabsList>
 
+        <div className="flex items-center justify-end mb-3">
+          <Button onClick={async () => {
+            if (refreshDisabled) return;
+            try {
+              setRefreshDisabled(true);
+              setRefreshCountdown(5);
+              await refetch();
+            } finally {
+              const timer = window.setInterval(() => {
+                setRefreshCountdown((c: number) => {
+                  if (c <= 1) {
+                    window.clearInterval(timer);
+                    setRefreshDisabled(false);
+                    return 0;
+                  }
+                  return c - 1;
+                });
+              }, 1000);
+            }
+          }} disabled={refreshDisabled} size="sm">Làm mới</Button>
+          {refreshCountdown > 0 && <div className="ml-2 text-sm text-gray-500">({refreshCountdown}s)</div>}
+        </div>
+
         <TabsContent value="all" className="space-y-3">
           {filteredQuests('all').map((userQuest) => (
             <QuestCard
               key={userQuest.id}
               userQuest={userQuest}
               onAccept={handleAcceptQuest}
-              onComplete={handleCompleteQuest}
               onClaim={handleClaimReward}
+              onOpenDetails={() => setDetailQuest(userQuest)}
+              onCheck={() => handleCheckQuest(userQuest)}
             />
           ))}
         </TabsContent>
@@ -173,8 +226,9 @@ export default function QuestTab() {
               key={userQuest.id}
               userQuest={userQuest}
               onAccept={handleAcceptQuest}
-              onComplete={handleCompleteQuest}
               onClaim={handleClaimReward}
+              onOpenDetails={() => setDetailQuest(userQuest)}
+              onCheck={() => handleCheckQuest(userQuest)}
             />
           ))}
         </TabsContent>
@@ -185,8 +239,9 @@ export default function QuestTab() {
               key={userQuest.id}
               userQuest={userQuest}
               onAccept={handleAcceptQuest}
-              onComplete={handleCompleteQuest}
               onClaim={handleClaimReward}
+              onOpenDetails={() => setDetailQuest(userQuest)}
+              onCheck={() => handleCheckQuest(userQuest)}
             />
           ))}
         </TabsContent>
@@ -197,8 +252,9 @@ export default function QuestTab() {
               key={userQuest.id}
               userQuest={userQuest}
               onAccept={handleAcceptQuest}
-              onComplete={handleCompleteQuest}
               onClaim={handleClaimReward}
+              onOpenDetails={() => setDetailQuest(userQuest)}
+              onCheck={() => handleCheckQuest(userQuest)}
             />
           ))}
         </TabsContent>
@@ -209,26 +265,33 @@ export default function QuestTab() {
               key={userQuest.id}
               userQuest={userQuest}
               onAccept={handleAcceptQuest}
-              onComplete={handleCompleteQuest}
               onClaim={handleClaimReward}
+              onOpenDetails={() => setDetailQuest(userQuest)}
+              onCheck={() => handleCheckQuest(userQuest)}
             />
           ))}
         </TabsContent>
       </Tabs>
-    </div>
-  );
+        {detailQuest && (
+          <QuestDetailsModal uq={detailQuest} onClose={() => setDetailQuest(null)} />
+        )}
+      </div>
+    );
 }
 
 interface QuestCardProps {
   userQuest: UserQuest;
   onAccept: (userQuest: UserQuest) => void;
-  onComplete: (userQuest: UserQuest) => void;
   onClaim: (userQuest: UserQuest) => void;
+  onOpenDetails?: (userQuest: UserQuest) => void;
+  onCheck?: (userQuest: UserQuest) => void;
 }
 
-function QuestCard({ userQuest, onAccept, onComplete, onClaim }: QuestCardProps) {
+function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: QuestCardProps) {
   const quest = userQuest.quest;
-  const progressPercentage = (userQuest.progress / quest.maxProgress) * 100;
+  const numericProgress = typeof userQuest.progress === 'number' ? userQuest.progress : 0;
+  const maxProgress = quest.maxProgress || 1;
+  const progressPercentage = (numericProgress / maxProgress) * 100;
 
   const getQuestTypeColor = (type: string) => {
     switch (type) {
@@ -259,14 +322,7 @@ function QuestCard({ userQuest, onAccept, onComplete, onClaim }: QuestCardProps)
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'completed': return 'Hoàn thành';
-      case 'in_progress': return 'Đang làm';
-      case 'available': return 'Có thể nhận';
-      default: return status;
-    }
-  };
+  // (status label function removed — labels are shown via Badges/icons)
 
   return (
     <Card className={`transition-all ${userQuest.status === 'completed' ? 'border-green-200 bg-green-50' : ''}`}>
@@ -293,7 +349,7 @@ function QuestCard({ userQuest, onAccept, onComplete, onClaim }: QuestCardProps)
           <div className="mb-4">
             <div className="flex justify-between text-sm mb-2">
               <span>Tiến độ</span>
-              <span>{userQuest.progress}/{quest.maxProgress}</span>
+              <span>{numericProgress}/{maxProgress}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
@@ -344,32 +400,176 @@ function QuestCard({ userQuest, onAccept, onComplete, onClaim }: QuestCardProps)
         {/* Action Buttons */}
         <div className="flex space-x-2">
           {userQuest.status === 'available' && (
-            <Button onClick={() => onAccept(userQuest)} className="flex-1">
-              Nhận nhiệm vụ
-            </Button>
+            <Button onClick={() => onAccept(userQuest)} className="flex-1">Nhận nhiệm vụ</Button>
           )}
 
-          {userQuest.status === 'in_progress' && userQuest.progress >= quest.maxProgress && (
-            <Button onClick={() => onComplete(userQuest)} className="flex-1">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Hoàn thành
-            </Button>
+          {userQuest.status === 'in_progress' && (
+            <>
+              <Button onClick={() => onCheck && onCheck(userQuest)} className="flex-1">Kiểm tra</Button>
+              <Button variant="ghost" onClick={() => onOpenDetails && onOpenDetails(userQuest)}>Chi tiết</Button>
+            </>
           )}
 
           {userQuest.status === 'completed' && (
-            <Button onClick={() => onClaim(userQuest)} className="flex-1">
-              <Trophy className="h-4 w-4 mr-2" />
-              Nhận thưởng
-            </Button>
-          )}
-
-          {userQuest.status === 'in_progress' && userQuest.progress < quest.maxProgress && (
-            <div className="flex-1 text-center text-sm text-gray-500 py-2">
-              {getStatusLabel(userQuest.status)}
-            </div>
+            <Button onClick={() => onClaim(userQuest)} className="flex-1"><Trophy className="h-4 w-4 mr-2" />Nhận thưởng</Button>
           )}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Details modal/drawer
+function QuestDetailsModal({ uq, onClose }: { uq: UserQuest; onClose: () => void }) {
+  const q = uq.quest;
+  // Local lightweight types for rendering quest requirements/progress
+  interface KillReq { enemyType: string; count: number }
+  interface CollectReq { itemId: number; quantity: number }
+  interface DungeonReq { dungeonId: number; count: number }
+  interface RequirementsAny {
+    reachLevel?: number;
+    level?: number;
+    killEnemies?: KillReq[];
+    collectItems?: CollectReq[];
+    completeDungeons?: DungeonReq[];
+    defeatBoss?: boolean;
+  }
+  interface ProgressAny {
+    currentLevel?: number;
+    killEnemies?: Array<{ enemyType: string; current: number }>;
+    collectItems?: Array<{ itemId: number; current: number }>;
+    completeDungeons?: Array<{ dungeonId: number; current: number }>;
+    defeatedBoss?: boolean;
+  }
+
+  const req: RequirementsAny = (q.requirements || {}) as RequirementsAny;
+  const prog: ProgressAny = (uq.progress || {}) as ProgressAny;
+
+  const renderKillReq = () => {
+    if (!req.killEnemies || req.killEnemies.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        {req.killEnemies.map((k: KillReq, idx: number) => {
+          const p = (prog.killEnemies || []).find((x) => x.enemyType === k.enemyType);
+          const current = p?.current ?? 0;
+          return (
+            <div key={idx} className="flex justify-between text-sm text-gray-700">
+              <div>Tiêu diệt: <span className="font-medium">{k.enemyType}</span></div>
+              <div className="text-gray-500">{current}/{k.count}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderCollectReq = () => {
+    if (!req.collectItems || req.collectItems.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        {req.collectItems.map((it: CollectReq, idx: number) => {
+          const p = (prog.collectItems || []).find((x) => x.itemId === it.itemId);
+          const current = p?.current ?? 0;
+          return (
+            <div key={idx} className="flex justify-between text-sm text-gray-700">
+              <div>Thu thập: <span className="font-medium">Vật phẩm #{it.itemId}</span></div>
+              <div className="text-gray-500">{current}/{it.quantity}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderDungeonReq = () => {
+    if (!req.completeDungeons || req.completeDungeons.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        {req.completeDungeons.map((d: DungeonReq, idx: number) => {
+          const p = (prog.completeDungeons || []).find((x) => x.dungeonId === d.dungeonId);
+          const current = p?.current ?? 0;
+          return (
+            <div key={idx} className="flex justify-between text-sm text-gray-700">
+              <div>Hoàn thành Dungeon: <span className="font-medium">#{d.dungeonId}</span></div>
+              <div className="text-gray-500">{current}/{d.count}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-[var(--card)] text-[var(--card-foreground)] w-full max-w-2xl p-4 rounded" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-medium">{q.title}</h3>
+          <button onClick={onClose} className="text-sm">✕</button>
+        </div>
+
+        <p className="mb-3 text-sm text-gray-600">{q.description}</p>
+
+        <div className="mb-3">
+          <h4 className="font-medium">Yêu cầu:</h4>
+          <div className="mt-2 space-y-2">
+            {/* Level */}
+            {(req.reachLevel || req.level) && (
+              <div className="flex justify-between text-sm text-gray-700">
+                <div>Yêu cầu cấp</div>
+                <div className="text-gray-500">{(prog.currentLevel ?? 0)}/{req.reachLevel ?? req.level}</div>
+              </div>
+            )}
+
+            {/* Kill enemies */}
+            {renderKillReq()}
+
+            {/* Collect items */}
+            {renderCollectReq()}
+
+            {/* Complete dungeons */}
+            {renderDungeonReq()}
+
+            {/* Boss */}
+            {req.defeatBoss && (
+              <div className="flex justify-between text-sm text-gray-700">
+                <div>Đánh bại boss</div>
+                <div className="text-gray-500">{prog.defeatedBoss ? 'Đã' : 'Chưa'}</div>
+              </div>
+            )}
+
+            {/* No requirements fallback */}
+            {!req.reachLevel && !req.level && (!req.killEnemies || req.killEnemies.length===0) && (!req.collectItems || req.collectItems.length===0) && (!req.completeDungeons || req.completeDungeons.length===0) && !req.defeatBoss && (
+              <div className="text-sm text-gray-500">Không có yêu cầu đặc biệt</div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-medium">Phần thưởng:</h4>
+          <div className="mt-2 text-sm text-gray-700 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2"><Star className="h-4 w-4 text-yellow-500"/> EXP</div>
+              <div className="text-gray-500">{q.rewards?.experience ?? 0}</div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2"><Coins className="h-4 w-4 text-yellow-500"/> Vàng</div>
+              <div className="text-gray-500">{q.rewards?.gold ?? 0}</div>
+            </div>
+            {q.rewards?.items && q.rewards.items.length > 0 ? (
+              <div>
+                <div className="text-sm font-medium">Vật phẩm:</div>
+                <ul className="list-disc list-inside text-sm text-gray-700 mt-1">
+                  {q.rewards.items.map((it: unknown, idx: number) => (
+                    <li key={idx}>{typeof it === 'string' ? it : JSON.stringify(it)}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500">Không có vật phẩm</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

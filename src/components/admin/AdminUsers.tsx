@@ -119,11 +119,11 @@ export default function AdminUsers() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Users Management</h1>
-          <p className="text-gray-600 mt-2">Quản lý người chơi trong hệ thống</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Users Management</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Quản lý người chơi trong hệ thống</p>
         </div>
 
         {/* Stats */}
@@ -135,7 +135,7 @@ export default function AdminUsers() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{users?.length || 0}</div>
-              <p className="text-xs text-muted-foreground">Người dùng đã đăng ký</p>
+              <p className="text-xs text-muted-foreground dark:text-gray-300">Người dùng đã đăng ký</p>
             </CardContent>
           </Card>
 
@@ -179,7 +179,7 @@ export default function AdminUsers() {
               {users?.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer"
                   onClick={() => handleViewStats(user)}
                 >
                   <div className="flex items-center space-x-4">
@@ -187,8 +187,8 @@ export default function AdminUsers() {
                       {user.username.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-semibold">{user.username}</h3>
-                      <p className="text-sm text-gray-600">ID: {user.id}</p>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">{user.username}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">ID: {user.id}</p>
                       <div className="flex items-center space-x-2 mt-1">
                         <Badge variant="default">
                           Level {user.level}
@@ -220,7 +220,7 @@ export default function AdminUsers() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <div className="text-right text-sm text-gray-600">
+                    <div className="text-right text-sm text-gray-600 dark:text-gray-300">
                       <p>Level: {user.level || 1}</p>
                       <p>EXP: {user.experience || 0}</p>
                       <p>Gold: {user.gold || 0}</p>
@@ -322,7 +322,7 @@ export default function AdminUsers() {
               ))}
 
               {(!users || users.length === 0) && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-gray-500 dark:text-gray-300">
                   <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Chưa có user nào trong hệ thống</p>
                 </div>
@@ -351,19 +351,19 @@ export default function AdminUsers() {
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-600">ID</p>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">ID</p>
                         <p className="text-lg font-semibold">{selectedUser.id}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Username</p>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Username</p>
                         <p className="text-lg font-semibold">{selectedUser.username}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Level</p>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Level</p>
                         <p className="text-lg font-semibold">{selectedUser.level}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Gold</p>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Gold</p>
                         <p className="text-lg font-semibold">{selectedUser.gold}</p>
                       </div>
                     </div>
@@ -406,74 +406,74 @@ export default function AdminUsers() {
                     ) : userStats ? (
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         <div className="text-center p-3 bg-red-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">HP</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">HP</p>
                           <p className="text-xl font-bold text-red-600">
                             {userStats.currentHp}/{userStats.maxHp}
                           </p>
                         </div>
                         <div className="text-center p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Attack</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Attack</p>
                           <p className="text-xl font-bold text-blue-600">{userStats.attack}</p>
                         </div>
                         <div className="text-center p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Defense</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Defense</p>
                           <p className="text-xl font-bold text-green-600">{userStats.defense}</p>
                         </div>
                         <div className="text-center p-3 bg-purple-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Strength</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Strength</p>
                           <p className="text-xl font-bold text-purple-600">{userStats.strength}</p>
                         </div>
                         <div className="text-center p-3 bg-indigo-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Intelligence</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Intelligence</p>
                           <p className="text-xl font-bold text-indigo-600">{userStats.intelligence}</p>
                         </div>
                         <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Dexterity</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Dexterity</p>
                           <p className="text-xl font-bold text-yellow-600">{userStats.dexterity}</p>
                         </div>
                         <div className="text-center p-3 bg-pink-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Vitality</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Vitality</p>
                           <p className="text-xl font-bold text-pink-600">{userStats.vitality}</p>
                         </div>
                         <div className="text-center p-3 bg-orange-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Luck</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Luck</p>
                           <p className="text-xl font-bold text-orange-600">{userStats.luck}</p>
                         </div>
                         <div className="text-center p-3 bg-cyan-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Crit Rate</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Crit Rate</p>
                           <p className="text-xl font-bold text-cyan-600">{userStats.critRate}%</p>
                         </div>
                         <div className="text-center p-3 bg-teal-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Crit Damage</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Crit Damage</p>
                           <p className="text-xl font-bold text-teal-600">{userStats.critDamage}%</p>
                         </div>
                         <div className="text-center p-3 bg-lime-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Combo Rate</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Combo Rate</p>
                           <p className="text-xl font-bold text-lime-600">{userStats.comboRate}%</p>
                         </div>
                         <div className="text-center p-3 bg-emerald-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Counter Rate</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Counter Rate</p>
                           <p className="text-xl font-bold text-emerald-600">{userStats.counterRate}%</p>
                         </div>
                         <div className="text-center p-3 bg-violet-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Lifesteal</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Lifesteal</p>
                           <p className="text-xl font-bold text-violet-600">{userStats.lifesteal}%</p>
                         </div>
                         <div className="text-center p-3 bg-rose-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Armor Pen</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Armor Pen</p>
                           <p className="text-xl font-bold text-rose-600">{userStats.armorPen}%</p>
                         </div>
                         <div className="text-center p-3 bg-slate-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Dodge Rate</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Dodge Rate</p>
                           <p className="text-xl font-bold text-slate-600">{userStats.dodgeRate}%</p>
                         </div>
                         <div className="text-center p-3 bg-stone-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600">Accuracy</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Accuracy</p>
                           <p className="text-xl font-bold text-stone-600">{userStats.accuracy}%</p>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-300">
                         Không thể tải stats của user này
                       </div>
                     )}

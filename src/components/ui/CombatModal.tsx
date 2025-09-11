@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRoomSocketStore } from '@/stores/useRoomSocketStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -107,12 +108,6 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   useEffect(() => {
     if (!combatResult) return;
     
-    console.log('Debug - CombatModal received combat result:', {
-      enemiesExists: !!combatResult?.enemies,
-      enemiesCount: combatResult?.enemies?.length || 0,
-      enemies: combatResult?.enemies,
-      sampleLog: combatResult?.logs?.[0] || 'No logs'
-    });
     
     // Reset everything when NEW combat result arrives (not just when modal opens/closes)
     const initialHp: { [key: number]: { current: number; max: number } } = {};
@@ -129,7 +124,6 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
         // Use index as key to match targetIndex from backend
         initialEnemyHp[index] = { current: enemy.maxHp, max: enemy.maxHp }; // Start with full HP
       });
-      console.log('Debug - Initialized enemy HP with:', initialEnemyHp);
     }
     setEnemyHp(initialEnemyHp);
     
@@ -157,7 +151,6 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
       return;
     }
 
-    console.log('Processing log:', log);
 
     // Update HP based on log
     if (log.details.actor === 'player') {
@@ -166,14 +159,6 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
         const updatedEnemyHp = { ...prev };
         const targetIndex = log.details.targetIndex ?? 0; // Default to 0 if not provided
         
-        console.log('Updating enemy HP:', {
-          targetIndex,
-          targetIndexExists: log.details.targetIndex !== undefined,
-          hpBefore: updatedEnemyHp[targetIndex]?.current,
-          hpAfter: Math.max(0, log.details.hpAfter || 0),
-          damage: log.details.damage,
-          logDetails: log.details
-        });
         
         if (updatedEnemyHp[targetIndex]) {
           updatedEnemyHp[targetIndex] = { 
@@ -414,7 +399,17 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
               </div>
 
               <div className="flex justify-center">
-                <Button onClick={onClose}>Đóng</Button>
+                <Button onClick={() => {
+                  // Defensive: clear global combat result in the socket store so
+                  // closing the modal never leaves stale combat data that can
+                  // re-open the modal later.
+                  try {
+                    useRoomSocketStore.setState({ combatResult: null });
+                  } catch {
+                    // ignore if not available
+                  }
+                  onClose();
+                }}>Đóng</Button>
               </div>
             </div>
           )}

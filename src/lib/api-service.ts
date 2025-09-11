@@ -195,6 +195,21 @@ class ApiService {
     });
   }
 
+  async checkQuestCompletion(questId: number): Promise<{ completed: boolean; userQuest?: UserQuest | null; userItems?: UserItem[] }> {
+    return this.request<{ completed: boolean; userQuest?: UserQuest | null; userItems?: UserItem[] }>(`/quests/${questId}/check-completion`);
+  }
+
+  async updateQuestProgress(questId: number, progressUpdate: Record<string, unknown>): Promise<UserQuest> {
+    return this.request<UserQuest>(`/quests/${questId}/update-progress`, {
+      method: 'POST',
+      body: JSON.stringify(progressUpdate),
+    });
+  }
+
+  async getQuestProgressSummary(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/quests/user/progress-summary');
+  }
+
   async getAvailableQuests(): Promise<Quest[]> {
     return this.request<Quest[]>(`/quests/user/available`);
   }

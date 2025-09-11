@@ -91,7 +91,7 @@ export default function AdminCombatResults() {
   ];
 
   return (
-    <div className="space-y-6">
+  <div className="space-y-6 dark:text-gray-100">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -101,7 +101,7 @@ export default function AdminCombatResults() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{combatResults?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Trận đã diễn ra</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Trận đã diễn ra</p>
           </CardContent>
         </Card>
 
@@ -114,7 +114,7 @@ export default function AdminCombatResults() {
             <div className="text-2xl font-bold">
               {combatResults?.filter(c => c.result === 'victory').length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Trận thắng</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Trận thắng</p>
           </CardContent>
         </Card>
 
@@ -127,7 +127,7 @@ export default function AdminCombatResults() {
             <div className="text-2xl font-bold">
               {combatResults?.filter(c => c.result === 'defeat').length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Trận thua</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Trận thua</p>
           </CardContent>
         </Card>
 
@@ -142,7 +142,7 @@ export default function AdminCombatResults() {
                 Math.round((combatResults.filter(c => c.result === 'victory').length / combatResults.length) * 100)
                 : 0}%
             </div>
-            <p className="text-xs text-muted-foreground">Tỷ lệ chiến thắng</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Tỷ lệ chiến thắng</p>
           </CardContent>
         </Card>
       </div>

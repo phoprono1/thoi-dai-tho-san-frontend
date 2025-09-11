@@ -31,8 +31,8 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+      <Card className="w-full max-w-md bg-white dark:bg-slate-800">
         <CardHeader>
           <CardTitle className="text-center">Admin Access</CardTitle>
           <CardDescription className="text-center">

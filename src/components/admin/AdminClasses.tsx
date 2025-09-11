@@ -268,10 +268,10 @@ export default function AdminClasses() {
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'C': return 'bg-gray-500';
+  case 'C': return 'bg-gray-500 dark:bg-gray-400';
       case 'B': return 'bg-green-500';
-      case 'A': return 'bg-blue-500';
-      case 'S': return 'bg-yellow-500';
+  case 'A': return 'bg-blue-500 dark:bg-blue-400';
+  case 'S': return 'bg-yellow-500 dark:bg-yellow-400';
       default: return 'bg-gray-500';
     }
   };
@@ -317,7 +317,7 @@ export default function AdminClasses() {
         if (requirements?.items && requirements.items.length > 0) reqs.push(`${requirements.items.length} items`);
         if (requirements?.quests && requirements.quests.length > 0) reqs.push(`${requirements.quests.length} quests`);
         return (
-          <div className="text-sm">
+          <div className="text-sm dark:text-gray-300">
             {reqs.length > 0 ? reqs.join(', ') : 'Không có yêu cầu'}
           </div>
         );
@@ -337,7 +337,7 @@ export default function AdminClasses() {
         if (stats.lifesteal) bonuses.push(`Lifesteal: +${stats.lifesteal}%`);
         if (stats.penetration) bonuses.push(`Penetration: +${stats.penetration}%`);
         return (
-          <div className="text-sm">
+          <div className="text-sm dark:text-gray-300">
             {bonuses.length > 0 ? bonuses.join(', ') : 'Không có bonus'}
           </div>
         );
@@ -355,7 +355,7 @@ export default function AdminClasses() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 dark:text-gray-100">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -365,7 +365,7 @@ export default function AdminClasses() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{classes?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Class có sẵn</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Class có sẵn</p>
           </CardContent>
         </Card>
 
@@ -378,7 +378,7 @@ export default function AdminClasses() {
             <div className="text-2xl font-bold">
               {classes?.filter(c => c.tier === 'C' || c.tier === 'B').length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Class cơ bản</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Class cơ bản</p>
           </CardContent>
         </Card>
 
@@ -391,7 +391,7 @@ export default function AdminClasses() {
             <div className="text-2xl font-bold">
               {classes?.filter(c => c.tier === 'A').length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Class nâng cao</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Class nâng cao</p>
           </CardContent>
         </Card>
 
@@ -404,12 +404,12 @@ export default function AdminClasses() {
             <div className="text-2xl font-bold">
               {classes?.filter(c => c.tier === 'S').length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Class Legendary</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Class Legendary</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Create/Edit Form */}
         <Card className="lg:col-span-1">
           <CardHeader>
@@ -438,7 +438,7 @@ export default function AdminClasses() {
                   id="tier"
                   value={formData.tier}
                   onChange={(e) => setFormData({...formData, tier: e.target.value as 'C' | 'B' | 'A' | 'S'})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
                 >
                   <option value="C">C (Common)</option>
                   <option value="B">B (Uncommon)</option>
@@ -452,7 +452,7 @@ export default function AdminClasses() {
                   id="category"
                   value={formData.category}
                   onChange={(e) => setFormData({...formData, category: e.target.value as 'warrior' | 'mage' | 'rogue'})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
                 >
                   <option value="warrior">Warrior</option>
                   <option value="mage">Mage</option>

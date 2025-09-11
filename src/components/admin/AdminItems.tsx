@@ -430,11 +430,11 @@ export default function AdminItems() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 dark:text-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Items Management</h1>
-          <p className="text-gray-600 mt-2">Quản lý items, weapons, armor và item sets trong hệ thống</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Items Management</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Quản lý items, weapons, armor và item sets trong hệ thống</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'items' | 'sets')} className="w-full">
@@ -453,7 +453,7 @@ export default function AdminItems() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{items?.length || 0}</div>
-                  <p className="text-xs text-muted-foreground">Items trong hệ thống</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-300">Items trong hệ thống</p>
                 </CardContent>
               </Card>
 
@@ -981,24 +981,24 @@ export default function AdminItems() {
                 {items?.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                    className="flex items-center justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 border-gray-200 dark:border-slate-700"
                   >
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white font-semibold">
                         {item.type.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <h3 className="font-semibold">{item.name}</h3>
-                        <p className="text-sm text-gray-600">{item.type}</p>
+                        <h3 className="font-semibold dark:text-gray-100">{item.name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{item.type}</p>
                         <div className="flex items-center space-x-2 mt-1">
                           <Badge className={getRarityColor(item.rarity)}>
                             {getRarityName(item.rarity)}
                           </Badge>
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-gray-500 dark:text-gray-300">
                             {item.price} gold
                           </span>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-gray-500 dark:text-gray-300 mt-1">
                           {item.stats.attack && `ATK: ${item.stats.attack} `}
                           {item.stats.defense && `DEF: ${item.stats.defense} `}
                           {item.stats.hp && `HP: ${item.stats.hp} `}
@@ -1007,7 +1007,7 @@ export default function AdminItems() {
                           {item.stats.lifesteal && `LS: ${item.stats.lifesteal}% `}
                         </div>
                         {(item.stats.comboRate || item.stats.counterRate || item.stats.armorPen || item.stats.dodgeRate || item.stats.accuracy) && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 dark:text-gray-300">
                             {item.stats.comboRate && `COMBO: ${item.stats.comboRate}% `}
                             {item.stats.counterRate && `CTR: ${item.stats.counterRate}% `}
                             {item.stats.armorPen && `PEN: ${item.stats.armorPen}% `}
@@ -1016,7 +1016,7 @@ export default function AdminItems() {
                           </div>
                         )}
                         {item.type === ItemType.CONSUMABLE && (
-                          <div className="text-xs text-blue-600 mt-1">
+                          <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                             {item.consumableType === ConsumableType.HP_POTION && `Restores ${item.consumableValue} HP`}
                             {item.consumableType === ConsumableType.MP_POTION && `Restores ${item.consumableValue} MP`}
                             {item.consumableType === ConsumableType.EXP_POTION && `Grants ${item.consumableValue} EXP`}
@@ -1046,7 +1046,7 @@ export default function AdminItems() {
                 ))}
 
                 {(!items || items.length === 0) && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-300">
                     <Sword className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Chưa có item nào trong hệ thống</p>
                   </div>
@@ -1159,7 +1159,7 @@ export default function AdminItems() {
                   <div className="space-y-4 border-t pt-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold">Items in Set</h3>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-300">
                         {itemSetFormData.itemIds.length} items selected
                       </span>
                     </div>
@@ -1189,8 +1189,8 @@ export default function AdminItems() {
                                   {item.type.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                  <div className="font-medium">{item.name}</div>
-                                  <div className="text-xs text-gray-500">
+                                        <div className="font-medium dark:text-gray-100">{item.name}</div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-300">
                                     {item.type} • {getRarityName(item.rarity)} • {item.price} gold
                                   </div>
                                 </div>
@@ -1198,7 +1198,7 @@ export default function AdminItems() {
                             </Label>
                           </div>
                         )) || (
-                          <div className="text-center py-4 text-gray-500">
+                          <div className="text-center py-4 text-gray-500 dark:text-gray-300">
                             <p>No items available</p>
                             <p className="text-sm">Create some items first</p>
                           </div>
@@ -1747,7 +1747,7 @@ export default function AdminItems() {
                       ))}
 
                       {itemSetFormData.setBonuses.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-300">
                           <Crown className="w-12 h-12 mx-auto mb-4 opacity-50" />
                           <p>No set bonuses added yet</p>
                           <p className="text-sm mt-2">Click &quot;Add Bonus&quot; to create set bonuses</p>
@@ -1785,7 +1785,7 @@ export default function AdminItems() {
                     {itemSets?.map((itemSet: ItemSet) => (
                       <div
                         key={itemSet.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 border-gray-200 dark:border-slate-700"
                       >
                         <div className="flex items-center space-x-4">
                           <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center text-white font-semibold">
@@ -1793,16 +1793,16 @@ export default function AdminItems() {
                           </div>
                           <div>
                             <h3 className="font-semibold">{itemSet.name}</h3>
-                            <p className="text-sm text-gray-600">{itemSet.description}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">{itemSet.description}</p>
                             <div className="flex items-center space-x-2 mt-1">
                               <Badge className={getRarityColor(itemSet.rarity)}>
                                 {getRarityName(itemSet.rarity)}
                               </Badge>
-                              <span className="text-sm text-gray-500">
+                              <span className="text-sm text-gray-500 dark:text-gray-300">
                                 {itemSet.setBonuses?.length || 0} bonuses
                               </span>
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">
+                            <div className="text-xs text-gray-500 dark:text-gray-300 mt-1">
                               {itemSet.setBonuses?.map((bonus: SetBonus, idx: number) => (
                                 <div key={idx}>
                                   {bonus.pieces} pieces: {bonus.description}
@@ -1832,7 +1832,7 @@ export default function AdminItems() {
                     ))}
 
                     {(!itemSets || itemSets.length === 0) && (
-                      <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-300">
                         <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p>Chưa có item set nào trong hệ thống</p>
                       </div>

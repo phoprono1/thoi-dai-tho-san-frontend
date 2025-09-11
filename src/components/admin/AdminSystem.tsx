@@ -301,7 +301,7 @@ export default function AdminSystem() {
                 id="sampleDataType"
                 value={sampleDataType}
                 onChange={(e) => setSampleDataType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
               >
                 <option value="">Chọn loại dữ liệu...</option>
                 <option value="items">Items</option>

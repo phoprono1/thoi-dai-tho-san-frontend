@@ -132,8 +132,8 @@ export function DataTable<T extends { id: string | number }>({
 
         {/* Search and Filter */}
         <div className="flex items-center space-x-4 mt-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-400 w-4 h-4" />
             <Input
               placeholder={searchPlaceholder}
               value={searchTerm}
@@ -146,7 +146,7 @@ export function DataTable<T extends { id: string | number }>({
             <select
               value={filterValue}
               onChange={(e) => setFilterValue(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
             >
               <option value="">Tất cả</option>
               {filterOptions.map(option => (
@@ -161,7 +161,7 @@ export function DataTable<T extends { id: string | number }>({
 
       <CardContent>
         {paginatedData.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 dark:text-gray-300">
             Không có dữ liệu
           </div>
         ) : (
@@ -173,8 +173,8 @@ export function DataTable<T extends { id: string | number }>({
                     {columns.map(column => (
                       <th
                         key={column.key as string}
-                        className={`text-left py-3 px-4 font-medium text-gray-700 ${
-                          column.sortable ? 'cursor-pointer hover:bg-gray-50' : ''
+                        className={`text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200 ${
+                          column.sortable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700' : ''
                         }`}
                         onClick={() => column.sortable && handleSort(column.key)}
                       >
@@ -188,14 +188,14 @@ export function DataTable<T extends { id: string | number }>({
                         </div>
                       </th>
                     ))}
-                    {actions && <th className="w-32 py-3 px-4 font-medium text-gray-700">Thao tác</th>}
+                    {actions && <th className="w-32 py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedData.map(item => (
-                    <tr key={item.id} className="border-b hover:bg-gray-50">
+          <tr key={item.id} className="border-b hover:bg-gray-50 dark:hover:bg-slate-700">
                       {columns.map(column => (
-                        <td key={column.key as string} className="py-3 px-4">
+            <td key={column.key as string} className="py-3 px-4 dark:text-gray-100">
                           {column.render
                             ? column.render(item[column.key], item)
                             : String(item[column.key] || '')
@@ -228,7 +228,7 @@ export function DataTable<T extends { id: string | number }>({
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => onDelete(item)}
-                                className="text-red-600 hover:text-red-800"
+                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -245,7 +245,7 @@ export function DataTable<T extends { id: string | number }>({
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-300">
                   Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredData.length)} của {filteredData.length} kết quả
                 </div>
                 <div className="flex items-center space-x-2">
@@ -257,7 +257,7 @@ export function DataTable<T extends { id: string | number }>({
                   >
                     Trước
                   </Button>
-                  <span className="text-sm px-3 py-1 bg-gray-100 rounded">
+                  <span className="text-sm px-3 py-1 bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded">
                     Trang {currentPage} / {totalPages}
                   </span>
                   <Button

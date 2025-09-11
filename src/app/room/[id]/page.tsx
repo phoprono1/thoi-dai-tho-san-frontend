@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -164,14 +164,13 @@ export default function RoomPage() {
   const { 
     roomInfo: socketRoomInfo, 
     combatResult: socketCombatResult,
-    isConnected: socketConnected,
-    isJoined: isSocketJoined,
+  // socket connection flags removed (not used here)
     joinRoom: socketJoinRoom,
     toggleReady: socketToggleReady,
     startCombat: socketStartCombat,
     updateDungeon: socketUpdateDungeon,
     kickPlayer: socketKickPlayer,
-    leaveRoom: socketLeaveRoom,
+  // leaveRoom not used in this component
     error: socketError
   } = useRoomSocket({ 
     roomData: room ? {
@@ -182,6 +181,97 @@ export default function RoomPage() {
     userId: user?.id,
     enabled: !!user?.id && !!id && !!room
   });
+
+  // Report combat results to quest service so quests get progress updates
+  const reportCombatToQuests = useCallback(async (cr: unknown) => {
+    if (!cr) {
+      console.log('[Quest] reportCombatToQuests skipped: no combat result provided', { cr });
+      return;
+    }
+    if (!user?.id) {
+      console.log('[Quest] reportCombatToQuests skipped: no user id', { user });
+      return;
+    }
+
+    // Helpful debug: show the raw combat result that's being reported
+    console.log('[Quest] reportCombatToQuests called with combatResult:', cr);
+
+    try {
+      const enemyMap: Record<string, number> = {};
+      const crRec = cr as Record<string, unknown>;
+
+      if (Array.isArray(crRec['enemies'])) {
+        for (const e of (crRec['enemies'] as unknown[])) {
+          const eRec = e as Record<string, unknown>;
+          const hp = eRec['hp'];
+          if (typeof hp === 'number' && hp <= 0) {
+            const name = String(eRec['name'] ?? 'unknown');
+            enemyMap[name] = (enemyMap[name] || 0) + 1;
+          }
+        }
+      }
+
+      const enemyKills = Object.entries(enemyMap).map(([enemyType, count]) => ({ enemyType, count }));
+
+        // Try to derive a numeric combatResultId safely. If it cannot be parsed to
+        // a valid number, omit it from the payload (sending NaN is harmful).
+        let crIdVal: number | undefined;
+        if (typeof crRec['id'] === 'number') {
+          crIdVal = crRec['id'] as number;
+        } else if (typeof crRec['combatResultId'] === 'number') {
+          crIdVal = crRec['combatResultId'] as number;
+        } else if (typeof crRec['id'] === 'string' && !Number.isNaN(Number(crRec['id']))) {
+          crIdVal = Number(crRec['id']);
+        }
+
+        // Dungeon id fallback: prefer explicit dungeonId on the combat result,
+        // then nested cr.dungeon.id, and finally the current room dungeon id.
+        let dungeonIdVal: number | undefined;
+        if (typeof crRec['dungeonId'] === 'number') {
+          dungeonIdVal = crRec['dungeonId'] as number;
+        } else if (crRec['dungeon'] && typeof (crRec['dungeon'] as Record<string, unknown>)['id'] === 'number') {
+          dungeonIdVal = ((crRec['dungeon'] as Record<string, unknown>)['id']) as number;
+        } else if (room?.dungeon?.id) {
+          dungeonIdVal = room.dungeon.id;
+        }
+
+        const payload: Record<string, unknown> = {};
+        if (typeof crIdVal === 'number' && !Number.isNaN(crIdVal)) payload.combatResultId = crIdVal;
+        if (typeof dungeonIdVal === 'number') payload.dungeonId = dungeonIdVal;
+
+      if (enemyKills.length > 0) payload.enemyKills = enemyKills;
+
+      if (crRec['result'] === 'victory') {
+        const enemies = crRec['enemies'];
+        if (Array.isArray(enemies)) {
+          payload.bossDefeated = enemies.some(en => {
+            const name = (en as Record<string, unknown>)['name'];
+            return typeof name === 'string' && name.toLowerCase().includes('boss');
+          });
+        }
+      }
+
+      // Send to quests endpoint (uses axios instance with auth)
+      const resp = await api.post('/quests/combat-progress', payload);
+      // Log response and payload to help debugging quest completion issues
+      const respData = resp?.data as Record<string, unknown> | undefined;
+      console.log('[Quest] Reported combat result to quests payload:', payload);
+      console.log('[Quest] quests response status:', resp?.status, 'data:', respData);
+
+      if (!('combatResultId' in payload)) {
+        console.warn('[Quest] payload missing combatResultId - quest server may not evaluate progress properly', { payload, cr });
+      }
+      if (!('dungeonId' in payload)) {
+        console.warn('[Quest] payload missing dungeonId - fallback to room.dungeon may be required', { payload, roomDungeonId: room?.dungeon?.id });
+      }
+
+      if (respData && typeof respData['completed'] !== 'undefined') {
+        console.log('[Quest] quests completed flag:', respData['completed']);
+      }
+    } catch (err) {
+      console.error('[Quest] Failed reporting combat to quests', err);
+    }
+  }, [user, room]);
 
   // Mutations for room operations
   const updateDungeonMutation = useMutation({
@@ -201,14 +291,7 @@ export default function RoomPage() {
       if (!id || !user?.id) throw new Error('Room ID and User ID required');
       const roomId = Array.isArray(id) ? parseInt(id[0]) : parseInt(id);
       
-      console.log('[FRONTEND KICK PLAYER DEBUG]', {
-        roomId,
-        hostId: user.id,
-        playerId,
-        userType: typeof user.id,
-        playerType: typeof playerId,
-        roomType: typeof roomId,
-      });
+  // debug logs removed - keep behavior unchanged
       
       await socketKickPlayer(roomId, user.id, playerId);
     }
@@ -293,6 +376,14 @@ export default function RoomPage() {
   const handleCombatModalClose = () => {
     setShowCombatModal(false);
     setCombatResult(null);
+    // Also clear the global combat result stored in the room socket store
+    // so that the UI does not replay a stale combat when re-entering the room.
+    try {
+      useRoomSocketStore.setState({ combatResult: null });
+    } catch (e) {
+      // Defensive: if store.setState is not available for some reason, ignore.
+      console.warn('Failed to clear global combatResult on modal close', e);
+    }
     
     // Reset room status back to WAITING so players can fight again
     if (isHost) {
@@ -311,16 +402,28 @@ export default function RoomPage() {
     if (socketCombatResult) {
       setCombatResult(socketCombatResult);
       setShowCombatModal(true);
+
+      // Invalidate user-related queries immediately so StatusTab refreshes
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['user', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['user-status'] });
+        queryClient.invalidateQueries({ queryKey: ['userStats', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['user-stats', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['userStamina', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['user-stamina', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['equipped-items', user.id] });
+      }
+  // Report to quest service
+  void reportCombatToQuests(socketCombatResult);
     }
-  }, [socketCombatResult]);
+  }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests]);
 
   // Handle player kicked event
   useEffect(() => {
     const { socket } = useRoomSocketStore.getState();
     
     if (socket && user?.id) {
-      const handlePlayerKicked = (data: { kickedPlayerId: number; message: string }) => {
-        console.log('[Room] Player kicked event received:', data);
+  const handlePlayerKicked = (data: { kickedPlayerId: number; message: string }) => {
         
         // Check if current user was kicked
         if (data.kickedPlayerId === user.id) {
@@ -341,16 +444,23 @@ export default function RoomPage() {
 
   // Handle WebSocket combat results - simplified with new store
   useEffect(() => {
-    if (socketCombatResult) {
-      console.log('[Room] Combat result received from WebSocket:', {
-        hasResult: !!socketCombatResult,
-        hasTeamStats: !!socketCombatResult.teamStats,
-        membersCount: socketCombatResult.teamStats?.members?.length || 0
-      });
+  if (socketCombatResult) {
       setCombatResult(socketCombatResult);
       setShowCombatModal(true);
+      // Invalidate user-related queries so the UI reflects rewards immediately
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['user', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['user-status'] });
+        queryClient.invalidateQueries({ queryKey: ['userStats', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['user-stats', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['userStamina', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['user-stamina', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['equipped-items', user.id] });
+      }
+  // Report to quest service
+  void reportCombatToQuests(socketCombatResult);
     }
-  }, [socketCombatResult]);
+  }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests]);
 
   // Handle WebSocket errors
   useEffect(() => {
@@ -394,7 +504,6 @@ export default function RoomPage() {
   const isPlayerReady = socketPlayer?.isReady || false;
 
   // Use socket data for dungeon info if available, otherwise fallback to API data
-  const currentDungeonId = socketRoomInfo?.dungeonId || room.dungeon.id;
   const currentDungeonName = socketRoomInfo?.dungeonName || room.dungeon.name;
   const currentDungeonLevel = room.dungeon.level; // This should come from API as socket doesn't have level info
   
@@ -413,53 +522,14 @@ export default function RoomPage() {
     // For API data: check if non-host players have isReady field set to true
     apiPlayersToCheck.length === 0 || apiPlayersToCheck.every(p => Boolean((p as RoomPlayer & { isReady?: boolean }).isReady));
   
-  console.log('Players Ready Debug:', {
-    usingSocket: !!socketRoomInfo,
-    socketPlayersToCheck: socketPlayersToCheck.map(p => ({ id: p.id, status: p.status, isReady: p.isReady })),
-    apiPlayersToCheck: apiPlayersToCheck.map(p => ({ id: p.player.id, status: p.status, isReady: 'isReady' in p ? (p as RoomPlayer & { isReady?: boolean }).isReady : undefined })),
-    allPlayersReady,
-    // Additional debug info
-    socketRoomInfo: socketRoomInfo ? {
-      id: socketRoomInfo.id,
-      status: socketRoomInfo.status,
-      totalPlayers: socketRoomInfo.players?.length || 0,
-      allSocketPlayers: socketRoomInfo.players?.map(p => ({ id: p.id, status: p.status, isReady: p.isReady })) || []
-    } : null,
-    room: {
-      id: room.id,
-      status: room.status, 
-      totalPlayers: room.players?.length || 0,
-      allApiPlayers: room.players?.map(p => ({ id: p.player.id, status: p.status, isReady: 'isReady' in p ? (p as RoomPlayer & { isReady?: boolean }).isReady : undefined })) || []
-    }
-  });
+  // Removed verbose debug logs; only quest logs retained
     
   const canStart = isHost && 
     room.currentPlayers >= room.minPlayers && 
     room.status.toLowerCase() === 'waiting' &&
     allPlayersReady;
 
-  // Debug logging
-  console.log('Room debug:', {
-    isHost,
-    currentPlayers: room.currentPlayers,
-    minPlayers: room.minPlayers,
-    status: room.status,
-    canStart,
-    allPlayersReady,
-    socketConnected,
-    socketPlayer,
-    regularPlayer,
-    isPlayerReady,
-    socketRoomInfo: socketRoomInfo ? {
-      players: socketRoomInfo.players.map(p => ({ id: p.id, username: p.username, status: p.status, isReady: p.isReady }))
-    } : null,
-    roomPlayers: room.players?.map(p => ({ 
-      id: p.player.id, 
-      username: p.player.username, 
-      status: p.status, 
-      isReady: 'isReady' in p ? (p as RoomPlayer & { isReady?: boolean }).isReady : undefined 
-    }))
-  });
+  // Removed verbose room debug logs
 
   const getStatusBadge = (status: string) => {
     const statusLower = status.toLowerCase();
@@ -660,27 +730,23 @@ export default function RoomPage() {
                     <>
                       {/* Only show ready button for non-host players */}
                       {!isHost && (
-                        <Button
-                          onClick={async () => {
-                            console.log('Ready button clicked:', { userId: user?.id, roomId: id, socketToggleReady: !!socketToggleReady });
-                            if (user?.id && socketToggleReady) {
-                              try {
-                                console.log('Calling socketToggleReady...');
-                                await socketToggleReady(Number(id), user.id);
-                                console.log('socketToggleReady success');
-                              } catch (error) {
-                                console.error('Failed to toggle ready via socket:', error);
-                                toast.error('Không thể thay đổi trạng thái sẵn sàng');
-                              }
-                            } else {
-                              console.error('Missing requirements:', { userId: user?.id, socketToggleReady: !!socketToggleReady });
-                            }
-                          }}
-                          variant={isPlayerReady ? "default" : "outline"}
-                          className="px-8"
-                        >
-                          {isPlayerReady ? '✓ Sẵn sàng' : 'Sẵn sàng'}
-                        </Button>
+                            <Button
+                              onClick={async () => {
+                                if (user?.id && socketToggleReady) {
+                                  try {
+                                    await socketToggleReady(Number(id), user.id);
+                                          } catch {
+                                              toast.error('Không thể thay đổi trạng thái sẵn sàng');
+                                            }
+                                } else {
+                                  // missing requirements to toggle ready
+                                }
+                              }}
+                              variant={isPlayerReady ? "default" : "outline"}
+                              className="px-8"
+                            >
+                              {isPlayerReady ? '✓ Sẵn sàng' : 'Sẵn sàng'}
+                            </Button>
                       )}
                       <Button
                         variant="outline"

@@ -424,16 +424,16 @@ export default function AdminQuests() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 dark:text-gray-100">
       <div className="mb-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Quest Management</h1>
-            <p className="text-gray-600 mt-2">Quản lý nhiệm vụ trong hệ thống game</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Quest Management</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Quản lý nhiệm vụ trong hệ thống game</p>
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-sky-600 dark:hover:bg-sky-700">
                 <Plus className="w-4 h-4 mr-2" />
                 Tạo Quest Mới
               </Button>
@@ -942,7 +942,7 @@ export default function AdminQuests() {
                       <Plus className="w-4 h-4 mr-2" />
                       Thêm quest tiên quyết
                     </Button>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
                       Các quest này phải được hoàn thành trước khi có thể nhận quest này
                     </p>
                   </div>
@@ -1012,7 +1012,7 @@ export default function AdminQuests() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{quests?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Quest trong hệ thống</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Quest trong hệ thống</p>
           </CardContent>
         </Card>
 
@@ -1025,7 +1025,7 @@ export default function AdminQuests() {
             <div className="text-2xl font-bold">
               {quests?.filter((q: Quest) => q.type === 'main').length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Quest chính</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Quest chính</p>
           </CardContent>
         </Card>
 
@@ -1038,7 +1038,7 @@ export default function AdminQuests() {
             <div className="text-2xl font-bold">
               {quests?.filter((q: Quest) => q.type === 'daily').length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Quest hàng ngày</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Quest hàng ngày</p>
           </CardContent>
         </Card>
 
@@ -1051,7 +1051,7 @@ export default function AdminQuests() {
             <div className="text-2xl font-bold">
               {quests?.filter((q: Quest) => q.isActive).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Quest đang hoạt động</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Quest đang hoạt động</p>
           </CardContent>
         </Card>
       </div>
@@ -1069,15 +1069,15 @@ export default function AdminQuests() {
             {quests?.map((quest: Quest) => (
               <div
                 key={quest.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                className="flex items-center justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
                 <div className="flex items-center space-x-4">
                   <div className={`p-2 rounded-full ${getQuestTypeColor(quest.type)}`}>
                     {getQuestTypeIcon(quest.type)}
                   </div>
                   <div>
-                    <h3 className="font-semibold">{quest.name}</h3>
-                    <p className="text-sm text-gray-600 line-clamp-2">{quest.description}</p>
+                    <h3 className="font-semibold dark:text-gray-100">{quest.name}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{quest.description}</p>
                     <div className="flex items-center space-x-2 mt-1">
                       <Badge variant="outline">
                         Level {quest.requiredLevel}
@@ -1095,7 +1095,7 @@ export default function AdminQuests() {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <div className="text-right text-sm text-gray-600">
+                  <div className="text-right text-sm text-gray-600 dark:text-gray-400">
                     <p>Rewards:</p>
                     <p>EXP: {quest.rewards.experience || 0}</p>
                     <p>Gold: {quest.rewards.gold || 0}</p>
@@ -1137,7 +1137,7 @@ export default function AdminQuests() {
             ))}
 
             {(!quests || quests.length === 0) && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500 dark:text-gray-300">
                 <Target className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>Chưa có quest nào trong hệ thống</p>
                 <p className="text-sm">Hãy tạo quest đầu tiên!</p>
@@ -1455,7 +1455,7 @@ export default function AdminQuests() {
                     }
                   }))}
                 />
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">
                   Các quest này phải được hoàn thành trước khi có thể nhận quest này
                 </p>
               </div>
@@ -1537,7 +1537,7 @@ export default function AdminQuests() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 mb-4">{previewData.description}</p>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">{previewData.description}</p>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="outline">Level {previewData.requiredLevel}</Badge>
                     <Badge variant={previewData.isActive ? "default" : "secondary"}>
@@ -1597,7 +1597,7 @@ export default function AdminQuests() {
                      previewData.requirements.completeDungeons.length === 0 &&
                      !previewData.requirements.reachLevel &&
                      !previewData.requirements.defeatBoss && (
-                      <p className="text-gray-500">Không có yêu cầu cụ thể</p>
+                      <p className="text-gray-500 dark:text-gray-300">Không có yêu cầu cụ thể</p>
                     )}
                   </div>
                 </CardContent>
@@ -1634,7 +1634,7 @@ export default function AdminQuests() {
                     {previewData.rewards.experience === 0 &&
                      previewData.rewards.gold === 0 &&
                      previewData.rewards.items.length === 0 && (
-                      <p className="text-gray-500">Không có phần thưởng</p>
+                      <p className="text-gray-500 dark:text-gray-300">Không có phần thưởng</p>
                     )}
                   </div>
                 </CardContent>

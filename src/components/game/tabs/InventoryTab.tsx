@@ -10,7 +10,6 @@ import {
   Shield,
   Gem,
   Heart,
-  Shirt,
   Coins,
   Loader2
 } from 'lucide-react';
@@ -23,6 +22,10 @@ import { useUserStatusStore } from '@/stores/user-status.store';
 
 export default function InventoryTab() {
   const [selectedItem, setSelectedItem] = useState<UserItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+  const [sortField, setSortField] = useState<'name' | 'price' | 'rarity' | 'type'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const { user: authUser, isAuthenticated } = useAuth();
 
   // Get user ID from authentication
@@ -37,6 +40,8 @@ export default function InventoryTab() {
 
   const queryClient = useQueryClient();
   const setEquippedItems = useUserStatusStore((s) => s.setEquippedItems);
+  const [refreshDisabled, setRefreshDisabled] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState(0);
 
   // If not authenticated, show message
   if (!isAuthenticated || !userId) {
@@ -74,6 +79,49 @@ export default function InventoryTab() {
       case 'legendary': return 'text-yellow-600 bg-yellow-100';
       default: return 'text-gray-600 bg-gray-100';
     }
+  };
+
+  // Which item types should be stacked (non-equip)
+  const isStackable = (type?: string) => {
+    return !type || (type !== 'weapon' && type !== 'armor' && type !== 'accessory');
+  };
+
+  // Build grouped display list: for stackable types we show one tile with a count
+  const buildDisplayList = (list: UserItem[]) => {
+    const groups: Record<string, { sample: UserItem; count: number; ids: number[] }> = {};
+    for (const ui of list) {
+  const key = isStackable(ui.item.type) ? `stack:${ui.item.id}` : `single:${ui.id}`;
+  const uiRec = ui as unknown as Record<string, unknown>;
+  const qty = Number(uiRec.quantity || uiRec.qty || 1);
+  if (!groups[key]) groups[key] = { sample: ui, count: 0, ids: [] };
+  groups[key].count += qty;
+  groups[key].ids.push(ui.id);
+    }
+    return Object.values(groups).map((g) => ({ sample: g.sample, count: g.count, ids: g.ids }));
+  };
+
+  const sortDisplay = (arr: Array<{ sample: UserItem; count: number; ids: number[] }>) => {
+    const copy = [...arr];
+    copy.sort((a, b) => {
+      const A = a.sample.item as unknown as Record<string, unknown>;
+      const B = b.sample.item as unknown as Record<string, unknown>;
+      let res = 0;
+      if (sortField === 'name') res = String(A.name || '').localeCompare(String(B.name || ''));
+      if (sortField === 'price') res = (Number(A.price) || 0) - (Number(B.price) || 0);
+      if (sortField === 'rarity') res = (Number(A.rarity) || 0) - (Number(B.rarity) || 0);
+      if (sortField === 'type') res = String(A.type || '').localeCompare(String(B.type || ''));
+      return sortOrder === 'asc' ? res : -res;
+    });
+    return copy;
+  };
+
+  // Derived lists per active tab will use this helper to group/sort and paginate
+  const getPage = (itemsToShow: Array<{ sample: UserItem; count: number; ids: number[] }>) => {
+    const start = (page - 1) * pageSize;
+    const pageItems = itemsToShow.slice(start, start + pageSize);
+    const total = itemsToShow.length;
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    return { pageItems, total, pageCount };
   };
 
   // Render correct icon based on item type
@@ -185,6 +233,34 @@ export default function InventoryTab() {
     }
   };
 
+  const handleRefresh = async () => {
+    if (!userId) return;
+    try {
+      setRefreshDisabled(true);
+      setRefreshCountdown(5);
+      // Invalidate and refetch the user-items query
+      queryClient.invalidateQueries({ queryKey: ['user-items', userId] });
+      // also refetch related caches used elsewhere
+      queryClient.invalidateQueries({ queryKey: ['equipped-items', userId] });
+      try {
+        await queryClient.refetchQueries({ queryKey: ['user-items', userId], exact: true });
+      } catch {
+        // ignore transient refetch errors
+      }
+    } finally {
+      const timer = window.setInterval(() => {
+        setRefreshCountdown((c) => {
+          if (c <= 1) {
+            window.clearInterval(timer);
+            setRefreshDisabled(false);
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+    }
+  };
+
   const handleSellItem = async () => {
     // TODO: Implement sell item logic
     toast.info('Tính năng bán vật phẩm đang được phát triển');
@@ -203,88 +279,132 @@ export default function InventoryTab() {
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {items.map((userItem) => {
-              const item = userItem.item;
-              return (
-                <Card
-                  key={userItem.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    userItem.isEquipped ? 'ring-2 ring-blue-500' : ''
-                  }`}
-                  onClick={() => setSelectedItem(userItem)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        {renderItemIcon(item.type, 'h-6 w-6 text-gray-600')}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-medium text-sm truncate">{item.name}</h3>
-                          {userItem.isEquipped && (
-                            <Badge variant="secondary" className="text-xs ml-2">
-                              Đã mặc
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge className={`text-xs ${getRarityColor(item.rarity)}`}>
-                            {item.rarity}
-                          </Badge>
-                          <span className="text-xs text-gray-500">Lv.{item.level}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          {/* Controls: sort + page size */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Sắp xếp:</label>
+              <select value={sortField} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortField(e.target.value as 'name' | 'price' | 'rarity' | 'type')} className="p-1 rounded border">
+                <option value="name">Tên</option>
+                <option value="price">Giá</option>
+                <option value="rarity">Phẩm chất</option>
+                <option value="type">Loại</option>
+              </select>
+              <button className="px-2 py-1 border rounded" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? '↑' : '↓'}</button>
+            </div>
+            <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-600">Hiển thị mỗi trang:</label>
+                <select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="p-1 rounded border">
+                  <option value={12}>12</option>
+                  <option value={24}>24</option>
+                  <option value={48}>48</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleRefresh} disabled={refreshDisabled} size="sm">Làm mới</Button>
+                {refreshCountdown > 0 && <div className="text-sm text-gray-500">({refreshCountdown}s)</div>}
+              </div>
           </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              {(() => {
+                const grouped = buildDisplayList(items);
+                const sorted = sortDisplay(grouped);
+                const { pageItems, pageCount } = getPage(sorted);
+                // ensure pageCount is referenced so linters don't complain
+                const _pageCount = pageCount;
+                void _pageCount;
+                return pageItems.map(({ sample, count, ids }) => {
+                const item = sample.item;
+                return (
+                  <Card
+                    key={ids.join('-')}
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      sample.isEquipped ? 'ring-2 ring-blue-500' : ''
+                    }`}
+                    onClick={() => setSelectedItem(sample)}
+                  >
+                    <CardContent className="p-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                          {renderItemIcon(item.type, 'h-6 w-6 text-gray-600')}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-medium text-sm truncate">{item.name}</h3>
+                            {sample.isEquipped && (
+                              <Badge variant="secondary" className="text-xs ml-2">Đã mặc</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Badge className={`text-xs ${getRarityColor(item.rarity)}`}>{item.rarity}</Badge>
+                              <span className="text-xs text-gray-500">Lv.{item.level}</span>
+                            </div>
+                            {count > 1 && <div className="text-xs text-gray-600">x{count}</div>}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Pagination controls */}
+          {(() => {
+            const grouped = sortDisplay(buildDisplayList(items));
+            const { total, pageCount } = getPage(grouped);
+            return (
+              <div className="flex items-center justify-center gap-2 mt-3">
+                  <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Prev</Button>
+                  <div className="text-sm text-gray-600">{page} / {pageCount} — {total} mục</div>
+                  <Button variant="outline" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={page >= pageCount}>Next</Button>
+                </div>
+            );
+          })()}
         </TabsContent>
 
         {/* Other tabs with filtered items */}
         {['weapon', 'armor', 'accessory', 'consumable'].map((type) => (
           <TabsContent key={type} value={type} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              {items
-                .filter((userItem) => userItem.item.type === type)
-                .map((userItem) => {
-                  const item = userItem.item;
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              {(() => {
+                const filtered = items.filter((ui) => ui.item.type === type);
+                const grouped = sortDisplay(buildDisplayList(filtered));
+                const { pageItems } = getPage(grouped);
+                return pageItems.map(({ sample, count, ids }) => {
+                  const item = sample.item;
                   return (
                     <Card
-                      key={userItem.id}
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        userItem.isEquipped ? 'ring-2 ring-blue-500' : ''
-                      }`}
-                      onClick={() => setSelectedItem(userItem)}
+                      key={ids.join('-')}
+                      className={`cursor-pointer transition-all hover:shadow-md ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
+                      onClick={() => setSelectedItem(sample)}
                     >
-                      <CardContent className="p-3">
-                        <div className="flex items-center space-x-3">
+                      <CardContent className="p-2">
+                        <div className="flex items-center space-x-2">
                           <div className="p-2 bg-gray-100 rounded-lg">
                             {renderItemIcon(item.type, 'h-6 w-6 text-gray-600')}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
                               <h3 className="font-medium text-sm truncate">{item.name}</h3>
-                              {userItem.isEquipped && (
-                                <Badge variant="secondary" className="text-xs ml-2">
-                                  Đã mặc
-                                </Badge>
-                              )}
+                              {sample.isEquipped && (<Badge variant="secondary" className="text-xs ml-2">Đã mặc</Badge>)}
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <Badge className={`text-xs ${getRarityColor(item.rarity)}`}>
-                                {item.rarity}
-                              </Badge>
-                              <span className="text-xs text-gray-500">Lv.{item.level}</span>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Badge className={`text-xs ${getRarityColor(item.rarity)}`}>{item.rarity}</Badge>
+                                <span className="text-xs text-gray-500">Lv.{item.level}</span>
+                              </div>
+                              {count > 1 && <div className="text-xs text-gray-600">x{count}</div>}
                             </div>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   );
-                })}
+                });
+              })()}
             </div>
           </TabsContent>
         ))}

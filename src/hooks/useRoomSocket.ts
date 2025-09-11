@@ -68,24 +68,18 @@ export function useRoomSocket({
     const isRoomMember = isHost || isPlayer;
 
     if (!isRoomMember) {
-      console.log(`[useRoomSocket] User ${userId} is not a member of room ${roomId}, skipping auto-join`);
       return;
     }
 
     // Mark this attempt to prevent loops
     joinAttemptRef.current.add(attemptKey);
 
-    console.log(`[useRoomSocket] Auto-joining room ${roomId} for user ${userId}`, {
-      isHost,
-      isPlayer,
-      isConnected,
-      joinedRoomsCount: joinedRooms.size
-    });
+  // Auto-joining room (debug logs removed)
 
     // Attempt to join
     joinRoom(roomId, userId)
       .then(() => {
-        console.log(`[useRoomSocket] Successfully auto-joined room ${roomId}`);
+        // Successfully auto-joined
       })
       .catch((error: Error) => {
         console.warn(`[useRoomSocket] Auto-join failed for room ${roomId}:`, error.message);

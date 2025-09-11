@@ -123,7 +123,7 @@ export const useRoomSocketStore = create<RoomSocketState>()(
         existingSocket.disconnect();
       }
 
-      console.log('[RoomSocket] Connecting to WebSocket...');
+  // Connecting to WebSocket (debug logs removed)
       
       // Get auth token for WebSocket authentication
       const token = localStorage.getItem('token');
@@ -145,10 +145,12 @@ export const useRoomSocketStore = create<RoomSocketState>()(
         set({ 
           isConnected: false, 
           joinedRooms: new Set(), // Clear joined rooms on disconnect
-          connectionAttempts: new Map()
+          connectionAttempts: new Map(),
+          combatResult: null, // clear any cached combat result on disconnect
         });
       });
 
+      // Connection error handling
       socket.on('connect_error', (err) => {
         console.error('[RoomSocket] Connection error:', err);
         set({ error: 'Failed to connect to room server', isConnected: false });
@@ -156,21 +158,14 @@ export const useRoomSocketStore = create<RoomSocketState>()(
 
       // Room events
       socket.on('roomUpdated', (data: RoomInfo) => {
-        console.log('[RoomSocket] Room updated:', data);
         set({ roomInfo: data });
       });
 
       socket.on('combatStarted', (data: CombatResult) => {
-        console.log('[RoomSocket] Combat started received:', {
-          hasData: !!data,
-          hasTeamStats: !!data?.teamStats,
-          teamMembersCount: data?.teamStats?.members?.length || 0,
-        });
         set({ combatResult: data });
       });
 
       socket.on('roomClosed', () => {
-        console.log('[RoomSocket] Room was closed');
         set({ 
           roomInfo: null,
           joinedRooms: new Set(),
@@ -178,8 +173,7 @@ export const useRoomSocketStore = create<RoomSocketState>()(
         });
       });
 
-      socket.on('playerKicked', (data: { kickedPlayerId: number; message: string }) => {
-        console.log('[RoomSocket] Player kicked event received:', data);
+      socket.on('playerKicked', () => {
         // The event will be handled in the room component
         set({ 
           roomInfo: null,
@@ -214,7 +208,6 @@ export const useRoomSocketStore = create<RoomSocketState>()(
 
       // Check if already joined
       if (joinedRooms.has(roomId)) {
-        console.log(`[RoomSocket] Already joined room ${roomId}, skipping`);
         return;
       }
 
@@ -233,16 +226,17 @@ export const useRoomSocketStore = create<RoomSocketState>()(
         connectionAttempts: new Map(connectionAttempts.set(attemptKey, attempts + 1))
       });
 
-      console.log(`[RoomSocket] Joining room ${roomId} for user ${userId} (attempt ${attempts + 1})`);
+  // Joining room (debug logs removed)
 
       return new Promise<void>((resolve, reject) => {
         socket.emit('joinRoom', { roomId, userId }, (response: SocketResponse) => {
           if (response?.success) {
-            console.log(`[RoomSocket] Successfully joined room ${roomId}`);
+            // Successfully joined room — clear any previous combat result so we don't replay old logs
             set({ 
               roomInfo: response.roomInfo || null,
               joinedRooms: new Set(joinedRooms.add(roomId)),
-              error: null
+              error: null,
+              combatResult: null,
             });
             resolve();
           } else {
@@ -270,7 +264,8 @@ export const useRoomSocketStore = create<RoomSocketState>()(
             set({ 
               roomInfo: null,
               joinedRooms: newJoinedRooms,
-              error: null
+              error: null,
+              combatResult: null, // clear combat result when leaving
             });
             resolve();
           } else {

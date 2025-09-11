@@ -317,7 +317,7 @@ export default function AdminDungeons() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 dark:text-gray-100">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -327,7 +327,7 @@ export default function AdminDungeons() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{dungeons?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Dungeon có sẵn</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Dungeon có sẵn</p>
           </CardContent>
         </Card>
 
@@ -340,7 +340,7 @@ export default function AdminDungeons() {
             <div className="text-2xl font-bold">
               {dungeons?.filter(d => d.isHidden).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Dungeon bị ẩn</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Dungeon bị ẩn</p>
           </CardContent>
         </Card>
 
@@ -353,7 +353,7 @@ export default function AdminDungeons() {
             <div className="text-2xl font-bold">
               {dungeons?.filter(d => !d.isHidden).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Dungeon đang hiển thị</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Dungeon đang hiển thị</p>
           </CardContent>
         </Card>
 
@@ -366,7 +366,7 @@ export default function AdminDungeons() {
             <div className="text-2xl font-bold">
               {dungeons?.reduce((sum, dungeon) => sum + (dungeon.monsterCounts?.reduce((mcSum, mc) => mcSum + mc.count, 0) || 0), 0) || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Quái vật trong tất cả dungeon</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-300">Quái vật trong tất cả dungeon</p>
           </CardContent>
         </Card>
       </div>
@@ -410,7 +410,7 @@ export default function AdminDungeons() {
                   id="isHidden"
                   value={formData.isHidden.toString()}
                   onChange={(e) => setFormData({...formData, isHidden: e.target.value === 'true'})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value="false">Hiển thị</option>
                   <option value="true">Ẩn</option>
@@ -424,7 +424,7 @@ export default function AdminDungeons() {
                 id="requiredItem"
                 value={formData.requiredItem}
                 onChange={(e) => setFormData({...formData, requiredItem: parseInt(e.target.value) || 0})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100"
               >
                 <option value={0}>Không yêu cầu item</option>
                 {items?.map((item) => (
@@ -448,7 +448,7 @@ export default function AdminDungeons() {
                     <select
                       value={monsterCount.monsterId}
                       onChange={(e) => updateMonster(index, parseInt(e.target.value), monsterCount.count)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
                     >
                       <option value={0}>Chọn quái vật...</option>
                       {monsters?.map((monster) => (
@@ -476,8 +476,11 @@ export default function AdminDungeons() {
                   </div>
                 ))}
                 {formData.monsterCounts.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">Chưa có quái vật nào</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-300 text-center py-4">Chưa có quái vật nào</p>
                 )}
+                  {formData.monsterCounts.length === 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-100 text-center py-4">Chưa có quái vật nào</p>
+                  )}
               </div>
             </div>
 
@@ -490,11 +493,11 @@ export default function AdminDungeons() {
               </div>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {formData.dropItems.map((item, index) => (
-                  <div key={index} className="flex items-center space-x-2 p-2 border rounded">
+                  <div key={index} className="flex items-center space-x-2 p-2 border rounded bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700">
                     <select
                       value={item.itemId}
                       onChange={(e) => updateDropItem(index, 'itemId', parseInt(e.target.value) || 0)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
                     >
                       <option value={0}>Chọn item...</option>
                       {items?.map((itemOption) => (
@@ -524,7 +527,7 @@ export default function AdminDungeons() {
                   </div>
                 ))}
                 {formData.dropItems.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">Chưa có item rơi nào</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-300 text-center py-4">Chưa có item rơi nào</p>
                 )}
               </div>
             </div>

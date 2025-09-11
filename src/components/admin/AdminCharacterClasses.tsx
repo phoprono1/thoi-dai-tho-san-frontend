@@ -344,11 +344,12 @@ export default function AdminCharacterClasses() {
 
   const getTierColor = (tier: number) => {
     switch (tier) {
-      case 1: return 'bg-gray-500';
+  case 1: return 'bg-gray-500 dark:bg-gray-400';
       case 2: return 'bg-green-500';
-      case 3: return 'bg-blue-500';
-      case 4: return 'bg-purple-500';
-      case 5: return 'bg-yellow-500';
+  case 2: return 'bg-green-500 dark:bg-green-400';
+  case 3: return 'bg-blue-500 dark:bg-blue-400';
+  case 4: return 'bg-purple-500 dark:bg-purple-400';
+  case 5: return 'bg-yellow-500 dark:bg-yellow-400';
       default: return 'bg-gray-500';
     }
   };
@@ -399,7 +400,7 @@ export default function AdminCharacterClasses() {
       render: (value: unknown) => {
         const bonuses = value as CharacterClass['statBonuses'];
         return (
-          <div className="text-sm">
+          <div className="text-sm dark:text-gray-300">
             <div className="font-semibold">Basic:</div>
             <div>STR: {bonuses.strength || 0}, INT: {bonuses.intelligence || 0}</div>
             <div>DEX: {bonuses.dexterity || 0}, VIT: {bonuses.vitality || 0}</div>
@@ -431,7 +432,7 @@ export default function AdminCharacterClasses() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 dark:text-gray-100">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -441,7 +442,7 @@ export default function AdminCharacterClasses() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{characterClasses?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Character classes</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Character classes</p>
           </CardContent>
         </Card>
 
@@ -454,7 +455,7 @@ export default function AdminCharacterClasses() {
             <div className="text-2xl font-bold">
               {characterClasses?.filter(c => c.tier <= 2).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Basic classes</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Basic classes</p>
           </CardContent>
         </Card>
 
@@ -467,7 +468,7 @@ export default function AdminCharacterClasses() {
             <div className="text-2xl font-bold">
               {characterClasses?.filter(c => c.tier >= 3 && c.tier <= 4).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Advanced classes</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Advanced classes</p>
           </CardContent>
         </Card>
 
@@ -480,7 +481,7 @@ export default function AdminCharacterClasses() {
             <div className="text-2xl font-bold">
               {characterClasses?.filter(c => c.tier === 5).length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">Legendary classes</p>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Legendary classes</p>
           </CardContent>
         </Card>
       </div>
@@ -547,7 +548,7 @@ export default function AdminCharacterClasses() {
                 id="type"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as 'warrior' | 'mage' | 'archer' | 'assassin' | 'priest' | 'knight' | 'summoner' | 'necromancer' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
               >
                 <option value="">Chọn type</option>
                 <option value="warrior">Warrior</option>

@@ -89,10 +89,14 @@ export const useStartCombat = () => {
     mutationFn: ({ userIds, dungeonId }: { userIds: number[]; dungeonId: number }) =>
       gameApi.startCombat(userIds, dungeonId),
     onSuccess: () => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['userStats'] });
-      queryClient.invalidateQueries({ queryKey: ['userStamina'] });
-      queryClient.invalidateQueries({ queryKey: ['userItems'] });
+  // Invalidate related queries and ensure immediate refresh of user data
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['userStamina'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stamina'] });
+  queryClient.invalidateQueries({ queryKey: ['userItems'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] });
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
     },
   });
 };
@@ -120,8 +124,13 @@ export const useAttackWorldBoss = () => {
     mutationFn: ({ userId, damage }: { userId: number; damage: number }) =>
       gameApi.attackWorldBoss(userId, damage),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['worldBoss'] });
-      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['worldBoss'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] });
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
+  queryClient.invalidateQueries({ queryKey: ['userStamina'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stamina'] });
     },
   });
 };
@@ -160,8 +169,11 @@ export const useJoinGuild = () => {
   return useMutation({
     mutationFn: (guildId: number) => guildApi.joinGuild(guildId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['guilds'] });
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+  queryClient.invalidateQueries({ queryKey: ['guilds'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] });
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
     },
   });
 };
@@ -213,8 +225,14 @@ export const useBuyItem = () => {
     mutationFn: ({ itemId, quantity }: { itemId: number; quantity?: number }) =>
       itemsApi.buyItem(itemId, quantity),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userItems'] });
-      queryClient.invalidateQueries({ queryKey: ['user'] }); // For gold update
+  queryClient.invalidateQueries({ queryKey: ['userItems'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] }); // For gold update
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['userStamina'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stamina'] });
+  queryClient.invalidateQueries({ queryKey: ['equipped-items'] });
     },
   });
 };
@@ -226,8 +244,14 @@ export const useSellItem = () => {
     mutationFn: ({ userItemId, quantity }: { userItemId: number; quantity?: number }) =>
       itemsApi.sellItem(userItemId, quantity),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userItems'] });
-      queryClient.invalidateQueries({ queryKey: ['user'] }); // For gold update
+  queryClient.invalidateQueries({ queryKey: ['userItems'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] }); // For gold update
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['userStamina'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stamina'] });
+  queryClient.invalidateQueries({ queryKey: ['equipped-items'] });
     },
   });
 };
@@ -238,8 +262,14 @@ export const useEquipItem = () => {
   return useMutation({
     mutationFn: (userItemId: number) => itemsApi.equipItem(userItemId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userItems'] });
-      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['userItems'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] });
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
+  queryClient.invalidateQueries({ queryKey: ['userStamina'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stamina'] });
+  queryClient.invalidateQueries({ queryKey: ['equipped-items'] });
     },
   });
 };
@@ -250,8 +280,14 @@ export const useUnequipItem = () => {
   return useMutation({
     mutationFn: (userItemId: number) => itemsApi.unequipItem(userItemId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userItems'] });
-      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['userItems'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] });
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
+  queryClient.invalidateQueries({ queryKey: ['userStamina'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stamina'] });
+  queryClient.invalidateQueries({ queryKey: ['equipped-items'] });
     },
   });
 };
@@ -279,8 +315,10 @@ export const useAdvanceClass = () => {
     mutationFn: ({ userId, newClassId }: { userId: number; newClassId: number }) =>
       characterClassesApi.advanceClass(userId, newClassId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user'] });
+  queryClient.invalidateQueries({ queryKey: ['user-status'] });
+  queryClient.invalidateQueries({ queryKey: ['userStats'] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats'] });
     },
   });
 };
