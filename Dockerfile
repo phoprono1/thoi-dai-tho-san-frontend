@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:22-alpine AS builder
+FROM node:22 AS builder
 WORKDIR /app
 
 # Add build-time argument for environment variables
@@ -12,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:22-alpine
+FROM node:22
 WORKDIR /app
 
 # Copy runtime environment variables
