@@ -206,6 +206,12 @@ class ApiService {
     });
   }
 
+  async claimQuest(userQuestId: number): Promise<{ message: string; user?: User | null; userQuest?: UserQuest | null; userItems?: UserItem[] }> {
+    return this.request<{ message: string; user?: User | null; userQuest?: UserQuest | null; userItems?: UserItem[] }>(`/quests/${userQuestId}/claim`, {
+      method: 'POST',
+    });
+  }
+
   async getQuestProgressSummary(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/quests/user/progress-summary');
   }

@@ -161,6 +161,22 @@ export const useRoomSocketStore = create<RoomSocketState>()(
         set({ roomInfo: data });
       });
 
+      socket.on('combatResult', (data: { roomId: number; result: unknown } | CombatResult) => {
+        console.log('[RoomSocket] Received combatResult:', data);
+        // Extract the actual combat result from the wrapper
+        let combatResult: CombatResult | null = null;
+        
+        if ('result' in data && typeof data.result === 'object' && data.result !== null) {
+          combatResult = data.result as CombatResult;
+        } else if ('id' in data && 'duration' in data) {
+          combatResult = data as CombatResult;
+        }
+        
+        if (combatResult) {
+          set({ combatResult: combatResult });
+        }
+      });
+
       socket.on('combatStarted', (data: CombatResult) => {
         set({ combatResult: data });
       });

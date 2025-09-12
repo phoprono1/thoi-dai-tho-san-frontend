@@ -397,9 +397,11 @@ export default function RoomPage() {
     }
   }, [room, user]);
 
-  // Handle WebSocket events
+  // Handle WebSocket combat results
   useEffect(() => {
+    console.log('[Combat Debug] Effect triggered. socketCombatResult:', socketCombatResult);
     if (socketCombatResult) {
+      console.log('[Combat Debug] Setting combat result and showing modal:', socketCombatResult);
       setCombatResult(socketCombatResult);
       setShowCombatModal(true);
 
@@ -413,10 +415,15 @@ export default function RoomPage() {
         queryClient.invalidateQueries({ queryKey: ['user-stamina', user.id] });
         queryClient.invalidateQueries({ queryKey: ['equipped-items', user.id] });
       }
-  // Report to quest service
-  void reportCombatToQuests(socketCombatResult);
+      // Report to quest service
+      void reportCombatToQuests(socketCombatResult);
     }
   }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests]);
+
+  // Debug effect to track modal state
+  useEffect(() => {
+    console.log('[Combat Debug] Modal state changed - showCombatModal:', showCombatModal, 'combatResult:', !!combatResult);
+  }, [showCombatModal, combatResult]);
 
   // Handle player kicked event
   useEffect(() => {
@@ -442,32 +449,37 @@ export default function RoomPage() {
     }
   }, [user?.id, router]);
 
-  // Handle WebSocket combat results - simplified with new store
-  useEffect(() => {
-  if (socketCombatResult) {
-      setCombatResult(socketCombatResult);
-      setShowCombatModal(true);
-      // Invalidate user-related queries so the UI reflects rewards immediately
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: ['user', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['user-status'] });
-        queryClient.invalidateQueries({ queryKey: ['userStats', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['user-stats', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['userStamina', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['user-stamina', user.id] });
-        queryClient.invalidateQueries({ queryKey: ['equipped-items', user.id] });
-      }
-  // Report to quest service
-  void reportCombatToQuests(socketCombatResult);
-    }
-  }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests]);
-
   // Handle WebSocket errors
   useEffect(() => {
     if (socketError) {
       toast.error(`WebSocket error: ${socketError}`);
     }
   }, [socketError]);
+
+  // Quick debug: log socket info and listen for server acks/events so we can
+  // verify in the browser console whether the client actually joined and
+  // whether combat results arrive.
+  useEffect(() => {
+    const { socket } = useRoomSocketStore.getState();
+    if (!socket) return;
+
+    try {
+      console.log('[WS Debug] socket namespace: /rooms, socket id:', socket.id);
+    } catch (e) {
+      console.log('[WS Debug] socket object unavailable', e);
+    }
+
+    const handleJoined = (data: unknown) => console.log('[WS Debug] joinedRoom ack:', data);
+    const handleCombat = (data: unknown) => console.log('[WS Debug] combatResult event:', data);
+
+    socket.on('joinedRoom', handleJoined);
+    socket.on('combatResult', handleCombat);
+
+    return () => {
+      socket.off('joinedRoom', handleJoined);
+      socket.off('combatResult', handleCombat);
+    };
+  }, [socketRoomInfo]);
 
   if (isLoading) {
     return (

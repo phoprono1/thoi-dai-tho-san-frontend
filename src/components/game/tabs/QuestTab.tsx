@@ -19,7 +19,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
 import { toast } from 'sonner';
-import { UserQuest, QuestStatus, UserItem } from '@/types';
+import { UserQuest, QuestStatus, UserItem, User } from '@/types';
 import useQuestStore from '@/stores/useQuestStore';
 import { useUserStatusStore } from '@/stores/user-status.store';
 
@@ -119,11 +119,53 @@ export default function QuestTab() {
       toast.error('Không thể nhận nhiệm vụ');
     }
   };
-  const handleClaimReward = async () => {
+  const handleClaimReward = async (userQuest?: UserQuest) => {
     try {
+      // We expect the backend to have applied rewards when the quest was marked completed.
+      // Still call claim endpoint which will return authoritative user/quest/item state for the UI.
+      if (!userQuest) {
+        toast.error('Không tìm thấy nhiệm vụ để nhận thưởng');
+        return;
+      }
+      const resp = await apiService.claimQuest(userQuest.id);
+      // If the API returns updated user or items, apply them to zustand and caches
+      if (resp) {
+        if (resp.userItems && resp.userItems.length > 0) {
+          useUserStatusStore.getState().setEquippedItems(resp.userItems as UserItem[]);
+        }
+        if (resp.user) {
+          // Update user in store
+          useUserStatusStore.getState().setUser(resp.user as unknown as User);
+        }
+        if (resp.userQuest) {
+          // If backend marked rewards as claimed, remove the quest from
+          // the local cache so it disappears from the UI. Otherwise,
+          // update the quest entry with authoritative data.
+          // Narrow resp.userQuest to include rewardsClaimed if present
+          type MaybeClaimed = UserQuest & { rewardsClaimed?: boolean };
+          const uq = resp.userQuest as MaybeClaimed;
+          const claimed = uq.rewardsClaimed === true;
+          setLocalQuests((prev) => {
+            const base = prev || userQuests;
+            if (claimed) {
+              return base.filter((uq) => uq.id !== resp.userQuest!.id);
+            }
+            return base.map((uq) => (uq.id === resp.userQuest!.id ? (resp.userQuest as UserQuest) : uq));
+          });
+
+          // If the quest detail modal was open for this quest, close it
+          // so the UI doesn't show a now-removed completed quest.
+          if (uq.rewardsClaimed && detailQuest?.id === uq.id) {
+            setDetailQuest(null);
+          }
+        }
+      }
+
+      // Invalidate and refetch relevant caches so UI reflects the change
       await refetch();
-      toast.success('Yêu cầu nhận thưởng đã gửi (nếu có).');
-    } catch {
+      toast.success('Đã nhận thưởng (nếu có).');
+    } catch (err) {
+      console.error('Claim reward failed', err);
       toast.error('Không thể nhận thưởng');
     }
   };
