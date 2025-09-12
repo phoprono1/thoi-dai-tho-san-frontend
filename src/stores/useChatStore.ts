@@ -39,8 +39,10 @@ const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
 
-  // Connecting to chat (debug logs removed)
-    const newSocket = io(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
+    // Connecting to chat: ensure NEXT_PUBLIC_API_URL doesn't include a trailing /api
+    const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+    const base = rawBase.replace(/\/api\/?$/, '');
+    const newSocket = io(`${base}/chat`, {
       transports: ['websocket'],
       autoConnect: true,
       auth: {

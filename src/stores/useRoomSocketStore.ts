@@ -128,7 +128,10 @@ export const useRoomSocketStore = create<RoomSocketState>()(
       // Get auth token for WebSocket authentication
       const token = localStorage.getItem('token');
       
-      const socket = io(`${process.env.NEXT_PUBLIC_API_URL}/rooms`, {
+      const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+      const base = rawBase.replace(/\/api\/?$/, '');
+
+      const socket = io(`${base}/rooms`, {
         transports: ['websocket'],
         autoConnect: true,
         auth: {
