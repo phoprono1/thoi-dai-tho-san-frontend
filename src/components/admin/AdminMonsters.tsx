@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, setupInterceptors } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { Swords } from 'lucide-react';
+import { Swords, UploadCloud, DownloadCloud } from 'lucide-react';
 import { DataTable } from '@/components/admin/DataTable';
 import { Monster, MonsterType, MonsterElement } from '@/types/monster';
 import { Item } from '@/types/item';
@@ -349,6 +349,85 @@ export default function AdminMonsters() {
             <p className="text-xs text-muted-foreground dark:text-gray-300">Level trung bình</p>
           </CardContent>
         </Card>
+      </div>
+      <div className="flex space-x-2 mt-4">
+        <Button size="sm" variant="outline" onClick={async () => {
+          try {
+            const res = await api.get('/admin/export/template/monsters', { responseType: 'blob' });
+            const blob = new Blob([res.data]);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'monsters-template.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          } catch (err) {
+            console.error(err);
+            toast.error('Không thể tải template');
+          }
+        }}>
+          <DownloadCloud className="w-4 h-4 mr-2" /> Tải mẫu
+        </Button>
+
+        <input id="monsters-import-input" type="file" accept=".csv" className="hidden" onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const form = new FormData();
+            form.append('file', file);
+            form.append('sync', 'true');
+            try {
+              console.info('Uploading monsters CSV', file.name, file.size);
+              toast('Uploading file...');
+              const resp = await api.post('/admin/import/monsters', form);
+              const data = resp.data;
+              console.info('Import response', data);
+              if (data?.result) {
+                const parsed = data.result.parsed || data.parsed || 0;
+                const parseErrors = data.result.result?.parseErrors || data.result.parseErrors || [];
+                if (parseErrors.length > 0) {
+                  toast.error(`Import completed with ${parseErrors.length} parse errors (check console)`);
+                  console.error('Import parseErrors', parseErrors, data);
+                } else {
+                  toast.success(`Import finished, parsed ${parsed} rows`);
+                }
+              } else {
+                toast.success('Đã gửi import job: ' + (data.jobId || 'unknown'));
+              }
+            } catch (errUnknown: unknown) {
+              console.error('Import request failed', errUnknown);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const respErr: any = errUnknown as any;
+              let msg = 'Lỗi khi import file';
+              if (respErr?.response) {
+                msg = respErr?.response?.data?.message || respErr?.response?.statusText || respErr?.message || msg;
+                console.error('Server response error', respErr.response);
+              } else if (errUnknown instanceof Error) {
+                msg = errUnknown.message;
+              }
+              toast.error(String(msg));
+            } finally {
+              try { (e.target as HTMLInputElement).value = ''; } catch { }
+            }
+          }} />
+        <Button size="sm" className="ml-2" onClick={() => document.getElementById('monsters-import-input')?.click()}><UploadCloud className="w-4 h-4 mr-2" />Import CSV</Button>
+
+        <Button size="sm" variant="outline" onClick={async () => {
+          try {
+            const res = await api.get('/admin/export/monsters', { responseType: 'blob' });
+            const blob = new Blob([res.data]);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'monsters-export.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+          } catch (err) {
+            console.error(err);
+            toast.error('Không thể tải dữ liệu');
+          }
+        }}> <DownloadCloud className="w-4 h-4 mr-2" /> Tải toàn bộ</Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

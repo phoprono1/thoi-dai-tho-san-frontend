@@ -6,9 +6,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
 // Axios instance
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // Don't force a Content-Type here. When sending FormData the browser
+  // must set the correct multipart/form-data boundary header. Setting
+  // 'Content-Type' globally causes FormData uploads to be sent as
+  // application/json which breaks multer on the server (missing file).
 });
 
 // Function to setup interceptors (call this in client component)

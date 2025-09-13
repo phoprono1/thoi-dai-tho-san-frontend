@@ -30,7 +30,9 @@ import {
   Coins,
   Star
 } from 'lucide-react';
+import { UploadCloud, DownloadCloud } from 'lucide-react';
 import api from '@/lib/api';
+// NOTE: We intentionally do not set Content-Type for multipart/form-data here. Let axios set the boundary header.
 
 // Types
 interface Quest {
@@ -431,6 +433,90 @@ export default function AdminQuests() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Quest Management</h1>
             <p className="text-gray-600 dark:text-gray-300 mt-2">Quản lý nhiệm vụ trong hệ thống game</p>
           </div>
+          <div className="flex items-center space-x-2">
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                const res = await api.get('/admin/export/template/quests', { responseType: 'blob' });
+                const blob = new Blob([res.data]);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'quests-template.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch (err) {
+                console.error(err);
+                toast.error('Không thể tải template');
+              }
+            }}>
+              <DownloadCloud className="w-4 h-4 mr-2" /> Tải mẫu
+            </Button>
+
+            {/* Make input element programmatically clickable to avoid issues with nested labels or CSS hiding */}
+            <input id="quests-import-input" type="file" accept=".csv" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const form = new FormData();
+                form.append('file', file);
+                form.append('sync', 'true');
+                try {
+                  console.info('Starting upload for quests CSV', file.name, file.size);
+                  toast('Uploading file...');
+                  // Do NOT set Content-Type here; axios/multipart will set boundary automatically
+                  const resp = await api.post('/admin/import/quests', form);
+                  const data = resp.data;
+                  console.info('Import response', data);
+                  if (data?.result) {
+                    const parsed = data.result.parsed || data.parsed || 0;
+                    const parseErrors = data.result.result?.parseErrors || data.result.parseErrors || [];
+                    if (parseErrors.length > 0) {
+                      toast.error(`Import completed with ${parseErrors.length} parse errors (check console)`);
+                      console.error('Import parseErrors', parseErrors, data);
+                    } else {
+                      toast.success(`Import finished, parsed ${parsed} rows`);
+                    }
+                  } else {
+                    toast.success('Đã gửi import job: ' + (data.jobId || 'unknown'));
+                  }
+                } catch (errUnknown: unknown) {
+                  console.error('Import request failed', errUnknown);
+                  let msg = 'Lỗi khi import file';
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const respErr: any = errUnknown as any;
+                  if (respErr?.response) {
+                    msg = respErr?.response?.data?.message || respErr?.response?.statusText || respErr?.message || msg;
+                    console.error('Server response error', respErr.response);
+                  } else if (errUnknown instanceof Error) {
+                    msg = errUnknown.message;
+                  }
+                  toast.error(String(msg));
+                } finally {
+                  try { (e.target as HTMLInputElement).value = ''; } catch { }
+                }
+              }} />
+            <Button size="sm" className="ml-2" onClick={() => document.getElementById('quests-import-input')?.click()}><UploadCloud className="w-4 h-4 mr-2" />Import CSV</Button>
+
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                const res = await api.get('/admin/export/quests', { responseType: 'blob' });
+                const blob = new Blob([res.data]);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'quests-export.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch (err) {
+                console.error(err);
+                toast.error('Không thể tải dữ liệu');
+              }
+            }}>
+              <DownloadCloud className="w-4 h-4 mr-2" /> Tải toàn bộ
+            </Button>
+          </div>
+
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-sky-600 dark:hover:bg-sky-700">

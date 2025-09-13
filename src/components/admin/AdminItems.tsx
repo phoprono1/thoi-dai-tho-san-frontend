@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { Sword, Shield, Crown, Edit, Trash2, Plus, Package } from 'lucide-react';
+import { UploadCloud, DownloadCloud } from 'lucide-react';
 import { Item, ItemType, ConsumableType, ItemSet, ClassRestrictions, SetBonus, ClassType, ClassTier } from '@/types/game';
 
 export default function AdminItems() {
@@ -444,6 +445,105 @@ export default function AdminItems() {
           </TabsList>
 
           <TabsContent value="items" className="space-y-8">
+              <div className="flex space-x-2 mb-4">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    // download template from backend
+                    try {
+                      const res = await api.get('/admin/export/template/items', { responseType: 'blob' });
+                      const blob = new Blob([res.data]);
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'items-template.csv';
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    } catch (e) {
+                      console.error(e);
+                      toast.error('Không thể tải template');
+                    }
+                  }}
+                >
+                  <DownloadCloud className="w-4 h-4 mr-2" />
+                  Tải mẫu
+                </Button>
+
+                <input id="items-import-input" type="file" accept=".csv" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const form = new FormData();
+                      form.append('file', file);
+                      // request synchronous processing so the admin gets immediate feedback
+                      form.append('sync', 'true');
+                      try {
+                        console.info('Uploading items CSV', file.name, file.size);
+                        toast('Uploading file...');
+                        const resp = await api.post('/admin/import/items', form);
+                        const data = resp.data;
+                        console.info('Import response', data);
+                        // server may return { jobId } for background or { jobId, result } for sync
+                        if (data?.result) {
+                          const parsed = data.result.parsed || data.parsed || 0;
+                          const parseErrors = data.result.result?.parseErrors || data.result.parseErrors || [];
+                          if (parseErrors.length > 0) {
+                            toast.error(`Import completed with ${parseErrors.length} parse errors (check console)`);
+                            console.error('Import parseErrors', parseErrors, data);
+                          } else {
+                            toast.success(`Import finished, parsed ${parsed} rows`);
+                          }
+                        } else {
+                          toast.success('Đã gửi import job: ' + (data.jobId || 'unknown'));
+                        }
+                      } catch (errUnknown: unknown) {
+                        console.error('Import request failed', errUnknown);
+                        // Show any server message if present
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const respErr: any = errUnknown as any;
+                        let msg = 'Lỗi khi import file';
+                        if (respErr?.response) {
+                          msg = respErr?.response?.data?.message || respErr?.message || msg;
+                          console.error('Server response error', respErr.response);
+                        } else if (errUnknown instanceof Error) {
+                          msg = errUnknown.message;
+                        }
+                        toast.error(String(msg));
+                      } finally {
+                        // reset the input so the same file can be chosen again
+                        try { (e.target as HTMLInputElement).value = ''; } catch { }
+                      }
+                    }} />
+                  <Button size="sm" className="ml-2" onClick={() => document.getElementById('items-import-input')?.click()}>
+                    <UploadCloud className="w-4 h-4 mr-2" />
+                    Import CSV
+                  </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/admin/export/items', { responseType: 'blob' });
+                      const blob = new Blob([res.data]);
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'items-export.csv';
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    } catch (e) {
+                      console.error(e);
+                      toast.error('Không thể tải dữ liệu');
+                    }
+                  }}
+                >
+                  <DownloadCloud className="w-4 h-4 mr-2" />
+                  Tải toàn bộ
+                </Button>
+              </div>
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               <Card>

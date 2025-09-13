@@ -258,6 +258,85 @@ export default function AdminLevels() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex space-x-2 mt-4 lg:col-span-3">
+          <Button size="sm" variant="outline" onClick={async () => {
+            try {
+              const res = await api.get('/admin/export/template/levels', { responseType: 'blob' });
+              const blob = new Blob([res.data]);
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'levels-template.csv';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            } catch (err) {
+              console.error(err);
+              toast.error('Không thể tải template');
+            }
+          }}>
+            Tải mẫu
+          </Button>
+            <Button size="sm" variant="ghost" onClick={async () => {
+              try {
+                const res = await api.get('/admin/export/levels', { responseType: 'blob' });
+                const blob = new Blob([res.data]);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'levels-export.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              } catch (e) {
+                console.error('Download all levels failed', e);
+                toast.error('Không thể tải toàn bộ levels');
+              }
+            }}>
+              Tải toàn bộ
+            </Button>
+
+          <input id="levels-import-input" type="file" accept=".csv" className="hidden" onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const form = new FormData();
+            form.append('file', file);
+            form.append('sync', 'true');
+            try {
+              console.info('Uploading levels CSV', file.name, file.size);
+              toast('Uploading file...');
+              const resp = await api.post('/admin/import/levels', form);
+              const data = resp.data;
+              console.info('Import response', data);
+              if (data?.result) {
+                const parsed = data.result.parsed || data.parsed || 0;
+                const parseErrors = data.result.result?.parseErrors || data.result.parseErrors || [];
+                if (parseErrors.length > 0) {
+                  toast.error(`Import completed with ${parseErrors.length} parse errors (check console)`);
+                  console.error('Import parseErrors', parseErrors, data);
+                } else {
+                  toast.success(`Import finished, parsed ${parsed} rows`);
+                }
+              } else {
+                toast.success('Đã gửi import job: ' + (data.jobId || 'unknown'));
+              }
+            } catch (errUnknown: unknown) {
+              console.error('Import request failed', errUnknown);
+              const respErr = errUnknown as unknown as { response?: { data?: { message?: string }; statusText?: string }; message?: string };
+              let msg = 'Lỗi khi import file';
+              if (respErr?.response) {
+                msg = respErr.response.data?.message || respErr.response.statusText || respErr.message || msg;
+                console.error('Server response error', respErr.response);
+              } else if (errUnknown instanceof Error) {
+                msg = errUnknown.message;
+              }
+              toast.error(String(msg));
+            } finally {
+              try { (e.target as HTMLInputElement).value = ''; } catch { }
+            }
+          }} />
+          <Button size="sm" className="ml-2" onClick={() => document.getElementById('levels-import-input')?.click()}>Import CSV</Button>
+        </div>
         {/* Create/Edit Form */}
         <Card className="lg:col-span-1">
           <CardHeader>
