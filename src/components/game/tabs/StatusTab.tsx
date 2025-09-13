@@ -82,18 +82,46 @@ const StatusTab: React.FC = () => {
   const displayedCurrentHp = Math.min(displayedStats.currentHp || 0, displayedMaxHp);
   const displayedHealthPercent = displayedMaxHp > 0 ? (displayedCurrentHp / displayedMaxHp) * 100 : 0;
 
+  // user_power may be available on `user` or via stats; fall back to 0
+  const maybeUser = user as unknown as Record<string, unknown> | undefined;
+  const displayedStatsRecord = displayedStats as unknown as Record<string, unknown>;
+  let combatPower: number = typeof displayedStatsRecord['combatPower'] === 'number' ? (displayedStatsRecord['combatPower'] as number) : 0;
+  if (maybeUser && typeof maybeUser['combatPower'] === 'number') {
+    combatPower = maybeUser['combatPower'] as number;
+  }
+
+  // Small inline Stat cell to avoid extra file
+  const StatCell: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNode }> = ({ icon, label, value }) => (
+    <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)]">
+      <div className="w-6 h-6 flex items-center justify-center">{icon}</div>
+      <div className="flex-1">
+        <div className="text-xs text-[var(--muted-foreground)]">{label}</div>
+        <div className="text-sm font-semibold">{value}</div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4 p-4">
       {/* Thông tin nhân vật chính */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-[var(--card-foreground)]">
-            <User className="h-5 w-5" />
-            {user.username}
-            <Badge variant="secondary" className="ml-auto">
-              Cấp {currentLevel.level}
-            </Badge>
-          </CardTitle>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <User className="h-6 w-6" />
+              <div className="flex flex-col">
+                <span className="font-semibold">{user.username}</span>
+                <span className="text-xs text-[var(--muted-foreground)]">{characterClass?.name || 'Chưa chọn lớp'}</span>
+              </div>
+            </div>
+
+            <div className="ml-auto flex items-center gap-3">
+              <Badge variant="secondary">Cấp {currentLevel.level}</Badge>
+              <div className="px-3 py-1 rounded-md bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold">
+                ⚔️ {combatPower.toLocaleString()}
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Lớp nhân vật */}
@@ -155,119 +183,38 @@ const StatusTab: React.FC = () => {
           <CardTitle>Thuộc tính</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Thuộc tính chi tiết */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Cột 1: Thuộc tính cơ bản */}
-            <div className="space-y-4 border-2 border-[var(--border)] rounded-lg p-4 bg-[var(--card)]">
-              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center gap-2">
-                <Sword className="h-5 w-5" />
-                Thuộc tính cơ bản
-              </h3>
+          {/* Compact attributes grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/** left column: core derived stats */}
+            <div className="p-4 border-2 border-[var(--border)] rounded-lg bg-[var(--card)]">
+              <h4 className="text-sm font-semibold mb-3">Thuộc tính chính</h4>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Sword className="h-4 w-4 text-[var(--chart-3)]" />
-                  <div>
-                    <p className="text-xs font-medium">Tấn công</p>
-                    <p className="text-sm font-bold">{displayedStats.attack}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Shield className="h-4 w-4 text-[var(--chart-4)]" />
-                  <div>
-                    <p className="text-xs font-medium">Phòng thủ</p>
-                    <p className="text-sm font-bold">{displayedStats.defense}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Heart className="h-4 w-4 text-[var(--chart-5)]" />
-                  <div>
-                    <p className="text-xs font-medium">Sinh lực</p>
-                    <p className="text-sm font-bold">{displayedStats.vitality}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Zap className="h-4 w-4 text-[var(--accent)]" />
-                  <div>
-                    <p className="text-xs font-medium">Trí tuệ</p>
-                    <p className="text-sm font-bold">{displayedStats.intelligence}</p>
-                  </div>
-                </div>
+                <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Tấn công" value={displayedStats.attack} />
+                <StatCell icon={<Shield className="h-4 w-4 text-[var(--chart-4)]" />} label="Phòng thủ" value={displayedStats.defense} />
+                <StatCell icon={<Heart className="h-4 w-4 text-[var(--chart-5)]" />} label="Máu" value={displayedStats.vitality} />
+                <StatCell icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} label="Trí tuệ" value={displayedStats.intelligence} />
               </div>
             </div>
 
-            {/* Cột 2: Thuộc tính cốt lõi */}
-            <div className="space-y-4 border-2 border-[var(--border)] rounded-lg p-4 bg-[var(--card)]">
-              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center gap-2">
-                <Star className="h-5 w-5" />
-                Thuộc tính cốt lõi
-              </h3>
+            {/** middle column: core attributes */}
+            <div className="p-4 border-2 border-[var(--border)] rounded-lg bg-[var(--card)]">
+              <h4 className="text-sm font-semibold mb-3">Thuộc tính cốt lõi</h4>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Sword className="h-4 w-4 text-[var(--chart-3)]" />
-                  <div>
-                    <p className="text-xs font-medium">Sức mạnh</p>
-                    <p className="text-sm font-bold">{displayedStats.strength}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Zap className="h-4 w-4 text-[var(--chart-4)]" />
-                  <div>
-                    <p className="text-xs font-medium">Nhanh nhẹn</p>
-                    <p className="text-sm font-bold">{displayedStats.dexterity}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Shield className="h-4 w-4 text-[var(--muted-foreground)]" />
-                  <div>
-                    <p className="text-xs font-medium">May mắn</p>
-                    <p className="text-sm font-bold">{displayedStats.luck}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Shield className="h-4 w-4 text-[var(--chart-5)]" />
-                  <div>
-                    <p className="text-xs font-medium">Độ chính xác</p>
-                    <p className="text-sm font-bold">{displayedStats.accuracy}%</p>
-                  </div>
-                </div>
+                <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Sức mạnh" value={displayedStats.strength} />
+                <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-4)]" />} label="Nhanh nhẹn" value={displayedStats.dexterity} />
+                <StatCell icon={<Shield className="h-4 w-4 text-[var(--muted-foreground)]" />} label="May mắn" value={displayedStats.luck} />
+                <StatCell icon={<Star className="h-4 w-4 text-[var(--chart-5)]" />} label="Chính xác" value={`${displayedStats.accuracy}%`} />
               </div>
             </div>
 
-            {/* Cột 3: Thuộc tính nâng cao */}
-            <div className="space-y-4 border-2 border-[var(--border)] rounded-lg p-4 bg-[var(--card)]">
-              <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Thuộc tính nâng cao
-              </h3>
+            {/** right column: advanced */}
+            <div className="p-4 border-2 border-[var(--border)] rounded-lg bg-[var(--card)]">
+              <h4 className="text-sm font-semibold mb-3">Thuộc tính nâng cao</h4>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <TrendingUp className="h-4 w-4 text-[var(--chart-2)]" />
-                  <div>
-                    <p className="text-xs font-medium">Tỷ lệ chí mạng</p>
-                    <p className="text-sm font-bold">{displayedStats.critRate}%</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Zap className="h-4 w-4 text-[var(--chart-1)]" />
-                  <div>
-                    <p className="text-xs font-medium">Sát thương chí mạng</p>
-                    <p className="text-sm font-bold">{displayedStats.critDamage}%</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Star className="h-4 w-4 text-[var(--accent)]" />
-                  <div>
-                    <p className="text-xs font-medium">Tỷ lệ combo</p>
-                    <p className="text-sm font-bold">{displayedStats.comboRate}%</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)] shadow-sm text-[var(--foreground)]">
-                  <Star className="h-4 w-4 text-[var(--destructive)]" />
-                  <div>
-                    <p className="text-xs font-medium">Tỷ lệ phản công</p>
-                    <p className="text-sm font-bold">{displayedStats.counterRate}%</p>
-                  </div>
-                </div>
+                <StatCell icon={<TrendingUp className="h-4 w-4 text-[var(--chart-2)]" />} label="Chí mạng" value={`${displayedStats.critRate}%`} />
+                <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-1)]" />} label="Crit DMG" value={`${displayedStats.critDamage}%`} />
+                <StatCell icon={<Star className="h-4 w-4 text-[var(--accent)]" />} label="Combo" value={`${displayedStats.comboRate}%`} />
+                <StatCell icon={<Star className="h-4 w-4 text-[var(--destructive)]" />} label="Phản công" value={`${displayedStats.counterRate}%`} />
               </div>
             </div>
           </div>

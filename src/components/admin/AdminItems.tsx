@@ -226,7 +226,14 @@ export default function AdminItems() {
         duration: formData.type === ItemType.CONSUMABLE && formData.consumableType === ConsumableType.STAT_BOOST ? formData.duration : undefined,
         // Set and class restrictions
         setId: formData.setId || undefined,
-        classRestrictions: classRestrictions.allowedClassTypes?.length || classRestrictions.restrictedClassTypes?.length || classRestrictions.requiredTier || classRestrictions.description ? classRestrictions : undefined,
+        classRestrictions:
+          classRestrictions.allowedClassTypes?.length ||
+          classRestrictions.restrictedClassTypes?.length ||
+          classRestrictions.requiredTier ||
+          classRestrictions.description ||
+          classRestrictions.requiredLevel
+            ? classRestrictions
+            : undefined,
       };
 
       await api.post('/items', itemData);
@@ -305,7 +312,14 @@ export default function AdminItems() {
         duration: formData.type === ItemType.CONSUMABLE && formData.consumableType === ConsumableType.STAT_BOOST ? formData.duration : undefined,
         // Set and class restrictions
         setId: formData.setId || undefined,
-        classRestrictions: classRestrictions.allowedClassTypes?.length || classRestrictions.restrictedClassTypes?.length || classRestrictions.requiredTier || classRestrictions.description ? classRestrictions : undefined,
+        classRestrictions:
+          classRestrictions.allowedClassTypes?.length ||
+          classRestrictions.restrictedClassTypes?.length ||
+          classRestrictions.requiredTier ||
+          classRestrictions.description ||
+          classRestrictions.requiredLevel
+            ? classRestrictions
+            : undefined,
       };
 
       await api.put(`/items/${editingItem.id}`, itemData);
@@ -762,6 +776,20 @@ export default function AdminItems() {
                         <SelectItem value={ClassTier.LEGENDARY.toString()}>Legendary (Tier 4)</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="requiredLevel">Required Level</Label>
+                    <Input
+                      id="requiredLevel"
+                      type="number"
+                      min={1}
+                      value={classRestrictions.requiredLevel ?? ''}
+                      onChange={(e) => setClassRestrictions({
+                        ...classRestrictions,
+                        requiredLevel: e.target.value ? parseInt(e.target.value) : undefined
+                      })}
+                      placeholder="Enter minimum required level"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="restrictionDescription">Restriction Description</Label>

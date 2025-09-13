@@ -9,6 +9,8 @@ import {
   UserQuest,
   RoomLobby,
   Dungeon,
+  // Item type for fetching catalog
+  Item,
 } from '@/types';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
@@ -270,6 +272,11 @@ class ApiService {
 
   async getDungeon(dungeonId: number): Promise<Dungeon> {
     return this.request<Dungeon>(`/dungeons/${dungeonId}`);
+  }
+
+  // Item APIs (catalog)
+  async getItems(): Promise<Item[]> {
+    return this.request<Item[]>('/items');
   }
 }
 

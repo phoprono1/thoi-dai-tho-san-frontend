@@ -211,19 +211,7 @@ export default function AdminQuests() {
     },
   });
 
-  // Delete quest mutation
-  const deleteQuestMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`/quests/${id}`);
-    },
-    onSuccess: () => {
-      toast.success('Quest đã được xóa thành công!');
-      queryClient.invalidateQueries({ queryKey: ['adminQuests'] });
-    },
-    onError: (error: Error) => {
-      toast.error(`Lỗi xóa quest: ${error.message}`);
-    },
-  });
+  // Deletion is handled inline (with optional force delete) via handleDeleteQuest
 
   const handleCreateQuest = () => {
     if (!formData.name.trim()) {
@@ -250,9 +238,36 @@ export default function AdminQuests() {
     updateQuestMutation.mutate({ id: selectedQuest.id, data: formData });
   };
 
-  const handleDeleteQuest = (quest: Quest) => {
-    if (confirm(`Bạn có chắc muốn xóa quest "${quest.name}"?`)) {
-      deleteQuestMutation.mutate(quest.id);
+  const handleDeleteQuest = async (quest: Quest) => {
+    if (!confirm(`Bạn có chắc muốn xóa quest "${quest.name}"?`)) return;
+
+    try {
+      await api.delete(`/quests/${quest.id}`);
+      toast.success('Quest đã được xóa thành công!');
+      queryClient.invalidateQueries({ queryKey: ['adminQuests'] });
+      return;
+    } catch (errUnknown: unknown) {
+      // If deletion failed, offer force-delete which will clean dependent rows
+      let msg = 'Lỗi khi xóa quest';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const respErr: any = errUnknown as any;
+      if (respErr?.response) {
+        msg = respErr?.response?.data?.message || respErr?.response?.statusText || respErr?.message || msg;
+      } else if (errUnknown instanceof Error) {
+        msg = errUnknown.message;
+      }
+      if (confirm(`${msg}\nQuest có thể có dữ liệu phụ thuộc. Bạn có muốn ép xóa (force delete) không?`)) {
+        try {
+          await api.delete(`/quests/${quest.id}?force=true`);
+          toast.success('Quest đã bị ép xóa thành công');
+          queryClient.invalidateQueries({ queryKey: ['adminQuests'] });
+        } catch (forceErr: unknown) {
+          console.error('Forced delete failed', forceErr);
+          toast.error('Không thể xóa quest (force delete thất bại)');
+        }
+      } else {
+        toast.error(String(msg));
+      }
     }
   };
 
@@ -1192,7 +1207,23 @@ export default function AdminQuests() {
                     <p>EXP: {quest.rewards.experience || 0}</p>
                     <p>Gold: {quest.rewards.gold || 0}</p>
                     {quest.rewards.items && quest.rewards.items.length > 0 && (
-                      <p>Items: {quest.rewards.items.length}</p>
+                      <div className="text-left">
+                        <p>Items:</p>
+                        <ul className="text-sm list-disc ml-4">
+                          {quest.rewards.items.map((it: { itemId?: number; itemName?: string; quantity?: number }, idx: number) => {
+                            // Try to resolve item name from fetched items list
+                            const itemIdNum = Number(it.itemId || 0);
+                            const matched = items?.find((i: Item) => Number(i.id) === itemIdNum);
+                            const displayName = matched?.name || it.itemName || `#${itemIdNum}`;
+                            const qty = Number(it.quantity || 1) || 1;
+                            return (
+                              <li key={idx} className="truncate">
+                                {qty} x {displayName}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     )}
                   </div>
 
@@ -1661,19 +1692,31 @@ export default function AdminQuests() {
                       </div>
                     ))}
 
-                    {previewData.requirements.collectItems.map((item, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <Package className="w-4 h-4 text-blue-500" />
-                        <span>Thu thập {item.quantity} {item.itemName}</span>
-                      </div>
-                    ))}
+                    {previewData.requirements.collectItems.map((item, index) => {
+                      // Resolve item name from items list if available
+                      const itemIdNum = Number(item.itemId || 0);
+                      const matchedItem = items?.find((i: Item) => Number(i.id) === itemIdNum);
+                      const displayItemName = matchedItem?.name || item.itemName || `#${itemIdNum}`;
+                      return (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Package className="w-4 h-4 text-blue-500" />
+                          <span>Thu thập {item.quantity} x {displayItemName}</span>
+                        </div>
+                      );
+                    })}
 
-                    {previewData.requirements.completeDungeons.map((dungeon, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <Shield className="w-4 h-4 text-purple-500" />
-                        <span>Hoàn thành {dungeon.dungeonName} {dungeon.count} lần</span>
-                      </div>
-                    ))}
+                    {previewData.requirements.completeDungeons.map((dungeon, index) => {
+                      // Resolve dungeon name from dungeons list if available
+                      const dungeonIdNum = Number(dungeon.dungeonId || 0);
+                      const matchedDungeon = dungeons?.find((d: Dungeon) => Number(d.id) === dungeonIdNum);
+                      const displayDungeonName = matchedDungeon?.name || dungeon.dungeonName || `#${dungeonIdNum}`;
+                      return (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Shield className="w-4 h-4 text-purple-500" />
+                          <span>Hoàn thành {displayDungeonName} {dungeon.count} lần</span>
+                        </div>
+                      );
+                    })}
 
                     {previewData.requirements.reachLevel && (
                       <div className="flex items-center space-x-2">
@@ -1721,12 +1764,18 @@ export default function AdminQuests() {
                       </div>
                     )}
 
-                    {previewData.rewards.items.map((item, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <Package className="w-4 h-4 text-green-500" />
-                        <span>{item.quantity} x {item.itemName}</span>
-                      </div>
-                    ))}
+                    {previewData.rewards.items.map((item, index) => {
+                      const itemIdNum = Number(item.itemId || 0);
+                      const matchedItem = items?.find((i: Item) => Number(i.id) === itemIdNum);
+                      const displayItemName = matchedItem?.name || item.itemName || `#${itemIdNum}`;
+                      const qty = item.quantity ?? 1;
+                      return (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Package className="w-4 h-4 text-green-500" />
+                          <span>{qty} x {displayItemName}</span>
+                        </div>
+                      );
+                    })}
 
                     {previewData.rewards.experience === 0 &&
                      previewData.rewards.gold === 0 &&

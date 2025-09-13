@@ -18,6 +18,16 @@ import {
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
+import { Dungeon, Item } from '@/types';
+
+// Local lightweight type for reward items which may be stored as objects
+interface RewardItem {
+  itemId?: number;
+  id?: number;
+  itemName?: string;
+  quantity?: number;
+  qty?: number;
+}
 import { toast } from 'sonner';
 import { UserQuest, QuestStatus, UserItem, User } from '@/types';
 import useQuestStore from '@/stores/useQuestStore';
@@ -48,6 +58,36 @@ export default function QuestTab() {
       }
     },
     enabled: !!userId && isAuthenticated,
+  });
+
+    // Fetch dungeons once so we can display names instead of numeric ids
+    const { data: dungeonsData = [] } = useQuery({
+      queryKey: ['dungeons'],
+      queryFn: async () => {
+        try {
+          const resp = await apiService.getDungeons();
+          return resp || [];
+        } catch (err) {
+          console.error('Failed to load dungeons', err);
+          return [] as Dungeon[];
+        }
+      },
+      enabled: isAuthenticated,
+    });
+
+  // Fetch items so we can resolve item names for requirements and rewards in the quest details modal
+  const { data: itemsData = [] } = useQuery<Item[]>({
+    queryKey: ['items'],
+    queryFn: async (): Promise<Item[]> => {
+      try {
+        const resp = await apiService.getItems();
+        return resp || [];
+      } catch (err) {
+        console.error('Failed to load items', err);
+        return [] as Item[];
+      }
+    },
+    enabled: isAuthenticated,
   });
 
   // Merge server-fetched quests with any optimistic local updates
@@ -315,7 +355,7 @@ export default function QuestTab() {
         </TabsContent>
       </Tabs>
         {detailQuest && (
-          <QuestDetailsModal uq={detailQuest} onClose={() => setDetailQuest(null)} />
+          <QuestDetailsModal uq={detailQuest} dungeons={dungeonsData as Dungeon[]} items={itemsData} onClose={() => setDetailQuest(null)} />
         )}
       </div>
     );
@@ -549,7 +589,7 @@ function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: Que
 }
 
 // Details modal/drawer
-function QuestDetailsModal({ uq, onClose }: { uq: UserQuest; onClose: () => void }) {
+function QuestDetailsModal({ uq, onClose, dungeons, items }: { uq: UserQuest; onClose: () => void; dungeons: Dungeon[]; items?: Item[] }) {
   const q = uq.quest;
   // Local lightweight types for rendering quest requirements/progress
   interface KillReq { enemyType: string; count: number }
@@ -574,6 +614,9 @@ function QuestDetailsModal({ uq, onClose }: { uq: UserQuest; onClose: () => void
   const req: RequirementsAny = (q.requirements || {}) as RequirementsAny;
   const prog: ProgressAny = (uq.progress || {}) as ProgressAny;
 
+  // Normalize rewards.items to a typed array for rendering
+  const rewardItems: RewardItem[] = Array.isArray(q.rewards?.items) ? (q.rewards.items as unknown as RewardItem[]) : [];
+
   const renderKillReq = () => {
     if (!req.killEnemies || req.killEnemies.length === 0) return null;
     return (
@@ -596,12 +639,15 @@ function QuestDetailsModal({ uq, onClose }: { uq: UserQuest; onClose: () => void
     if (!req.collectItems || req.collectItems.length === 0) return null;
     return (
       <div className="space-y-2">
-        {req.collectItems.map((it: CollectReq, idx: number) => {
+          {req.collectItems.map((it: CollectReq, idx: number) => {
           const p = (prog.collectItems || []).find((x) => x.itemId === it.itemId);
           const current = p?.current ?? 0;
+          // Resolve item name from items prop
+          const foundItem = (items || []).find((itd: Item) => Number(itd.id) === Number(it.itemId));
+          const itemName = foundItem ? foundItem.name : `#${it.itemId}`;
           return (
             <div key={idx} className="flex justify-between text-sm text-gray-700">
-              <div>Thu thập: <span className="font-medium">Vật phẩm #{it.itemId}</span></div>
+              <div>Thu thập: <span className="font-medium">{itemName}</span></div>
               <div className="text-gray-500">{current}/{it.quantity}</div>
             </div>
           );
@@ -614,12 +660,14 @@ function QuestDetailsModal({ uq, onClose }: { uq: UserQuest; onClose: () => void
     if (!req.completeDungeons || req.completeDungeons.length === 0) return null;
     return (
       <div className="space-y-2">
-        {req.completeDungeons.map((d: DungeonReq, idx: number) => {
+          {req.completeDungeons.map((d: DungeonReq, idx: number) => {
           const p = (prog.completeDungeons || []).find((x) => x.dungeonId === d.dungeonId);
           const current = p?.current ?? 0;
+          const found = (dungeons || []).find((dd) => dd.id === d.dungeonId);
+          const name = found ? found.name : `#${d.dungeonId}`;
           return (
             <div key={idx} className="flex justify-between text-sm text-gray-700">
-              <div>Hoàn thành Dungeon: <span className="font-medium">#{d.dungeonId}</span></div>
+              <div>Hoàn thành Dungeon: <span className="font-medium">{name}</span></div>
               <div className="text-gray-500">{current}/{d.count}</div>
             </div>
           );
@@ -684,13 +732,17 @@ function QuestDetailsModal({ uq, onClose }: { uq: UserQuest; onClose: () => void
               <div className="flex items-center gap-2"><Coins className="h-4 w-4 text-yellow-500"/> Vàng</div>
               <div className="text-gray-500">{q.rewards?.gold ?? 0}</div>
             </div>
-            {q.rewards?.items && q.rewards.items.length > 0 ? (
+            {rewardItems.length > 0 ? (
               <div>
                 <div className="text-sm font-medium">Vật phẩm:</div>
                 <ul className="list-disc list-inside text-sm text-gray-700 mt-1">
-                  {q.rewards.items.map((it: unknown, idx: number) => (
-                    <li key={idx}>{typeof it === 'string' ? it : JSON.stringify(it)}</li>
-                  ))}
+                  {rewardItems.map((it: RewardItem, idx: number) => {
+                    const itemIdNum = Number(it.itemId || it.id || 0);
+                    const found = (items || []).find((itm: Item) => Number(itm.id) === itemIdNum);
+                    const displayName = found ? found.name : (it.itemName || `#${itemIdNum}`);
+                    const qty = it.quantity ?? it.qty ?? 1;
+                    return (<li key={idx}>{qty} x {displayName}</li>);
+                  })}
                 </ul>
               </div>
             ) : (
