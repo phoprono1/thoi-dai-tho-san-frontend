@@ -469,7 +469,11 @@ export default function AdminQuests() {
                       <Label htmlFor="type">Loại Quest</Label>
                       <Select
                         value={formData.type}
-                        onValueChange={(value: string) => setFormData(prev => ({ ...prev, type: value as 'main' | 'side' | 'daily' | 'event' }))}
+                        onValueChange={(value: string) => setFormData(prev => ({
+                          ...prev,
+                          type: value as 'main' | 'side' | 'daily' | 'event',
+                          ...(value === 'daily' ? { isRepeatable: true } : {}),
+                        }))}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Chọn loại quest" />
@@ -516,16 +520,18 @@ export default function AdminQuests() {
                     </div>
                   </div>
 
-                  {formData.type === 'daily' && (
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="isRepeatable"
-                        checked={formData.isRepeatable}
-                        onCheckedChange={(checked: boolean) => setFormData(prev => ({ ...prev, isRepeatable: checked }))}
-                      />
-                      <Label htmlFor="isRepeatable">Quest có thể lặp lại</Label>
-                    </div>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="isRepeatable"
+                      checked={formData.isRepeatable || formData.type === 'daily'}
+                      disabled={formData.type === 'daily'}
+                      onCheckedChange={(checked: boolean) => setFormData(prev => ({ ...prev, isRepeatable: checked }))}
+                    />
+                    <Label htmlFor="isRepeatable">Quest có thể lặp lại</Label>
+                    {formData.type === 'daily' && (
+                      <span className="text-sm text-gray-500 ml-2">(Bắt buộc cho quest hàng ngày)</span>
+                    )}
+                  </div>
 
                   {formData.type === 'event' && (
                     <div>
@@ -1181,7 +1187,12 @@ export default function AdminQuests() {
                   <Label htmlFor="edit-type">Loại Quest</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value: string) => setFormData(prev => ({ ...prev, type: value as 'main' | 'side' | 'daily' | 'event' }))}
+                    onValueChange={(value: string) => setFormData(prev => ({
+                      ...prev,
+                      type: value as 'main' | 'side' | 'daily' | 'event',
+                      // If admin selects daily, force repeatable = true
+                      ...(value === 'daily' ? { isRepeatable: true } : {}),
+                    }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn loại quest" />

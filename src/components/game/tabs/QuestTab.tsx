@@ -331,9 +331,96 @@ interface QuestCardProps {
 
 function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: QuestCardProps) {
   const quest = userQuest.quest;
-  const numericProgress = typeof userQuest.progress === 'number' ? userQuest.progress : 0;
-  const maxProgress = quest.maxProgress || 1;
-  const progressPercentage = (numericProgress / maxProgress) * 100;
+
+  // Compute aggregated progress across multiple requirement types.
+  // Simple strategy: sum required counts and sum completed counts (capped per requirement).
+  // Lightweight local types to avoid `any` usage
+  type ReqAny = {
+    killEnemies?: Array<{ enemyType: string; count: number }>;
+    collectItems?: Array<{ itemId: number; quantity: number }>;
+    completeDungeons?: Array<{ dungeonId: number; count: number }>;
+    reachLevel?: number;
+    level?: number;
+    defeatBoss?: boolean;
+  };
+
+  type ProgAny = {
+    killEnemies?: Array<{ enemyType: string; current: number }>;
+    collectItems?: Array<{ itemId: number; current: number }>;
+    completeDungeons?: Array<{ dungeonId: number; current: number }>;
+    currentLevel?: number;
+    defeatedBoss?: boolean;
+  };
+
+  const computeAggregatedProgress = (q: { requirements?: ReqAny; maxProgress?: number }, progress: ProgAny | number | undefined) => {
+    let totalRequired = 0;
+    let totalCompleted = 0;
+
+    const req: ReqAny = (q.requirements || {}) as ReqAny;
+    const prog: ProgAny = (typeof progress === 'number' ? {} : (progress || {})) as ProgAny;
+
+    // Kill enemies
+    if (req.killEnemies && Array.isArray(req.killEnemies)) {
+      for (const k of req.killEnemies) {
+        const need = Number(k.count) || 0;
+        totalRequired += need;
+        const p = (prog.killEnemies || []).find((x) => x.enemyType === k.enemyType);
+        const got = Math.min(Number(p?.current || 0), need);
+        totalCompleted += got;
+      }
+    }
+
+    // Collect items
+    if (req.collectItems && Array.isArray(req.collectItems)) {
+      for (const it of req.collectItems) {
+        const need = Number(it.quantity) || 0;
+        totalRequired += need;
+        const p = (prog.collectItems || []).find((x) => x.itemId === it.itemId);
+        const got = Math.min(Number(p?.current || 0), need);
+        totalCompleted += got;
+      }
+    }
+
+    // Complete dungeons
+    if (req.completeDungeons && Array.isArray(req.completeDungeons)) {
+      for (const d of req.completeDungeons) {
+        const need = Number(d.count) || 0;
+        totalRequired += need;
+        const p = (prog.completeDungeons || []).find((x) => x.dungeonId === d.dungeonId);
+        const got = Math.min(Number(p?.current || 0), need);
+        totalCompleted += got;
+      }
+    }
+
+    // Level requirement: treat as a single requirement (1 unit) — satisfied if currentLevel >= required level
+    const requiredLevel = req.reachLevel || req.level;
+    if (requiredLevel) {
+      totalRequired += 1;
+      const currentLevel = Number(prog.currentLevel || 0);
+      totalCompleted += currentLevel >= Number(requiredLevel) ? 1 : 0;
+    }
+
+    // Boss / defeat flag
+    if (req.defeatBoss) {
+      totalRequired += 1;
+      totalCompleted += prog.defeatedBoss ? 1 : 0;
+    }
+
+    // Fallback: if no structured requirements, try numeric progress + maxProgress
+    if (totalRequired === 0) {
+      if (typeof progress === 'number') {
+        const maxP = q.maxProgress || 1;
+        return { completed: Math.min(progress, maxP), total: maxP };
+      }
+      // No requirements and non-numeric progress — treat as 0/1
+      return { completed: 0, total: q.maxProgress || 1 };
+    }
+
+    return { completed: totalCompleted, total: totalRequired };
+  };
+
+  const { completed: numericProgress, total: maxProgress } = computeAggregatedProgress(quest, userQuest.progress);
+  const progressPercentage = maxProgress > 0 ? (numericProgress / maxProgress) * 100 : 0;
 
   const getQuestTypeColor = (type: string) => {
     switch (type) {

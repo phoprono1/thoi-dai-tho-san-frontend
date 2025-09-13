@@ -11,7 +11,22 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      router.push('/game');
+      try {
+        const userJson = localStorage.getItem('user');
+        const seenOpening = localStorage.getItem('seenOpening');
+        const user = userJson ? JSON.parse(userJson) : null;
+        // If user level > 1, skip opening. Otherwise, if not seen, go to /opening.
+        if (user?.level && Number(user.level) > 1) {
+          router.push('/game');
+        } else if (!seenOpening) {
+          router.push('/opening');
+        } else {
+          router.push('/game');
+        }
+      } catch {
+        // fallback
+        router.push('/game');
+      }
     }
   }, [isAuthenticated, isLoading, router]);
 

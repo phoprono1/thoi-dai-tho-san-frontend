@@ -62,6 +62,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Verify token and get user data
       const response = await api.get('/auth/me');
       setUser(response.data);
+      // persist user for other parts of the app that read localStorage
+      try {
+        localStorage.setItem('user', JSON.stringify(response.data));
+      } catch {}
     } catch (error) {
       // Token is invalid, remove it
       localStorage.removeItem('token');
@@ -85,11 +89,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Set user data
       setUser(userData);
+      try {
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch {}
 
       toast.success('Đăng nhập thành công!');
-      // Use window.location for reliable redirect in context
+      // After login, choose destination:
+      // - if user.level > 1, go straight to /game
+      // - if user.level <= 1 and opening not yet seen, go to /opening
+      // - otherwise go to /game
       if (typeof window !== 'undefined') {
-        window.location.href = '/game';
+        const seenOpening = localStorage.getItem('seenOpening');
+        if (userData?.level && Number(userData.level) > 1) {
+          window.location.href = '/game';
+        } else if (!seenOpening) {
+          window.location.href = '/opening';
+        } else {
+          window.location.href = '/game';
+        }
       }
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { message?: string } } };
@@ -114,6 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = () => {
     // Remove token
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     delete api.defaults.headers.common['Authorization'];
 
     // Clear user data
