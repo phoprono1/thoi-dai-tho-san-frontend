@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client';
+ 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { useRoomSocketStore } from '@/stores/useRoomSocketStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -91,6 +92,7 @@ interface CombatModalProps {
 }
 
 export default function CombatModal({ isOpen, onClose, combatResult, dungeonName }: CombatModalProps) {
+  const { user: authUser } = useAuth();
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Auto play
   const [playbackSpeed, setPlaybackSpeed] = useState(500); // Default 2x speed (500ms instead of 1000ms)
@@ -245,10 +247,35 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   // getResultColor removed (unused) - icons used for result instead
 
   if (!combatResult) return null;
+  // Determine which rewards to show for this client.
+  // Backend may return either a single aggregated reward object (solo or legacy)
+  // or an object like { aggregated, perUser } for multiplayer where perUser is an array
+  // matching the server's user ordering. We map current auth user -> team member index
+  // and pick that entry when available.
+  let displayedExperience = combatResult.rewards?.experience ?? 0;
+  let displayedGold = combatResult.rewards?.gold ?? 0;
+  let displayedItems: Array<any> = combatResult.rewards?.items ?? [];
+
+  const maybePerUser = (combatResult as any)?.rewards?.perUser;
+  if (maybePerUser && Array.isArray(maybePerUser) && combatResult.teamStats?.members && authUser) {
+    const memberIndex = combatResult.teamStats.members.findIndex(m => m.userId === authUser.id);
+    if (memberIndex >= 0 && maybePerUser[memberIndex]) {
+      const entry = maybePerUser[memberIndex];
+      displayedExperience = entry.experience ?? displayedExperience;
+      displayedGold = entry.gold ?? displayedGold;
+      displayedItems = entry.items ?? displayedItems;
+    } else if (maybePerUser.length === 1 && maybePerUser[0]) {
+      // Fallback: single-player wrapped in perUser array
+      const entry = maybePerUser[0];
+      displayedExperience = entry.experience ?? displayedExperience;
+      displayedGold = entry.gold ?? displayedGold;
+      displayedItems = entry.items ?? displayedItems;
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-  <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+  <DialogContent className="w-full max-w-full sm:max-w-4xl max-h-[90vh] overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Crown className="h-5 w-5" />
@@ -259,7 +286,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
         <div className="space-y-6">
           {/* Combat Arena or Result (result replaces arena when finished) */}
           {!showResult ? (
-            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-6 text-white relative overflow-hidden">
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-4 sm:p-6 text-white relative overflow-hidden">
             {/* Players Side */}
             <div className="flex flex-col gap-4 mb-6">
               <div className="space-y-2 w-full">
@@ -269,12 +296,12 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
                 </h3>
                 {/* Compact 2-column grid for players to match enemy layout */}
                 {combatResult?.teamStats?.members ? (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(110px,1fr))]">
                     {combatResult.teamStats.members.map(member => (
-                      <div key={member.userId} className="bg-gray-900/40 p-2 rounded text-xs">
+                      <div key={member.userId} className="bg-gray-900/40 p-1 sm:p-2 rounded text-[12px]">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium truncate">{member.username}</div>
-                          <div className="text-xs text-gray-300">HP</div>
+                          <div className="text-sm font-medium truncate max-w-[70%]">{member.username}</div>
+                          <div className="text-[11px] text-gray-300">HP</div>
                         </div>
                         <div className="mt-1">
                           <Progress
@@ -296,7 +323,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
               <div className="text-3xl font-bold text-yellow-400 self-center">VS</div>
 
               {/* Enemy Side (mobile-style): full-width 2-column grid, same on PC */}
-              <div className="space-y-2 text-right w-full">
+                <div className="space-y-2 text-right w-full">
                 <h3 className="font-bold text-lg text-red-400 flex items-center gap-2 justify-end">
                   <span>
                     {combatResult?.enemies && combatResult?.enemies.length > 0
@@ -309,17 +336,17 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
                 </h3>
 
                 {/* Mobile: grid 2 columns x up to 5 rows (vertical scroll). On md+ switch to horizontal scroll for wide screens */}
-                <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto py-1 pr-2">
+                <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(110px,1fr))] max-h-[520px] overflow-y-auto py-1 pr-2">
                   {combatResult?.enemies && combatResult?.enemies.map((enemy, index) => {
                     const enemyId = index;
                     const currentHp = enemyHp[enemyId]?.current || enemy.hp;
                     const maxHp = enemyHp[enemyId]?.max || enemy.maxHp;
 
                     return (
-                      <div key={enemyId} className="bg-gray-900/40 p-2 rounded text-xs">
+                      <div key={enemyId} className="bg-gray-900/40 p-1 sm:p-2 rounded text-[12px]">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium truncate">{enemy.name} #{index + 1}</div>
-                          <div className="text-xs text-gray-300">Lv.{enemy.level}</div>
+                          <div className="text-sm font-medium truncate max-w-[70%]">{enemy.name} #{index + 1}</div>
+                          <div className="text-[11px] text-gray-300">Lv.{enemy.level}</div>
                         </div>
                         <div className="mt-1">
                           <Progress
@@ -367,15 +394,15 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
                 </div>
 
                 <div className="flex items-center gap-3 text-sm">
-                  {typeof combatResult?.rewards?.experience === 'number' && combatResult.rewards.experience > 0 && (
+                  {typeof displayedExperience === 'number' && displayedExperience > 0 && (
                     <div className="bg-gray-900/40 px-3 py-2 rounded flex items-center gap-2">
-                      <span className="text-yellow-300 font-semibold">+{combatResult.rewards.experience}</span>
+                      <span className="text-yellow-300 font-semibold">+{displayedExperience}</span>
                       <span className="text-gray-300">EXP</span>
                     </div>
                   )}
-                  {typeof combatResult?.rewards?.gold === 'number' && combatResult.rewards.gold > 0 && (
+                  {typeof displayedGold === 'number' && displayedGold > 0 && (
                     <div className="bg-gray-900/40 px-3 py-2 rounded flex items-center gap-2">
-                      <span className="text-yellow-300 font-semibold">+{combatResult.rewards.gold}</span>
+                      <span className="text-yellow-300 font-semibold">+{displayedGold}</span>
                       <span className="text-gray-300">Gold</span>
                     </div>
                   )}
@@ -384,9 +411,9 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
 
               <div className="bg-gray-900/30 p-3 rounded">
                 <h4 className="font-semibold text-sm text-gray-200 mb-2">Phần thưởng</h4>
-                {combatResult?.rewards?.items && combatResult.rewards.items.length > 0 ? (
+                {displayedItems && displayedItems.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
-                    {combatResult.rewards.items.map((it: any, idx: number) => (
+                    {displayedItems.map((it: any, idx: number) => (
                       <div key={idx} className="bg-gray-900/40 p-2 rounded flex items-center justify-between text-xs">
                         <div className="truncate font-medium">{it.name ? it.name : `Item #${it.itemId}`}</div>
                         <div className="text-gray-300 text-xs">x{it.quantity}</div>
@@ -430,7 +457,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
             </div>
             <div className="bg-white rounded p-3 min-h-[60px] flex items-center">
               {lastAction ? (
-                <p className="text-gray-800">{lastAction}</p>
+                <p className="text-gray-800 break-words">{lastAction}</p>
               ) : (
                 <p className="text-gray-500 italic">Trận chiến sẽ bắt đầu...</p>
               )}
@@ -438,8 +465,8 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
           </div>
 
           {/* Controls */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -479,10 +506,12 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
               </Button>
             </div>
 
-            <Progress 
-              value={(currentLogIndex / (combatResult?.logs?.length || 1)) * 100} 
-              className="flex-1 mx-4 h-2"
-            />
+            <div className="w-full sm:w-auto flex items-center">
+              <Progress 
+                value={(currentLogIndex / (combatResult?.logs?.length || 1)) * 100} 
+                className="flex-1 mx-4 h-2 min-w-0"
+              />
+            </div>
           </div>
 
           

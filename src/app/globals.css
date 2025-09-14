@@ -128,3 +128,35 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Mobile safe-area + touch improvements */
+:root {
+  /* Expose safe area variables for iOS notch devices */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* Ensure the app content respects notch and home indicator */
+body {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Make interactive elements easier to tap */
+button, .btn, .ui-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Bottom nav spacing if present (GameLayout uses fixed bottom nav) */
+.game-bottom-nav-spacer {
+  height: calc(56px + var(--safe-bottom));
+}
+

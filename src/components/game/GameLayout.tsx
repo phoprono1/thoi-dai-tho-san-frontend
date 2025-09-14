@@ -3,8 +3,16 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { useUIStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import {
   User,
   Package,
@@ -13,6 +21,9 @@ import {
   Coins,
   Scroll
 } from 'lucide-react';
+import { Menu, Mail, Settings } from 'lucide-react';
+import MailboxModal from '@/components/ui/MailboxModal';
+import { useMailboxStore } from '@/stores/useMailboxStore';
 import { Spinner } from '../ui/spinner';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 
@@ -24,6 +35,8 @@ interface GameLayoutProps {
 
 export default function GameLayout({ children, activeTab, onTabChange }: GameLayoutProps) {
   const { user, logout, isLoading } = useAuth();
+  const { openModal } = useUIStore();
+  const unreadCount = useMailboxStore((s) => s.unreadCount);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -101,7 +114,7 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
         </div>
         <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-2">
-              {tabs.map((tab) => {
+            {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = computedActiveTab === tab.id;
 
@@ -109,11 +122,10 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive
                       ? 'bg-[var(--sidebar-accent)] text-[var(--sidebar-primary)] border-r-2 border-[var(--sidebar-ring)]'
                       : 'text-[var(--sidebar-foreground)] hover:text-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)]'
-                  }`}
+                    }`}
                 >
                   <Icon className={`h-5 w-5 ${isActive ? 'text-[var(--sidebar-primary)]' : 'text-[var(--sidebar-foreground)]'}`} />
                   <span className="font-medium">{tab.label}</span>
@@ -122,10 +134,23 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
             })}
           </div>
         </nav>
-  <div className="p-4 border-t border-[var(--sidebar-border)]">
-          <Button variant="outline" onClick={logout} className="w-full">
-            Thoát
-          </Button>
+        <div className="p-4 border-t border-[var(--sidebar-border)]">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                <span>Menu</span>
+                <Menu className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openModal('mailbox')}>Mailbox</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {/* settings placeholder */}}>
+                <div className="flex items-center gap-2">Settings <span className="text-xs text-gray-400">(coming)</span></div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => logout()}>Thoát</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
@@ -147,6 +172,12 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
               <div className="flex items-center space-x-3">
                 <span className="text-sm text-[var(--muted-foreground)]">Chào mừng, {user.username}</span>
                 <ThemeToggle />
+                <div className="ml-2">
+                  <Button variant="ghost" size="sm" onClick={() => openModal('mailbox')}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    {unreadCount > 0 ? <Badge variant="destructive">{unreadCount}</Badge> : null}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -168,23 +199,40 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
                   <span className="font-medium">{user.gold.toLocaleString()}</span>
                 </div>
                 <ThemeToggle />
-                <Button variant="outline" size="sm" onClick={logout}>
-                  Thoát
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Menu className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => openModal('mailbox')}>
+                      <Mail className="h-4 w-4 mr-2" /> Mailbox
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {/* settings placeholder */}}>
+                      <Settings className="h-4 w-4 mr-2" /> Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => logout()}>Thoát</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 pb-20 lg:pb-0">
-          <div className="max-w-md mx-auto lg:max-w-none px-4 lg:px-6 xl:px-8 py-6">
+        <main className="flex-1 lg:pb-0" style={{ paddingBottom: 'calc(56px + var(--safe-bottom))' }}>
+          <div className="w-full max-w-full mx-auto lg:max-w-none px-4 sm:px-6 lg:px-6 xl:px-8 py-6">
             {children}
           </div>
         </main>
 
+        {/* Global Modals */}
+        <MailboxModal />
+
         {/* Bottom Navigation - Mobile Only */}
-  <nav className="fixed bottom-0 left-0 right-0 bg-[var(--card)] border-t border-[var(--border)] shadow-lg z-50 lg:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 bg-[var(--card)] border-t border-[var(--border)] shadow-lg z-50 lg:hidden">
           <div className="flex justify-around items-center py-2 px-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -194,11 +242,10 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${
-                    isActive
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${isActive
                       ? 'bg-[var(--sidebar-accent)] text-[var(--sidebar-primary)]'
                       : 'text-[var(--muted-foreground)] hover:text-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)]'
-                  }`}
+                    }`}
                 >
                   <Icon className={`h-6 w-6 mb-1 ${isActive ? 'text-[var(--sidebar-primary)]' : 'text-[var(--muted-foreground)]'}`} />
                   <span className={`text-xs font-medium ${isActive ? 'text-[var(--sidebar-primary)]' : ''}`}>

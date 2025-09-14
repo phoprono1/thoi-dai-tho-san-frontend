@@ -247,7 +247,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="w-full max-w-full px-4 py-8">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded mb-4"></div>
           <div className="h-64 bg-gray-200 rounded"></div>
@@ -258,11 +258,11 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
 
   if (error) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="w-full max-w-full px-4 py-8">
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-red-500 mb-4">Không thể tải thông tin phòng</p>
-                    <Button onClick={() => router.push('/game/explore')}>Quay lại khám phá</Button>
+            <Button onClick={() => router.push('/game/explore')}>Quay lại khám phá</Button>
           </CardContent>
         </Card>
       </div>
@@ -308,8 +308,8 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-full px-4 py-8">
+      <div className="w-full max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -328,7 +328,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
             <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Thông tin phòng</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-gray-500">Dungeon</p>
                 {isHost ? (
@@ -364,7 +364,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
           <CardContent>
             <div className="space-y-3">
               {room.players.map((player: { id: number; player: { username: string; level: number; id: number }; status: string }) => (
-                <div key={player.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={player.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2">
                   <div className="flex items-center gap-3">
                     {player.player.id === room.host.id && (<Crown className="h-4 w-4 text-yellow-500" />)}
                     <div>

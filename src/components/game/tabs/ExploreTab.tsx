@@ -81,6 +81,16 @@ export default function ExploreTab() {
           <span className="font-medium">Dungeon</span>
         </Button>
 
+        {/* Markets Button */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-indigo-50 hover:border-indigo-300"
+          onClick={() => router.push('/game/explore/markets')}
+        >
+          <MapPin className="h-8 w-8 text-indigo-600" />
+          <span className="font-medium">Cửa hàng</span>
+        </Button>
+
         {/* PvP Button */}
         <Dialog>
           <DialogTrigger asChild>

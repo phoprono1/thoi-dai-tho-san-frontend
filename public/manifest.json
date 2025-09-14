@@ -1,0 +1,17 @@
+{
+  "name": "Thời Đại Thợ Săn",
+  "short_name": "Thợ Săn",
+  "start_url": "/game",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "description": "Web game textbase Thời Đại Thợ Săn",
+  "icons": [
+    {
+      "src": "/file.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -57,9 +57,9 @@ export default function DungeonsPage() {
   return (
     <>
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+  <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold">Hầm Ngục</h1>
-        <div className="flex items-center space-x-2">
+  <div className="flex flex-wrap items-center space-x-2">
           <input
             placeholder="Tìm theo tên..."
             value={filterText}
@@ -82,7 +82,7 @@ export default function DungeonsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
           <div>Đang tải...</div>
         ) : (
