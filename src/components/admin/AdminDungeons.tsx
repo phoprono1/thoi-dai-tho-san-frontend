@@ -22,6 +22,7 @@ interface Dungeon {
   isHidden: boolean;
   requiredItem: number | null;
   dropItems: { itemId: number; dropRate: number }[] | null;
+  description?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,6 +34,7 @@ export default function AdminDungeons() {
     levelRequirement: 1,
     isHidden: false,
     requiredItem: 0,
+    description: '',
     monsterIds: [] as number[],
     monsterCounts: [] as { monsterId: number; count: number }[],
     dropItems: [] as { itemId: number; dropRate: number }[],
@@ -151,6 +153,7 @@ export default function AdminDungeons() {
       levelRequirement: 1,
       isHidden: false,
       requiredItem: 0,
+      description: '',
       monsterIds: [],
       monsterCounts: [],
       dropItems: [],
@@ -169,6 +172,7 @@ export default function AdminDungeons() {
       levelRequirement: formData.levelRequirement,
       isHidden: formData.isHidden,
       requiredItem: formData.requiredItem > 0 ? formData.requiredItem : null,
+      description: formData.description || null,
       monsterIds: formData.monsterIds,
       monsterCounts: formData.monsterCounts,
       dropItems: formData.dropItems.length > 0 ? formData.dropItems : null,
@@ -188,6 +192,7 @@ export default function AdminDungeons() {
       levelRequirement: formData.levelRequirement,
       isHidden: formData.isHidden,
       requiredItem: formData.requiredItem > 0 ? formData.requiredItem : null,
+      description: formData.description || null,
       monsterIds: formData.monsterIds,
       monsterCounts: formData.monsterCounts,
       dropItems: formData.dropItems.length > 0 ? formData.dropItems : null,
@@ -261,6 +266,7 @@ export default function AdminDungeons() {
       levelRequirement: dungeon.levelRequirement,
       isHidden: dungeon.isHidden,
       requiredItem: dungeon.requiredItem || 0,
+      description: dungeon.description || '',
       monsterIds: dungeon.monsterIds || [],
       monsterCounts: dungeon.monsterCounts || [],
       dropItems: dungeon.dropItems || [],
@@ -313,6 +319,13 @@ export default function AdminDungeons() {
           </div>
         );
       },
+    },
+    {
+      key: 'description' as keyof Dungeon,
+      label: 'Mô tả',
+      render: (value: unknown) => (
+        <div className="text-sm max-w-xl truncate">{(value as string) || '—'}</div>
+      ),
     },
   ];
 
@@ -513,6 +526,18 @@ export default function AdminDungeons() {
                 ))}
               </select>
             </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Mô tả (tùy chọn)</Label>
+                <textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-gray-100"
+                  placeholder="Mô tả ngắn cho dungeon (tùy chọn)"
+                  rows={3}
+                />
+              </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">

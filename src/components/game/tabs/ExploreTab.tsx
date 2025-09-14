@@ -1,23 +1,11 @@
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import {
-  Sword,
-  Users,
-  MapPin,
-  Trophy,
-  Target,
-  Crown,
-  Shield,
-  Zap
-} from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '@/lib/api-service';
-import { useAutoCancelRoom } from '@/components/game/hooks/useAutoCancelRoom';
-import { RoomLobby, Dungeon } from '@/types';
-import { useState } from 'react';
-import { useAuth } from '@/components/providers/AuthProvider';
+import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap } from 'lucide-react';
+// queries/mutations moved to specific pages
 import { useRouter } from 'next/navigation';
 
 interface PvPMatch {
@@ -29,47 +17,11 @@ interface PvPMatch {
 }
 
 export default function ExploreTab() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
+  // user context can be used within specific pages if needed
   const router = useRouter();
-  const [selectedDungeon, setSelectedDungeon] = useState<Dungeon | null>(null);
-  const [roomName, setRoomName] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState(4);
-  const [isPrivate, setIsPrivate] = useState(false);
+  // Explore tab is now lightweight; dungeon flows moved to /dungeons
 
-  // Fetch room lobbies (we filter out cancelled rooms on the client)
-  const { data: roomLobbiesRaw = [], isLoading: isLoadingRooms, error: roomsError } = useQuery<RoomLobby[]>({
-    queryKey: ['room-lobbies'],
-    queryFn: () => apiService.getRoomLobbies(),
-    refetchInterval: 5000, // Refetch every 5 seconds
-  });
-  const roomLobbies = (roomLobbiesRaw || []).filter(r => r.status !== 'cancelled');
-
-  // Fetch dungeons
-  const { data: dungeons = [], isLoading: isLoadingDungeons } = useQuery({
-    queryKey: ['dungeons'],
-    queryFn: () => apiService.getDungeons(),
-  });
-
-  // Mutations
-  const createRoomMutation = useMutation({
-    mutationFn: (data: { hostId: number; dungeonId: number; name: string; maxPlayers?: number; isPrivate?: boolean }) =>
-      apiService.createRoomLobby(data),
-    onSuccess: (room) => {
-      // Redirect to room page
-      router.push(`/room/${room.id}`);
-    },
-  });
-
-  const joinRoomMutation = useMutation({
-    mutationFn: ({ roomId, playerId }: { roomId: number; playerId: number }) =>
-      apiService.joinRoomLobby(roomId, playerId),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['room-lobbies'] });
-      // Redirect to room page after successfully joining
-      router.push(`/room/${variables.roomId}`);
-    },
-  });
+  // No room/dungeon queries here anymore; moved to /dungeons route
 
   // Mock data cho PvP matches (tạm thời giữ lại)
   const pvpMatches: PvPMatch[] = [
@@ -98,54 +50,7 @@ export default function ExploreTab() {
     }
   };
 
-  const getRoomStatusColor = (status: string) => {
-    switch (status) {
-      case 'waiting': return 'text-green-600 bg-green-100';
-      case 'starting': return 'text-yellow-600 bg-yellow-100';
-      case 'in_combat': return 'text-red-600 bg-red-100';
-      case 'completed': return 'text-blue-600 bg-blue-100';
-      case 'cancelled': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getRoomStatusText = (status: string) => {
-    switch (status) {
-      case 'waiting': return 'Đang chờ';
-      case 'starting': return 'Chuẩn bị';
-      case 'in_combat': return 'Đang chiến đấu';
-      case 'completed': return 'Hoàn thành';
-      case 'cancelled': return 'Đã hủy';
-      default: return 'Không xác định';
-    }
-  };
-
-  const handleCreateRoom = () => {
-    if (!user) {
-      alert('Vui lòng đăng nhập để tạo phòng');
-      return;
-    }
-    if (!selectedDungeon || !roomName.trim()) {
-      alert('Vui lòng chọn dungeon và nhập tên phòng');
-      return;
-    }
-
-    createRoomMutation.mutate({
-      hostId: user.id,
-      name: roomName.trim(),
-      dungeonId: selectedDungeon.id,
-      maxPlayers,
-      isPrivate,
-    });
-  };
-
-  const handleJoinRoom = (roomId: number) => {
-    if (!user) {
-      alert('Vui lòng đăng nhập để tham gia phòng');
-      return;
-    }
-  joinRoomMutation.mutate({ roomId, playerId: user.id });
-  };
+  // dungeon create/join logic moved to dedicated page
 
   const handleJoinPvP = () => {
     // TODO: Implement join PvP match logic
@@ -155,9 +60,7 @@ export default function ExploreTab() {
     // TODO: Implement create PvP match logic
   };
 
-  // If the current user is the host of an active room, wire a best-effort auto-cancel when they navigate away
-  const hostRoom = user ? (roomLobbies as RoomLobby[]).find(r => r.host && r.host.id === user.id) : null;
-  useAutoCancelRoom(hostRoom ? hostRoom.id : null, Boolean(hostRoom));
+  // Explore tab no longer manages host rooms directly
 
   return (
     <div className="p-4">
@@ -168,205 +71,15 @@ export default function ExploreTab() {
 
       {/* Game Mode Buttons */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {/* Dungeon Button */}
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-300"
-            >
-              <MapPin className="h-8 w-8 text-blue-600" />
-              <span className="font-medium">Dungeon</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center space-x-2">
-                <MapPin className="h-5 w-5 text-blue-600" />
-                <span>Chế Độ Dungeon</span>
-              </DialogTitle>
-              <DialogDescription>
-                Tham gia phòng dungeon hoặc tạo phòng mới để bắt đầu cuộc phiêu lưu
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {/* Create Room Form */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Tạo Phòng Dungeon Mới</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Tên Phòng</label>
-                    <input
-                      type="text"
-                      value={roomName}
-                      onChange={(e) => setRoomName(e.target.value)}
-                      placeholder="Nhập tên phòng..."
-                      className="w-full px-3 py-2 border rounded-md"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Chọn Dungeon</label>
-                    <select
-                      value={selectedDungeon?.id || ''}
-                      onChange={(e) => {
-                        const dungeon = dungeons.find(d => d.id === parseInt(e.target.value));
-                        setSelectedDungeon(dungeon || null);
-                      }}
-                      className="w-full px-3 py-2 border rounded-md"
-                      disabled={isLoadingDungeons}
-                    >
-                      <option value="">Chọn dungeon...</option>
-                      {dungeons.map((dungeon) => (
-                        <option key={dungeon.id} value={dungeon.id}>
-                          {dungeon.name} (Lv.{dungeon.levelRequirement}+)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Số Người Tối Đa</label>
-                      <select
-                        value={maxPlayers}
-                        onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border rounded-md"
-                      >
-                        <option value={1}>1 người</option>
-                        <option value={2}>2 người</option>
-                        <option value={3}>3 người</option>
-                        <option value={4}>4 người</option>
-                        <option value={5}>5 người</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Loại Phòng</label>
-                      <select
-                        value={isPrivate ? 'private' : 'public'}
-                        onChange={(e) => setIsPrivate(e.target.value === 'private')}
-                        className="w-full px-3 py-2 border rounded-md"
-                      >
-                        <option value="public">Công khai</option>
-                        <option value="private">Riêng tư</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handleCreateRoom}
-                    className="w-full"
-                    disabled={createRoomMutation.isPending || !selectedDungeon || !roomName.trim()}
-                  >
-                    {createRoomMutation.isPending ? 'Đang tạo...' : 'Tạo Phòng'}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Room Lobbies List */}
-              <div className="space-y-3">
-                {isLoadingRooms ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Đang tải danh sách phòng...</p>
-                  </div>
-                ) : roomsError ? (
-                  <div className="text-center py-8 text-red-600">
-                    <p>Lỗi khi tải danh sách phòng</p>
-                    <Button
-                      variant="outline"
-                      onClick={() => queryClient.invalidateQueries({ queryKey: ['room-lobbies'] })}
-                      className="mt-2"
-                    >
-                      Thử lại
-                    </Button>
-                  </div>
-                ) : (
-                  roomLobbies.map((room) => {
-                    const isHost = Boolean(user && room.host && user.id === room.host.id);
-                    return (
-                      <Card key={room.id} className="hover:shadow-md transition-shadow">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <CardTitle className="text-lg flex items-center space-x-2">
-                                <span>{room.name}</span>
-                                {room.isPrivate && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Riêng tư
-                                  </Badge>
-                                )}
-                              </CardTitle>
-                              <CardDescription className="space-y-1">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm">Host: {room.host.username} (Lv.{room.host.level})</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm">Dungeon: {room.dungeon.name}</span>
-                                  <Badge className="text-xs text-blue-600 bg-blue-100">
-                                    Lv.{room.dungeon.levelRequirement}+
-                                  </Badge>
-                                </div>
-                              </CardDescription>
-                            </div>
-                            <div className="text-right space-y-2">
-                              <div className="flex items-center space-x-1 text-sm text-gray-600">
-                                <Users className="h-4 w-4" />
-                                <span>{room.currentPlayers}/{room.maxPlayers}</span>
-                              </div>
-                              <Badge className={`text-xs ${getRoomStatusColor(room.status)}`}>
-                                {getRoomStatusText(room.status)}
-                              </Badge>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm text-gray-600">
-                              Tạo: {new Date(room.createdAt).toLocaleString('vi-VN')}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {isHost && (
-                                <Button
-                                  variant="destructive"
-                                  onClick={() => apiService.leaveRoomLobby(room.id, user?.id ?? -1).then(() => queryClient.invalidateQueries({ queryKey: ['room-lobbies'] }))}
-                                >Hủy phòng</Button>
-                              )}
-                              <Button
-                                onClick={() => handleJoinRoom(room.id)}
-                                className="ml-4"
-                                disabled={room.status !== 'waiting' || room.currentPlayers >= room.maxPlayers || joinRoomMutation.isPending}
-                                variant={room.status === 'waiting' ? 'default' : 'secondary'}
-                              >
-                                {joinRoomMutation.isPending ? 'Đang tham gia...' :
-                                 room.status === 'waiting'
-                                   ? (room.currentPlayers >= room.maxPlayers ? 'Phòng đầy' : 'Tham gia')
-                                   : getRoomStatusText(room.status)
-                                }
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
-
-                {!isLoadingRooms && !roomsError && roomLobbies.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Chưa có phòng nào được tạo</p>
-                    <p className="text-sm">Hãy tạo phòng đầu tiên!</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Dungeon Button now navigates to /dungeons to keep Explore tab lightweight */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-300"
+          onClick={() => router.push('/game/explore/dungeons')}
+        >
+          <MapPin className="h-8 w-8 text-blue-600" />
+          <span className="font-medium">Dungeon</span>
+        </Button>
 
         {/* PvP Button */}
         <Dialog>

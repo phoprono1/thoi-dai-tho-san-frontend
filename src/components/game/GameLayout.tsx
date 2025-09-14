@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -22,9 +22,10 @@ interface GameLayoutProps {
   onTabChange?: (tabId: string) => void;
 }
 
-export default function GameLayout({ children, activeTab = 'status', onTabChange }: GameLayoutProps) {
+export default function GameLayout({ children, activeTab, onTabChange }: GameLayoutProps) {
   const { user, logout, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   // Handle redirect in useEffect to avoid setState during render
   useEffect(() => {
@@ -52,12 +53,43 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
     { id: 'guild', label: 'Công hội', icon: Users, color: 'text-indigo-500' },
   ];
 
+  const validTabIds = tabs.map(t => t.id);
+
+  // Determine active tab: prefer explicit prop, otherwise map /game/<tab> and /game/<tab>/** to the correct tab
+  const computedActiveTab = (() => {
+    if (activeTab && validTabIds.includes(activeTab)) return activeTab;
+    if (!pathname) return 'status';
+
+    // normalize and split path
+    const parts = pathname.split('/').filter(Boolean);
+
+    // If path doesn't start with 'game', fall back to heuristics (for legacy routes)
+    if (parts.length === 0) return 'status';
+
+    if (parts[0] === 'game') {
+      // /game -> status
+      if (parts.length === 1) return 'status';
+      const maybeTab = parts[1];
+      if (validTabIds.includes(maybeTab)) return maybeTab;
+      // fallback: if second segment is 'explore' or 'dungeons' treat as explore
+      if (maybeTab === 'explore' || maybeTab === 'dungeons') return 'explore';
+    }
+
+    // Legacy or non-/game paths that still should map to explore
+    if (pathname.startsWith('/dungeons') || pathname.startsWith('/explore')) return 'explore';
+
+    return 'status';
+  })();
+
   const handleTabChange = (tabId: string) => {
+    if (!validTabIds.includes(tabId)) return;
     if (onTabChange) {
       onTabChange(tabId);
-    } else {
-      // TODO: Implement tab navigation
+      return;
     }
+    // No parent handler -> navigate to the main game page route for the selected tab
+    const target = tabId === 'status' ? '/game' : `/game/${tabId}`;
+    router.push(target);
   };
 
   return (
@@ -69,9 +101,9 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
         </div>
         <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-2">
-            {tabs.map((tab) => {
+              {tabs.map((tab) => {
               const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
+              const isActive = computedActiveTab === tab.id;
 
               return (
                 <button
@@ -156,7 +188,7 @@ export default function GameLayout({ children, activeTab = 'status', onTabChange
           <div className="flex justify-around items-center py-2 px-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
+              const isActive = computedActiveTab === tab.id;
 
               return (
                 <button

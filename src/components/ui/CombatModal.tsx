@@ -20,7 +20,7 @@ import {
   CornerUpLeft
 } from 'lucide-react';
 
-interface CombatDetails {
+export interface CombatDetails {
   actor: 'player' | 'enemy';
   actorName: string;
   targetName: string;
@@ -34,7 +34,7 @@ interface CombatDetails {
   effects?: string[];
 }
 
-interface CombatLogEntry {
+export interface CombatLogEntry {
   id: number;
   userId: number;
   turn: number;
@@ -43,7 +43,7 @@ interface CombatLogEntry {
   details: CombatDetails;
 }
 
-interface CombatResult {
+export interface CombatResult {
   id: number;
   result: 'victory' | 'defeat' | 'escape';
   duration: number;

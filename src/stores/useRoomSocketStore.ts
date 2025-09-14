@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { io, Socket } from 'socket.io-client';
+import { toast } from 'sonner';
 
 interface CombatResult {
   id: number;
@@ -89,7 +90,7 @@ interface RoomSocketState {
   // Actions
   connect: () => void;
   disconnect: () => void;
-  joinRoom: (roomId: number, userId: number) => Promise<void>;
+  joinRoom: (roomId: number, userId: number, password?: string) => Promise<void>;
   leaveRoom: (roomId: number, userId: number) => Promise<void>;
   toggleReady: (roomId: number, userId: number) => Promise<void>;
   startCombat: (roomId: number, userId: number) => Promise<void>;
@@ -218,7 +219,7 @@ export const useRoomSocketStore = create<RoomSocketState>()(
       }
     },
 
-    joinRoom: async (roomId: number, userId: number) => {
+    joinRoom: async (roomId: number, userId: number, password?: string) => {
       const { socket, joinedRooms, connectionAttempts } = get();
       
       if (!socket) {
@@ -248,7 +249,17 @@ export const useRoomSocketStore = create<RoomSocketState>()(
   // Joining room (debug logs removed)
 
       return new Promise<void>((resolve, reject) => {
-        socket.emit('joinRoom', { roomId, userId }, (response: SocketResponse) => {
+        const pwToSend = typeof password === 'string' ? password.trim() : password;
+        try {
+          const masked = pwToSend ? '<PROVIDED>' : '<NONE>';
+          // Also log the masked length for diagnostics (no raw password ever logged)
+          const len = typeof pwToSend === 'string' ? pwToSend.length : 0;
+          console.debug(`[RoomSocket] Emitting joinRoom for room ${roomId}, user ${userId}, password=${masked}, length=${len}`);
+        } catch {
+          // ignore logging errors
+        }
+
+        socket.emit('joinRoom', { roomId, userId, password: pwToSend }, (response: SocketResponse) => {
           if (response?.success) {
             // Successfully joined room — clear any previous combat result so we don't replay old logs
             set({ 
@@ -257,11 +268,14 @@ export const useRoomSocketStore = create<RoomSocketState>()(
               error: null,
               combatResult: null,
             });
+            try { sessionStorage.removeItem(`room:${roomId}:password`); } catch { }
             resolve();
           } else {
             const errorMsg = response?.error || 'Unknown error';
             console.error(`[RoomSocket] Failed to join room ${roomId}:`, errorMsg);
             set({ error: errorMsg });
+            // Show toast for server-provided errors
+            try { toast.error(errorMsg); } catch {}
             reject(new Error(errorMsg));
           }
         });
@@ -288,8 +302,10 @@ export const useRoomSocketStore = create<RoomSocketState>()(
             });
             resolve();
           } else {
-            set({ error: response.error || 'Unknown error' });
-            reject(new Error(response.error || 'Unknown error'));
+            const errorMsg = response.error || 'Unknown error';
+            set({ error: errorMsg });
+            try { toast.error(errorMsg); } catch {}
+            reject(new Error(errorMsg));
           }
         });
       });
@@ -308,8 +324,10 @@ export const useRoomSocketStore = create<RoomSocketState>()(
             set({ roomInfo: response.roomInfo || null, error: null });
             resolve();
           } else {
-            set({ error: response.error || 'Unknown error' });
-            reject(new Error(response.error || 'Unknown error'));
+            const errorMsg = response.error || 'Unknown error';
+            set({ error: errorMsg });
+            try { toast.error(errorMsg); } catch {}
+            reject(new Error(errorMsg));
           }
         });
       });
@@ -330,6 +348,7 @@ export const useRoomSocketStore = create<RoomSocketState>()(
           } else {
             const errorMessage = response?.error || 'Unknown error occurred';
             set({ error: errorMessage });
+            try { toast.error(errorMessage); } catch {}
             reject(new Error(errorMessage));
           }
         });
@@ -351,6 +370,7 @@ export const useRoomSocketStore = create<RoomSocketState>()(
           } else {
             const errorMessage = response?.error || 'Unknown error occurred';
             set({ error: errorMessage });
+            try { toast.error(errorMessage); } catch {}
             reject(new Error(errorMessage));
           }
         });
@@ -372,6 +392,7 @@ export const useRoomSocketStore = create<RoomSocketState>()(
           } else {
             const errorMessage = response?.error || 'Unknown error occurred';
             set({ error: errorMessage });
+            try { toast.error(errorMessage); } catch {}
             reject(new Error(errorMessage));
           }
         });

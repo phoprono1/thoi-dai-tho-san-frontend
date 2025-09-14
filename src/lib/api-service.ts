@@ -38,7 +38,19 @@ class ApiService {
     const response = await fetch(url, config);
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      // try to parse error body to extract a friendly message
+      const errorText = await response.text();
+      let errMsg = `API request failed: ${response.status} ${response.statusText}`;
+      if (errorText) {
+        try {
+          const errJson = JSON.parse(errorText);
+          if (errJson?.message) errMsg = String(errJson.message);
+        } catch {
+          // non-json error body, fallback to raw text
+          errMsg = errorText;
+        }
+      }
+      throw new Error(errMsg);
     }
 
     // Get response text first to check if it's empty
@@ -233,6 +245,7 @@ class ApiService {
     name: string;
     maxPlayers?: number;
     isPrivate?: boolean;
+    password?: string;
   }): Promise<RoomLobby> {
     return this.request<RoomLobby>('/room-lobby/create', {
       method: 'POST',
@@ -240,10 +253,10 @@ class ApiService {
     });
   }
 
-  async joinRoomLobby(roomId: number, playerId: number): Promise<{ success: boolean; message: string; roomLobby: RoomLobby }> {
+  async joinRoomLobby(roomId: number, playerId: number, password?: string): Promise<{ success: boolean; message: string; roomLobby: RoomLobby }> {
     return this.request(`/room-lobby/${roomId}/join`, {
       method: 'POST',
-      body: JSON.stringify({ playerId }),
+      body: JSON.stringify({ playerId, password }),
     });
   }
 

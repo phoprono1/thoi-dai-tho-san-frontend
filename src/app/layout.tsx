@@ -19,6 +19,7 @@ const GlobalChat = dynamic(() => import('@/components/global-chat/global-chat').
   ssr: false,
 });
 
+
 const ThemeProviderClient = dynamic(() => import('@/components/providers/ThemeProviderClient'), { ssr: false });
 
 const geistSans = Geist({

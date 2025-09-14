@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { apiService } from '@/lib/api-service';
 import { useRoomSocketStore } from '@/stores/useRoomSocketStore';
 
 interface RoomData {
@@ -76,16 +77,51 @@ export function useRoomSocket({
 
   // Auto-joining room (debug logs removed)
 
-    // Attempt to join
-    joinRoom(roomId, userId)
-      .then(() => {
-        // Successfully auto-joined
-      })
-      .catch((error: Error) => {
-        console.warn(`[useRoomSocket] Auto-join failed for room ${roomId}:`, error.message);
+    // Attempt to join (include password if we have it temporarily stored)
+    const storedKey = `room:${roomId}:password`;
+    const pw = typeof window !== 'undefined' ? sessionStorage.getItem(storedKey) || undefined : undefined;
+
+    // If the current user is the host, try REST join first so the server records the host as joined
+    // This can help if the socket join handler validates differently.
+    const tryRestJoinForHost = async () => {
+      try {
+        if (isHost) {
+          console.debug(`[useRoomSocket] Attempting REST join for host ${userId} to room ${roomId}`);
+          await apiService.joinRoomLobby(roomId, userId, pw);
+          console.debug(`[useRoomSocket] REST join succeeded for host ${userId} to room ${roomId}`);
+          // After REST join, attempt socket join without password
+          await joinRoom(roomId, userId);
+          return true;
+        }
+      } catch (err) {
+        console.warn(`[useRoomSocket] REST join for host ${userId} failed for room ${roomId}:`, err instanceof Error ? err.message : err);
+        // fall through to socket join attempt below
+      }
+      return false;
+    };
+
+    (async () => {
+      try {
+        let handled = false;
+        if (isHost) {
+          handled = await tryRestJoinForHost();
+        }
+
+        if (!handled) {
+          // fallback: socket join (include password if available)
+          await joinRoom(roomId, userId, pw);
+        }
+      } catch (error: unknown) {
+        let msg = String(error);
+        if (error && typeof error === 'object') {
+          const rec = error as Record<string, unknown>;
+          if (typeof rec['message'] === 'string') msg = String(rec['message']);
+        }
+        console.warn(`[useRoomSocket] Auto-join failed for room ${roomId}:`, msg);
         // Reset attempt on failure so it can be retried later if needed
         joinAttemptRef.current.delete(attemptKey);
-      });
+      }
+    })();
 
   }, [enabled, roomData?.id, userId, isConnected, joinedRooms, joinRoom, roomData]);
 
