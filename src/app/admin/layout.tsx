@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
@@ -29,6 +29,8 @@ import {
   PawPrint,
   Crosshair
 } from 'lucide-react';
+import AdminLogin from '@/components/admin/AdminLogin';
+import { useAdmin } from '@/components/providers/AdminProvider';
 
 // Admin-specific query client without global interceptors
 const adminQueryClient = new QueryClient({
@@ -79,6 +81,30 @@ export default function AdminLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+
+  // AdminGate component ensures every admin route requires auth
+  function AdminGate({ children }: { children: React.ReactNode }) {
+    const { isAdminAuthenticated } = useAdmin();
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+      setIsClient(true);
+    }, []);
+
+    if (!isClient) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-lg">Đang kiểm tra quyền truy cập...</div>
+        </div>
+      );
+    }
+
+    if (!isAdminAuthenticated) {
+      return <AdminLogin />;
+    }
+
+    return <>{children}</>;
+  }
 
   return (
     <QueryClientProvider client={adminQueryClient}>
@@ -183,7 +209,9 @@ export default function AdminLayout({
 
             {/* Page content */}
             <main className="p-4 lg:p-8">
-              {children}
+              <AdminGate>
+                {children}
+              </AdminGate>
             </main>
           </div>
         </div>

@@ -33,6 +33,16 @@ export default function LoginForm({ defaultMode = 'login' }: LoginFormProps) {
       return;
     }
 
+    // When registering, enforce password strength requirements
+    if (!isLogin) {
+      // At least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special
+      const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+      if (!strongPasswordRegex.test(password)) {
+        toast.error('Mật khẩu phải có ít nhất 8 ký tự, bao gồm 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt');
+        return;
+      }
+    }
+
     try {
       if (isLogin) {
         await login(username, password);

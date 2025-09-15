@@ -143,12 +143,12 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => openModal('mailbox')}>Mailbox</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {/* settings placeholder */}}>
-                <div className="flex items-center gap-2">Settings <span className="text-xs text-gray-400">(coming)</span></div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => logout()}>Thoát</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openModal('mailbox')}>Mailbox</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/settings') }>
+                  <div className="flex items-center gap-2">Cài đặt</div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => logout()}>Thoát</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -209,8 +209,8 @@ export default function GameLayout({ children, activeTab, onTabChange }: GameLay
                     <DropdownMenuItem onClick={() => openModal('mailbox')}>
                       <Mail className="h-4 w-4 mr-2" /> Mailbox
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {/* settings placeholder */}}>
-                      <Settings className="h-4 w-4 mr-2" /> Settings
+                    <DropdownMenuItem onClick={() => router.push('/settings')}>
+                      <Settings className="h-4 w-4 mr-2" /> Cài đặt
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => logout()}>Thoát</DropdownMenuItem>
