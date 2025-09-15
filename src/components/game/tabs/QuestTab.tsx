@@ -13,7 +13,8 @@ import {
   Circle,
   Coins,
   Gem,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery } from '@tanstack/react-query';
@@ -248,45 +249,67 @@ export default function QuestTab() {
 
   const filteredQuests = (type: string) => {
     const source = mergedQuests || userQuests;
+
+    // Player level — prefer currentLevel from the status store, fall back to auth user's level
+    const playerLevel = useUserStatusStore.getState().currentLevel?.level ?? authUser?.level ?? 0;
+
+    // Filter out quests that require a higher level than the player has
+    type ReqSmall = { reachLevel?: number; level?: number } | undefined;
+    const byLevel = (uq: UserQuest) => {
+      const req = uq.quest?.requirements as ReqSmall;
+      const requiredLevel = Number(req?.reachLevel ?? req?.level ?? 0) || 0;
+      return requiredLevel <= playerLevel;
+    };
+
+    const list = (source || []).filter((uq) => byLevel(uq));
+
     if (type === 'all') {
-      return source;
+      return list;
     }
 
-    return source.filter((userQuest) => userQuest.quest.type === type);
+    return list.filter((userQuest) => userQuest.quest.type === type);
   };
 
   return (
     <div className="p-4">
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-4">
-          <TabsTrigger value="all">Tất cả</TabsTrigger>
-          <TabsTrigger value="main">Chính</TabsTrigger>
-          <TabsTrigger value="side">Phụ</TabsTrigger>
-          <TabsTrigger value="daily">Hàng ngày</TabsTrigger>
-          <TabsTrigger value="achievement">Thành tựu</TabsTrigger>
+        {/* Responsive tabs: two columns on very small screens, three on small, five on md+ */}
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-4">
+          <TabsTrigger value="all" className="truncate">Tất cả</TabsTrigger>
+          <TabsTrigger value="main" className="truncate">Chính</TabsTrigger>
+          <TabsTrigger value="side" className="truncate">Phụ</TabsTrigger>
+          <TabsTrigger value="daily" className="truncate">Hàng ngày</TabsTrigger>
+          <TabsTrigger value="achievement" className="truncate">Thành tựu</TabsTrigger>
         </TabsList>
 
-        <div className="flex items-center justify-end mb-3">
-          <Button onClick={async () => {
-            if (refreshDisabled) return;
-            try {
-              setRefreshDisabled(true);
-              setRefreshCountdown(5);
-              await refetch();
-            } finally {
-              const timer = window.setInterval(() => {
-                setRefreshCountdown((c: number) => {
-                  if (c <= 1) {
-                    window.clearInterval(timer);
-                    setRefreshDisabled(false);
-                    return 0;
-                  }
-                  return c - 1;
-                });
-              }, 1000);
-            }
-          }} disabled={refreshDisabled} size="sm">Làm mới</Button>
-          {refreshCountdown > 0 && <div className="ml-2 text-sm text-gray-500">({refreshCountdown}s)</div>}
+        <div className="flex items-center justify-end mb-3 space-x-2">
+          <button
+            onClick={async () => {
+              if (refreshDisabled) return;
+              try {
+                setRefreshDisabled(true);
+                setRefreshCountdown(5);
+                await refetch();
+              } finally {
+                const timer = window.setInterval(() => {
+                  setRefreshCountdown((c: number) => {
+                    if (c <= 1) {
+                      window.clearInterval(timer);
+                      setRefreshDisabled(false);
+                      return 0;
+                    }
+                    return c - 1;
+                  });
+                }, 1000);
+              }
+            }}
+            disabled={refreshDisabled}
+            title="Làm mới"
+            className="p-2 rounded-full border bg-white hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshDisabled ? 'animate-spin' : ''}`} />
+          </button>
+          {refreshCountdown > 0 && <div className="text-sm text-gray-500">({refreshCountdown}s)</div>}
         </div>
 
         <TabsContent value="all" className="space-y-3">

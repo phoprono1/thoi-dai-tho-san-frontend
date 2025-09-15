@@ -78,6 +78,35 @@ export default function AdminMarket() {
     },
   });
 
+  // Simple username cache for admin view
+  const [userNames, setUserNames] = useState<Record<number, string>>({});
+  const getUserName = (id?: number | null) => {
+    if (!id && id !== 0) return '—';
+    return userNames[id as number] ?? `Người dùng #${id}`;
+  };
+
+  // preload usernames used in listings/offers/history
+  useEffect(() => {
+    const ids = new Set<number>();
+    (listings || []).forEach((l) => ids.add(l.sellerId));
+    (offers || []).forEach((o) => ids.add(o.buyerId));
+    (history || []).forEach((h) => { ids.add(h.buyerId); ids.add(h.sellerId); });
+    const missing = Array.from(ids).filter((i) => !(i in userNames));
+    if (missing.length === 0) return;
+    let mounted = true;
+    Promise.all(missing.map((id) => api.get(`/users/${id}`).then((r) => r.data).catch(() => null))).then((results) => {
+      if (!mounted) return;
+      const map: Record<number, string> = {};
+      results.forEach((u, idx) => {
+        const id = missing[idx];
+        if (u && u.id) map[id] = u.username || `Người dùng #${id}`;
+      });
+      setUserNames((prev) => ({ ...prev, ...map }));
+    });
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listings, offers, history]);
+
   // Fetch all items for dropdown (simple approach)
   useEffect(() => {
     let mounted = true;
@@ -299,7 +328,7 @@ export default function AdminMarket() {
                   {listings?.map((l: Listing) => (
                     <div key={l.id} className="p-2 border rounded">
                       <div className="font-medium">Listing #{l.id} - Item {l.itemId}</div>
-                      <div className="text-sm text-gray-500">Seller: {l.sellerId} • Price: {l.price} • Active: {l.active ? 'Yes' : 'No'}</div>
+                      <div className="text-sm text-gray-500">Người bán: {getUserName(l.sellerId)} • Giá: {l.price} • Hoạt động: {l.active ? 'Có' : 'Không'}</div>
                     </div>
                   ))}
                   {!listings || listings.length === 0 ? <div className="text-gray-500">No listings</div> : null}
@@ -316,7 +345,7 @@ export default function AdminMarket() {
                   {offers?.map((o: Offer) => (
                     <div key={o.id} className="p-2 border rounded">
                       <div className="font-medium">Offer #{o.id} on Listing {o.listingId}</div>
-                      <div className="text-sm text-gray-500">Buyer: {o.buyerId} • Amount: {o.amount} • Accepted: {o.accepted ? 'Yes' : 'No'} • Cancelled: {o.cancelled ? 'Yes' : 'No'}</div>
+                      <div className="text-sm text-gray-500">Người mua: {getUserName(o.buyerId)} • Số tiền: {o.amount} • Đã chấp nhận: {o.accepted ? 'Có' : 'Không'} • Đã hủy: {o.cancelled ? 'Có' : 'Không'}</div>
                     </div>
                   ))}
                   {!offers || offers.length === 0 ? <div className="text-gray-500">No offers</div> : null}
@@ -336,7 +365,7 @@ export default function AdminMarket() {
                   {history?.map((h: PurchaseHistoryEntry) => (
                     <div key={h.id} className="p-2 border rounded">
                       <div className="font-medium">#{h.id} Item {h.itemId}</div>
-                      <div className="text-sm text-gray-500">Buyer: {h.buyerId} • Seller: {h.sellerId} • Price: {h.price}</div>
+                      <div className="text-sm text-gray-500">Người mua: {getUserName(h.buyerId)} • Người bán: {getUserName(h.sellerId)} • Giá: {h.price}</div>
                     </div>
                   ))}
                   {!history || history.length === 0 ? <div className="text-gray-500">No history</div> : null}

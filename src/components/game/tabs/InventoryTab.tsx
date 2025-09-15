@@ -11,6 +11,7 @@ import {
   Gem,
   Heart,
   Coins,
+  RefreshCw,
   Loader2
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -281,28 +282,37 @@ export default function InventoryTab() {
         <TabsContent value="all" className="space-y-4">
           {/* Controls: sort + page size */}
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Sắp xếp:</label>
-              <select value={sortField} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortField(e.target.value as 'name' | 'price' | 'rarity' | 'type')} className="p-1 rounded border">
-                <option value="name">Tên</option>
-                <option value="price">Giá</option>
-                <option value="rarity">Phẩm chất</option>
-                <option value="type">Loại</option>
-              </select>
-              <button className="px-2 py-1 border rounded" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? '↑' : '↓'}</button>
-            </div>
-            <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">Hiển thị mỗi trang:</label>
+            <div className="flex items-center gap-3 flex-nowrap">
+              <div className="flex flex-col items-start">
+                <label className="text-sm text-gray-600 mb-1">Sắp xếp</label>
+                <div className="flex items-center gap-2">
+                  <select value={sortField} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortField(e.target.value as 'name' | 'price' | 'rarity' | 'type')} className="p-1 rounded border">
+                    <option value="name">Tên</option>
+                    <option value="price">Giá</option>
+                    <option value="rarity">Phẩm chất</option>
+                    <option value="type">Loại</option>
+                  </select>
+                  <button className="px-2 py-1 border rounded" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? '↑' : '↓'}</button>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-start">
+                <label className="text-sm text-gray-600 mb-1">Hiển thị</label>
                 <select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="p-1 rounded border">
                   <option value={12}>12</option>
                   <option value={24}>24</option>
                   <option value={48}>48</option>
                 </select>
               </div>
-              <div className="flex items-center gap-2">
-                <Button onClick={handleRefresh} disabled={refreshDisabled} size="sm">Làm mới</Button>
-                {refreshCountdown > 0 && <div className="text-sm text-gray-500">({refreshCountdown}s)</div>}
+
+              <div className="flex items-center">
+                <button title="Làm mới" onClick={handleRefresh} disabled={refreshDisabled} className="p-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-neutral-950">
+                  <RefreshCw className={`h-5 w-5 ${refreshDisabled ? 'animate-spin' : ''}`} />
+                </button>
               </div>
+            </div>
+
+            {refreshCountdown > 0 && <div className="text-sm text-gray-500">({refreshCountdown}s)</div>}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">

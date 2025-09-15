@@ -403,30 +403,31 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Thông tin phòng</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Dungeon</p>
+          <CardContent className="space-y-2">
+            {/* compact responsive layout: two columns on small screens, 4 columns on md+ */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-start">
+              <div className="col-span-2 md:col-span-1">
+                <p className="text-xs text-gray-500">Dungeon</p>
                 {isHost ? (
-                  <button onClick={() => setShowDungeonDialog(true)} className="font-medium text-left hover:text-blue-600 transition-colors flex items-center gap-1">{currentDungeonName}<Settings className="h-3 w-3" /></button>
+                  <button onClick={() => setShowDungeonDialog(true)} className="font-medium text-left hover:text-blue-600 transition-colors flex items-center gap-1 text-sm truncate">{currentDungeonName}<Settings className="h-3 w-3" /></button>
                 ) : (
-                  <p className="font-medium">{currentDungeonName}</p>
+                  <p className="font-medium text-sm truncate">{currentDungeonName}</p>
                 )}
-                <p className="text-sm text-gray-500">Level {currentDungeonLevel}</p>
+                <p className="text-xs text-gray-500">Lv {currentDungeonLevel}</p>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Host</p>
-                <p className="font-medium flex items-center gap-1"><Crown className="h-4 w-4 text-yellow-500" />{room.host.username}</p>
-                <p className="text-sm text-gray-500">Level {room.host.level}</p>
+              <div className="col-span-1">
+                <p className="text-xs text-gray-500">Host</p>
+                <p className="font-medium text-sm flex items-center gap-1 truncate"><Crown className="h-4 w-4 text-yellow-500" />{room.host.username}</p>
+                <p className="text-xs text-gray-500">Lv {room.host.level}</p>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Số người chơi</p>
-                <p className="font-medium flex items-center gap-1"><Users className="h-4 w-4" />{room.currentPlayers}/{room.maxPlayers}</p>
-                <p className="text-sm text-gray-500">Tối thiểu: {room.minPlayers}</p>
+              <div className="col-span-1">
+                <p className="text-xs text-gray-500">Người chơi</p>
+                <p className="font-medium text-sm flex items-center gap-1"><Users className="h-4 w-4" />{room.currentPlayers}/{room.maxPlayers}</p>
+                <p className="text-xs text-gray-500">Min: {room.minPlayers}</p>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Thời gian tạo</p>
-                <p className="font-medium flex items-center gap-1"><Clock className="h-4 w-4" />{new Date(room.createdAt).toLocaleTimeString()}</p>
+              <div className="col-span-2 md:col-span-1">
+                <p className="text-xs text-gray-500">Tạo lúc</p>
+                <p className="font-medium text-sm flex items-center gap-1"><Clock className="h-4 w-4" />{new Date(room.createdAt).toLocaleTimeString()}</p>
               </div>
             </div>
           </CardContent>
@@ -440,12 +441,12 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
           <CardContent>
             <div className="space-y-3">
               {room.players.map((player: { id: number; player: { username: string; level: number; id: number }; status: string }) => (
-                <div key={player.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-lg gap-2">
-                  <div className="flex items-center gap-3">
-                    {player.player.id === room.host.id && (<Crown className="h-4 w-4 text-yellow-500" />)}
-                    <div>
-                      <p className="font-medium">{player.player.username}</p>
-                      <p className="text-sm text-gray-500">Level {player.player.level}</p>
+                <div key={player.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {player.player.id === room.host.id && (<Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />)}
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{player.player.username}</p>
+                      <p className="text-xs text-gray-500">Lv {player.player.level}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

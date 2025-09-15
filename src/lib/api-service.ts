@@ -283,6 +283,12 @@ class ApiService {
     return this.request<Dungeon[]>('/dungeons');
   }
 
+  // Authenticated endpoint that returns only dungeons the current user
+  // meets the level requirement for.
+  async getEligibleDungeons(): Promise<Dungeon[]> {
+    return this.request<Dungeon[]>('/dungeons/eligible');
+  }
+
   async getDungeon(dungeonId: number): Promise<Dungeon> {
     return this.request<Dungeon>(`/dungeons/${dungeonId}`);
   }

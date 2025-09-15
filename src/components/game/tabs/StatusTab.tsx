@@ -6,9 +6,103 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { User, Heart, Zap, Shield, Sword, Coins, Star, TrendingUp } from 'lucide-react';
 import { useUserStatusStore } from '@/stores/user-status.store';
+import { UserStats, UserItem } from '@/types';
+
+type ComputeOptions = {
+  exponent?: number;
+  coeffs?: {
+    atkFromSTR?: number;
+    atkFromINT?: number;
+    atkFromDEX?: number;
+    hpFromVIT?: number;
+    defFromVIT?: number;
+  };
+  weights?: {
+    attack?: number;
+    hp?: number;
+    defense?: number;
+    misc?: number;
+  };
+};
 import { useUserStatus } from '@/hooks/use-user-status';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Spinner } from '@/components/ui/spinner';
+
+// Port of backend computeCombatPowerFromStats to provide a deterministic
+// client-side fallback when server doesn't return a precomputed combatPower.
+function computeCombatPowerFromStats(
+  userStat: Partial<UserStats>,
+  equippedItems: UserItem[] = [],
+  opts: ComputeOptions = {},
+): number {
+  const p = opts.exponent ?? 0.94;
+  const {
+    atkFromSTR = 0.45,
+    atkFromINT = 0.6,
+    atkFromDEX = 0.18,
+    hpFromVIT = 12,
+    defFromVIT = 0.5,
+  } = opts.coeffs || {};
+
+  const {
+    attack: weightAttack = 1,
+    hp: weightHp = 0.08,
+    defense: weightDefense = 2.5,
+    misc: weightMisc = 0.5,
+  } = opts.weights || {};
+
+  const STR = Math.max(0, userStat.strength || 0);
+  const INT = Math.max(0, userStat.intelligence || 0);
+  const DEX = Math.max(0, userStat.dexterity || 0);
+  const VIT = Math.max(0, userStat.vitality || 0);
+  const LUK = Math.max(0, userStat.luck || 0);
+
+  const eff = (a: number) => Math.pow(a, p);
+
+  let equipAttackFlat = 0;
+  let equipAttackMult = 0;
+  let equipHpFlat = 0;
+  let equipHpMult = 0;
+  let equipDefFlat = 0;
+
+  for (const it of equippedItems) {
+    if (!it || !it.item) continue;
+    const s = it.item.stats || {};
+    equipAttackFlat += (s.attack || 0) * (it.quantity || 1);
+    equipAttackMult += 0;
+    equipHpFlat += (s.hp || 0) * (it.quantity || 1);
+    equipHpMult += 0;
+    equipDefFlat += (s.defense || 0) * (it.quantity || 1);
+  }
+
+  const baseAttack = userStat.attack || 0;
+  const baseMaxHp = userStat.maxHp || 0;
+  const baseDefense = userStat.defense || 0;
+
+  const finalAttack =
+    Math.floor(
+      baseAttack +
+        equipAttackFlat +
+      atkFromSTR * eff(STR) +
+        atkFromINT * eff(INT) +
+        atkFromDEX * eff(DEX),
+    ) * (1 + equipAttackMult);
+
+  const finalMaxHp =
+    Math.floor(baseMaxHp + equipHpFlat + hpFromVIT * eff(VIT)) * (1 + equipHpMult);
+
+  const finalDefense = Math.floor(baseDefense + equipDefFlat + defFromVIT * eff(VIT));
+
+  const misc = LUK * 0.5 + DEX * 0.3;
+
+  const power =
+    weightAttack * finalAttack +
+    weightHp * finalMaxHp +
+    weightDefense * finalDefense +
+    weightMisc * misc;
+
+  return Math.max(0, Math.floor(power));
+}
 
 const StatusTab: React.FC = () => {
   // Get authenticated user
@@ -84,13 +178,17 @@ const StatusTab: React.FC = () => {
   const displayedCurrentHp = Math.min(displayedStats.currentHp || 0, displayedMaxHp);
   const displayedHealthPercent = displayedMaxHp > 0 ? (displayedCurrentHp / displayedMaxHp) * 100 : 0;
 
-  // user_power may be available on `user` or via stats; fall back to 0
-  const maybeUser = user as unknown as Record<string, unknown> | undefined;
-  const displayedStatsRecord = displayedStats as unknown as Record<string, unknown>;
-  let combatPower: number = typeof displayedStatsRecord['combatPower'] === 'number' ? (displayedStatsRecord['combatPower'] as number) : 0;
-  if (maybeUser && typeof maybeUser['combatPower'] === 'number') {
-    combatPower = maybeUser['combatPower'] as number;
+  // Prefer the server-provided, authoritative combatPower attached to `user`.
+  // If it's missing (older backend or race condition), compute deterministically
+  // on the client using the same formula as the server.
+  let combatPower: number | null = null;
+  if (user && typeof (user as unknown as { combatPower?: number }).combatPower === 'number') {
+    combatPower = (user as unknown as { combatPower?: number }).combatPower as number;
+  } else if (displayedStats) {
+    // Use equippedItems from the status store to mirror server computation
+    combatPower = computeCombatPowerFromStats(displayedStats as UserStats, equippedItems || []);
   }
+  combatPower = combatPower ?? 0;
 
   // Small inline Stat cell to avoid extra file
   const StatCell: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNode }> = ({ icon, label, value }) => (
@@ -119,8 +217,9 @@ const StatusTab: React.FC = () => {
 
             <div className="ml-auto flex items-center gap-3">
               <Badge variant="secondary">Cấp {currentLevel.level}</Badge>
-              <div className="px-3 py-1 rounded-md bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold">
-                ⚔️ {combatPower.toLocaleString()}
+              <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-[linear-gradient(90deg,#fef3c7,#fed7aa)] text-black font-semibold text-sm border border-[rgba(0,0,0,0.06)]">
+                <Sword className="h-4 w-4 text-[rgba(0,0,0,0.6)]" />
+                <span className="leading-none">{combatPower.toLocaleString()}</span>
               </div>
             </div>
           </div>

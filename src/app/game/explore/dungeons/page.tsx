@@ -17,15 +17,29 @@ import CreateRoomForm from './[id]/CreateRoomForm';
 
 export default function DungeonsPage() {
   const router = useRouter();
-  const { data: dungeons = [], isLoading } = useQuery({ queryKey: ['dungeons'], queryFn: () => apiService.getDungeons() });
+  const [sortAsc, setSortAsc] = useState(true); // true: low->high, false: high->low
+  const { data: dungeons = [], isLoading, refetch } = useQuery({
+    queryKey: ['dungeons', sortAsc],
+    queryFn: async () => {
+      try {
+        // Try to fetch eligible dungeons for authenticated users first
+        return await apiService.getEligibleDungeons();
+      } catch {
+        // Fallback to public list (unauthenticated or other error)
+        return await apiService.getDungeons();
+      }
+    },
+  });
   const [filterText, setFilterText] = useState('');
   const [minLevel, setMinLevel] = useState<number | ''>('');
 
-  const filtered = (dungeons || []).filter(d => {
-    if (filterText && !d.name.toLowerCase().includes(filterText.toLowerCase())) return false;
-    if (minLevel !== '' && d.levelRequirement < (minLevel as number)) return false;
-    return true;
-  });
+  const filtered = (dungeons || [])
+    .filter((d) => {
+      if (filterText && !d.name.toLowerCase().includes(filterText.toLowerCase())) return false;
+      if (minLevel !== '' && d.levelRequirement < (minLevel as number)) return false;
+      return true;
+    })
+    .sort((a, b) => (sortAsc ? a.levelRequirement - b.levelRequirement : b.levelRequirement - a.levelRequirement));
 
   const [creatingDungeonId, setCreatingDungeonId] = useState<number | null>(null);
 
@@ -57,30 +71,60 @@ export default function DungeonsPage() {
   return (
     <>
     <div className="p-6">
-  <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-bold">Hầm Ngục</h1>
-  <div className="flex flex-wrap items-center space-x-2">
-          <input
-            placeholder="Tìm theo tên..."
-            value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          />
-          <input
-            placeholder="Cấp tối thiểu"
-            value={minLevel === '' ? '' : minLevel}
-            onChange={(e) => setMinLevel(e.target.value === '' ? '' : Number(e.target.value))}
-            className="w-32 px-3 py-2 border rounded-md"
-            type="number"
-            min={1}
-          />
-          <Button onClick={() => { setFilterText(''); setMinLevel(''); }}>Xóa lọc</Button>
-          {/* Button to open sheet showing all room lobbies */}
-          <Button variant="outline" onClick={openRoomsSheet} className="hidden sm:inline-flex">Phòng đang có</Button>
-          {/* Mobile-friendly trigger - small icon/button */}
-          <Button variant="outline" onClick={openRoomsSheet} className="sm:hidden">Phòng</Button>
-        </div>
+  <div className="mb-4">
+    <div className="flex items-center justify-between">
+      <h1 className="text-2xl font-bold">Hầm Ngục</h1>
+      <div className="flex items-center space-x-2">
+        {/* sort toggle */}
+        <Button
+          variant="ghost"
+          onClick={() => setSortAsc((s) => !s)}
+          title={sortAsc ? 'Sắp xếp: thấp -> cao' : 'Sắp xếp: cao -> thấp'}
+        >
+          {/* simple up/down arrows */}
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+            {sortAsc ? (
+              <>
+                <path d="M12 19V6" />
+                <path d="M5 12l7-7 7 7" />
+              </>
+            ) : (
+              <>
+                <path d="M12 5v13" />
+                <path d="M19 12l-7 7-7-7" />
+              </>
+            )}
+          </svg>
+        </Button>
+        <Button variant="ghost" onClick={() => { setFilterText(''); setMinLevel(''); }}>Xóa lọc</Button>
+        <Button variant="outline" onClick={openRoomsSheet} className="hidden sm:inline-flex">Phòng đang có</Button>
+        <Button variant="outline" onClick={openRoomsSheet} className="sm:hidden">Phòng</Button>
+        <Button variant="ghost" onClick={() => refetch()} title="Làm mới"> 
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </Button>
       </div>
+    </div>
+
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <input
+        placeholder="Tìm theo tên..."
+        value={filterText}
+        onChange={(e) => setFilterText(e.target.value)}
+        className="flex-1 min-w-0 px-3 py-2 border rounded-md"
+      />
+      <input
+        placeholder="Cấp tối thiểu"
+        value={minLevel === '' ? '' : minLevel}
+        onChange={(e) => setMinLevel(e.target.value === '' ? '' : Number(e.target.value))}
+        className="w-32 px-3 py-2 border rounded-md"
+        type="number"
+        min={1}
+      />
+    </div>
+  </div>
 
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
@@ -132,7 +176,8 @@ export default function DungeonsPage() {
     </div>
     {/* Sheet listing all rooms (responsive) */}
     <Sheet open={showAllRooms} onOpenChange={(open) => setShowAllRooms(open)}>
-      <SheetContent side={isMobile ? 'bottom' : 'right'}>
+      {/* limit sheet height on mobile to 75vh so it's scrollable and doesn't overflow the viewport */}
+      <SheetContent side={isMobile ? 'bottom' : 'right'} className={isMobile ? 'max-h-[75vh] overflow-y-auto' : ''}>
         <SheetHeader>
           <SheetTitle>Phòng đang hoạt động</SheetTitle>
           <SheetDescription>Danh sách tất cả các phòng chờ hiện có</SheetDescription>
@@ -150,16 +195,15 @@ export default function DungeonsPage() {
                 const dungeonLevel = sheetDungeon?.levelRequirement ?? '–';
                 const dungeonIdForUrl = sheetDungeon?.id ?? r.dungeonId ?? '';
                 return (
-                <div key={r.id} className="flex items-center justify-between p-3 bg-white rounded shadow-sm">
-                  <div>
-                    <div className="font-medium">{r.name}</div>
-                    {/* show resolved dungeon name/level */}
-                    <div className="text-sm text-gray-500">Dungeon: {dungeonName} • Lv {dungeonLevel}</div>
-                    <div className="text-sm text-gray-500">{r.currentPlayers}/{r.maxPlayers} người</div>
+                <div key={r.id} className="flex items-center justify-between p-2 sm:p-3 bg-white rounded shadow-sm">
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm truncate">{r.name}</div>
+                    {/* show resolved dungeon name/level in a single line on mobile */}
+                    <div className="text-xs text-gray-500 truncate">{dungeonName} • Lv {dungeonLevel} • {r.currentPlayers}/{r.maxPlayers} người</div>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:space-x-2">
-                    <Button size="sm" onClick={() => { closeRoomsSheet(); router.push(`/game/explore/dungeons/${dungeonIdForUrl}/rooms/${r.id}`); }}>Vào</Button>
-                    <Button variant="ghost" size="sm" onClick={async () => {
+                  <div className="flex flex-col sm:flex-row sm:space-x-2 items-center">
+                    <Button size="sm" className="whitespace-nowrap" onClick={() => { closeRoomsSheet(); router.push(`/game/explore/dungeons/${dungeonIdForUrl}/rooms/${r.id}`); }}>Vào</Button>
+                    <Button variant="ghost" size="sm" className="mt-1 sm:mt-0" onClick={async () => {
                       try {
                         const url = `${window.location.origin}/game/explore/dungeons/${dungeonIdForUrl}/rooms/${r.id}`;
                         if (navigator.clipboard && navigator.clipboard.writeText) {

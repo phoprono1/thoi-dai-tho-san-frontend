@@ -81,7 +81,11 @@ export function GlobalChat() {
         <Button
           variant="outline"
           size="icon"
-className="fixed top-1/2 right-4 -translate-y-1/2 z-50 h-12 w-12 rounded-full shadow-lg bg-white/90 backdrop-blur-sm border-2 hover:bg-white"        >
+          className={
+            // Mobile: bottom-left above bottom nav/FAB to avoid market FAB on right. Desktop (md+): center vertically on right side.
+            "fixed left-4 bottom-24 z-50 h-12 w-12 rounded-full shadow-lg bg-white/90 backdrop-blur-sm border-2 hover:bg-white md:right-4 md:left-auto md:top-1/2 md:-translate-y-1/2 md:bottom-auto"
+          }
+        >
           <MessageSquare className="h-6 w-6" />
         </Button>
       </DrawerTrigger>
@@ -120,7 +124,7 @@ className="fixed top-1/2 right-4 -translate-y-1/2 z-50 h-12 w-12 rounded-full sh
               </div>
             </ScrollArea>
           </div>
-          <div className="p-8 pt-1 border-t bg-white">
+          <div className="p-8 pt-1 border-t bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700">
             <form onSubmit={handleSubmit} className="flex gap-2">
               <Input
                 value={newMessage}
@@ -128,7 +132,7 @@ className="fixed top-1/2 right-4 -translate-y-1/2 z-50 h-12 w-12 rounded-full sh
                 placeholder={isConnected ? "Nhập tin nhắn..." : "Đang kết nối..."}
                 autoComplete="off"
                 disabled={!isConnected}
-                className="flex-1"
+                className="flex-1 bg-white/90 dark:bg-slate-800 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border border-gray-200 dark:border-slate-700 rounded-md"
               />
               <Button type="submit" disabled={!isConnected || !newMessage.trim()}>
                 Gửi

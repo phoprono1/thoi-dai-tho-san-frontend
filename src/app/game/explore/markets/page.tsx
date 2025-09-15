@@ -12,6 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import ListingModal from '@/components/markets/ListingModal';
+import MyItemsModal from '@/components/markets/MyItemsModal';
+import MyOffersModal from '@/components/markets/MyOffersModal';
+import TransactionHistoryModal from '@/components/markets/TransactionHistoryModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,10 +64,16 @@ export default function MarketsPage() {
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
 
+  const [userNames, setUserNames] = useState<Record<number, string>>({});
+  const getUserName = (id?: number | null) => {
+    if (id === null || id === undefined) return 'Ẩn danh';
+    return userNames[id] ?? `Người dùng #${id}`;
+  };
+
   
   
 
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     setLoadingItems(true);
     try {
       const res = await api.get('/items');
@@ -81,9 +91,9 @@ export default function MarketsPage() {
     } finally {
       setLoadingItems(false);
     }
-  };
+  }, []);
 
-  const loadShop = async () => {
+  const loadShop = useCallback(async () => {
     setLoadingShop(true);
     try {
       // Fetch public shop items (only active ones) for players
@@ -94,19 +104,32 @@ export default function MarketsPage() {
     } finally {
       setLoadingShop(false);
     }
-  };
+  }, []);
 
-  const loadListings = async () => {
+  const loadListings = useCallback(async () => {
     setLoadingListings(true);
     try {
-      const res = await api.get('/market/listings');
-      setListings(res.data || []);
+      const res = await api.get<Listing[]>('/market/listings');
+      const data = (res.data || []) as Listing[];
+      setListings(data);
+      try {
+        const sellerIds = Array.from(new Set(data.map((l) => Number(l.sellerId)).filter((v) => Boolean(v)))) as number[];
+        const missing = sellerIds.filter((id) => !userNames[id]);
+        if (missing.length > 0) {
+          const usersResp = await Promise.all(missing.map((id: number) => api.get(`/users/${id}`).then((r) => ({ id, username: r.data?.username as string }))));
+          const map: Record<number, string> = {};
+          usersResp.forEach((u: { id: number; username?: string }) => { if (u && u.id) map[u.id] = u.username || `Người dùng #${u.id}`; });
+          setUserNames((s) => ({ ...s, ...map }));
+        }
+      } catch (err) {
+        console.warn('Failed to preload seller names', err);
+      }
     } catch {
       toast.error('Không tải được listings');
     } finally {
       setLoadingListings(false);
     }
-  };
+  }, [userNames]);
 
   const itemById = useMemo(() => {
     const m = new Map<number, ItemFull>();
@@ -149,7 +172,7 @@ export default function MarketsPage() {
     void loadItems();
     void loadShop();
     void loadListings();
-  }, []);
+  }, [loadItems, loadShop, loadListings]);
 
   // reload user items when auth state changes
   useEffect(() => {
@@ -281,16 +304,33 @@ export default function MarketsPage() {
     }
   };
 
-  // Load offers for a specific listing
-  const loadOffersForListing = async (listingId: number) => {
+  // Load offers for a specific listing and preload buyer usernames
+  const loadOffersForListing = useCallback(async (listingId: number) => {
     try {
       const res = await api.get(`/market/listings/${listingId}/offers`);
-      setOffersByListing((s) => ({ ...s, [listingId]: res.data || [] }));
+      const offers: Offer[] = (res.data || []) as Offer[];
+      // Find buyerIds missing from cache
+      const missingBuyerIds = Array.from(new Set(offers.map((o) => o.buyerId).filter((id) => !(id in userNames))));
+      if (missingBuyerIds.length > 0) {
+        try {
+          const nameFetches = await Promise.all(missingBuyerIds.map((id) => api.get(`/users/${id}`)));
+          const nameMap: Record<number, string> = {};
+          nameFetches.forEach((r, idx) => {
+            const user = r.data;
+            const id = missingBuyerIds[idx];
+            if (user && user.id) nameMap[id] = user.username || `Người dùng #${id}`;
+          });
+          setUserNames((prev) => ({ ...prev, ...nameMap }));
+        } catch {
+          // ignore name preload failures
+        }
+      }
+      setOffersByListing((s) => ({ ...s, [listingId]: offers }));
     } catch (err) {
       console.error('Failed to load offers', err);
       setOffersByListing((s) => ({ ...s, [listingId]: [] }));
     }
-  };
+  }, [userNames]);
 
   const toggleShowOffers = async (listingId: number) => {
     if (showOffersFor === listingId) {
@@ -335,10 +375,62 @@ export default function MarketsPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<Array<{ id: number; itemId: number; buyerId: number; sellerId: number; price: number; createdAt?: string }>>([]);
 
+  // modal open flags
+  const [myItemsOpen, setMyItemsOpen] = useState(false);
+  const [myOffersOpen, setMyOffersOpen] = useState(false);
+
+  // When the seller modal opens, preload offers for all listings the user is selling and poll periodically
+  useEffect(() => {
+    if (!myItemsOpen || !authUser?.id) return;
+    let cancelled = false;
+    const sellerListings = listings.filter((l) => l.sellerId === authUser.id);
+    // load initial offers for each listing
+    sellerListings.forEach((l) => void loadOffersForListing(l.id));
+
+    // poll every 5s while modal open
+    const iv = setInterval(() => {
+      if (cancelled) return;
+      sellerListings.forEach((l) => void loadOffersForListing(l.id));
+    }, 5000);
+
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [myItemsOpen, listings, authUser?.id, loadOffersForListing]);
+
+  // When the buyer modal opens, preload offers for all listings and poll so user's offers update in near-realtime
+  useEffect(() => {
+    if (!myOffersOpen) return;
+    let cancelled = false;
+    // load offers for all listings once
+    listings.forEach((l) => void loadOffersForListing(l.id));
+    const iv = setInterval(() => {
+      if (cancelled) return;
+      listings.forEach((l) => void loadOffersForListing(l.id));
+    }, 5000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [myOffersOpen, listings, loadOffersForListing]);
+
   const loadHistory = async () => {
     try {
       const res = await api.get('/market/history');
-      setHistory(res.data || []);
+      const raw = res.data || [];
+      // filter to only the current user's buy/sell history if authenticated
+      if (authUser?.id) {
+        const filtered = (raw as Array<Record<string, unknown>>).filter((r) => {
+          const buyerId = Number(r['buyerId'] as number || 0);
+          const sellerId = Number(r['sellerId'] as number || 0);
+          return buyerId === authUser.id || sellerId === authUser.id;
+        }).map((r) => ({
+          id: Number(r['id'] as number),
+          itemId: Number(r['itemId'] as number),
+          buyerId: Number(r['buyerId'] as number),
+          sellerId: Number(r['sellerId'] as number),
+          price: Number(r['price'] as number),
+          createdAt: (r['createdAt'] as string) || undefined,
+        }));
+        setHistory(filtered);
+      } else {
+        setHistory([]);
+      }
     } catch (err) {
       console.error('Failed to load history', err);
       toast.error('Không tải được lịch sử giao dịch');
@@ -349,22 +441,24 @@ export default function MarketsPage() {
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Cửa hàng & Chợ đen</h1>
 
-      {/* Filters */}
-      <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Input placeholder="Tìm theo tên" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
-        <Input placeholder="Giá tối thiểu" type="number" value={minPrice ?? ''} onChange={(e) => setMinPrice(e.target.value ? parseInt(e.target.value) : undefined)} />
-        <Input placeholder="Giá tối đa" type="number" value={maxPrice ?? ''} onChange={(e) => setMaxPrice(e.target.value ? parseInt(e.target.value) : undefined)} />
-        <Select onValueChange={(v) => setSelectedType(v === '__all__' ? undefined : v)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Loại vật phẩm" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Tất cả</SelectItem>
-            {types.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Filters (compact on mobile: two columns) */}
+      <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Input placeholder="Tìm theo tên" value={searchName} onChange={(e) => setSearchName(e.target.value)} className="col-span-2 md:col-span-1" />
+        <Input placeholder="Giá tối thiểu" type="number" value={minPrice ?? ''} onChange={(e) => setMinPrice(e.target.value ? parseInt(e.target.value) : undefined)} className="col-span-1" />
+        <Input placeholder="Giá tối đa" type="number" value={maxPrice ?? ''} onChange={(e) => setMaxPrice(e.target.value ? parseInt(e.target.value) : undefined)} className="col-span-1" />
+        <div className="col-span-2 md:col-span-1">
+          <Select onValueChange={(v) => setSelectedType(v === '__all__' ? undefined : v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Loại vật phẩm" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Tất cả</SelectItem>
+              {types.map((t) => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Tabs defaultValue="shop">
@@ -393,19 +487,19 @@ export default function MarketsPage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div>Price: <strong>{s.price}</strong></div>
-                        <div>Active: {s.active ? 'Yes' : 'No'}</div>
+                        <div>Giá: <strong>{s.price}</strong></div>
+                        <div>Hoạt động: {s.active ? 'Có' : 'Không'}</div>
                         <div className="mt-2 flex items-center gap-2">
                           <Input type="number" min={1} defaultValue={1} onChange={(e) => setBuyingQuantity(e.target.value ? Number(e.target.value) : 1)} className="w-20" />
                           <Button size="sm" onClick={() => handleBuy(s.id, buyingQuantity)} disabled={buyLoading && buyingId === s.id}>
-                            {buyLoading && buyingId === s.id ? 'Buying...' : 'Buy'}
+                            {buyLoading && buyingId === s.id ? 'Đang mua...' : 'Mua'}
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
                   );
                 })}
-                {filteredShop.length === 0 && <div className="text-gray-500">No shop items match filters</div>}
+                {filteredShop.length === 0 && <div className="text-gray-500">Không có vật phẩm phù hợp</div>}
               </div>
             )}
           </div>
@@ -431,15 +525,15 @@ export default function MarketsPage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div>Price: <strong>{l.price}</strong></div>
-                        <div>Quantity: <strong>{l.quantity ?? 1}</strong></div>
-                        <div>Seller: {l.sellerId}</div>
+                        <div>Giá: <strong>{l.price}</strong></div>
+                        <div>Số lượng: <strong>{l.quantity ?? 1}</strong></div>
+                        <div>Người bán: <strong>{getUserName(l.sellerId)}</strong></div>
                         <div className="mt-2 flex items-center gap-2">
                           <Button size="sm" onClick={() => handleOffer(l.id)} disabled={offerLoading && offerListingId === l.id}>
-                            {offerLoading && offerListingId === l.id ? 'Placing...' : 'Offer'}
+                            {offerLoading && offerListingId === l.id ? 'Đang đặt...' : 'Đặt giá'}
                           </Button>
                           <Button size="sm" variant="secondary" onClick={() => toggleShowOffers(l.id)}>
-                            {showOffersFor === l.id ? 'Hide offers' : 'Show offers'}
+                            {showOffersFor === l.id ? 'Ẩn offers' : 'Xem offers'}
                           </Button>
                         </div>
                         {showOffersFor === l.id && (
@@ -447,20 +541,20 @@ export default function MarketsPage() {
                             <div className="text-sm font-medium mb-2">Offers</div>
                             {(offersByListing[l.id] || []).map((o: Offer) => (
                               <div key={o.id} className="flex items-center justify-between p-2 border rounded mb-1">
-                                <div className="text-sm">Offer #{o.id} • Buyer: {o.buyerId} • Qty: {o.quantity ?? 1} • Amount: {o.amount} • Accepted: {o.accepted ? 'Yes' : 'No'}</div>
+                                <div className="text-sm">Offer #{o.id} • Người mua: {getUserName(o.buyerId)} • Số lượng: {o.quantity ?? 1} • Giá: {o.amount} • Đã chấp nhận: {o.accepted ? 'Có' : 'Không'}</div>
                                 <div className="flex gap-2">
                                   {/* If current user is seller, allow accept */}
                                   {isAuthenticated && authUser?.id === l.sellerId && !o.accepted && !o.cancelled && (
-                                    <Button size="sm" onClick={() => handleAcceptOffer(o.id)}>Accept</Button>
+                                    <Button size="sm" onClick={() => handleAcceptOffer(o.id)}>Chấp nhận</Button>
                                   )}
                                   {/* If current user is buyer, allow cancel */}
                                   {isAuthenticated && authUser?.id === o.buyerId && !o.accepted && !o.cancelled && (
-                                    <Button size="sm" variant="destructive" onClick={() => handleCancelOffer(o.id)}>Cancel</Button>
+                                    <Button size="sm" variant="destructive" onClick={() => handleCancelOffer(o.id)}>Hủy</Button>
                                   )}
                                 </div>
                               </div>
                             ))}
-                            {(!offersByListing[l.id] || offersByListing[l.id].length === 0) && <div className="text-sm text-gray-500">No offers</div>}
+                            {(!offersByListing[l.id] || offersByListing[l.id].length === 0) && <div className="text-sm text-gray-500">Không có offers</div>}
                           </div>
                         )}
                       </CardContent>
@@ -469,109 +563,28 @@ export default function MarketsPage() {
                 })}
                 {/* Create listing modal (user-friendly searchable dropdown) */}
                 <div className="col-span-full">
-                  <div className="flex justify-end">
-                    <Button onClick={() => { setListingDialogOpen(true); setListingQuery(''); setShowListingDropdown(false); }}>Tạo listing</Button>
-                  </div>
-
-                  <Dialog open={listingDialogOpen} onOpenChange={(v) => { setListingDialogOpen(v); if (!v) { setNewListingItemId(''); setNewListingPrice(''); } }}>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Tạo listing mới</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="relative">
-                          <label className="block text-sm">Tìm theo tên hoặc ID</label>
-                          <Input
-                            value={listingQuery}
-                            onChange={(e) => { setListingQuery(e.target.value); setShowListingDropdown(true); }}
-                            onFocus={() => setShowListingDropdown(true)}
-                            placeholder="Gõ tên hoặc ID để tìm"
-                          />
-                          {showListingDropdown && (
-                            <div className="absolute z-20 left-0 right-0 bg-white dark:bg-slate-800 border mt-1 max-h-60 overflow-auto rounded shadow">
-                              <div className="p-2">
-                                {/* Show user's owned items first when available */}
-                                {userItems.length > 0 ? (
-                                  userItems
-                                    .filter((ui) => {
-                                      const q = listingQuery.trim().toLowerCase();
-                                      if (!q) return true;
-                                      const name = (ui.item?.name || '').toLowerCase();
-                                      return String(ui.id).includes(q) || String(ui.itemId).includes(q) || name.includes(q);
-                                    })
-                                    .slice(0, 200)
-                                    .map((ui) => (
-                                      <div
-                                        key={ui.id}
-                                        className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded cursor-pointer"
-                                        onMouseDown={(ev) => {
-                                          ev.preventDefault();
-                                          setNewListingItemId(ui.id);
-                                          setListingQuery('');
-                                          setShowListingDropdown(false);
-                                        }}
-                                      >
-                                        <div className="text-sm font-medium">{ui.item?.name || `Item ${ui.itemId}`}</div>
-                                        <div className="text-xs text-gray-500">UserItem ID: {ui.id} • Item ID: {ui.itemId} • Qty: {ui.quantity}</div>
-                                      </div>
-                                    ))
-                                ) : (
-                                  items
-                                    .filter((it) => {
-                                      const q = listingQuery.trim().toLowerCase();
-                                      if (!q) return true;
-                                      return String(it.id).includes(q) || (it.name || '').toLowerCase().includes(q);
-                                    })
-                                    .slice(0, 200)
-                                    .map((it) => (
-                                      <div
-                                        key={it.id}
-                                        className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded cursor-pointer"
-                                        onMouseDown={(ev) => {
-                                          ev.preventDefault();
-                                          setNewListingItemId(it.id);
-                                          setListingQuery('');
-                                          setShowListingDropdown(false);
-                                        }}
-                                      >
-                                        <div className="text-sm font-medium">{it.name}</div>
-                                        <div className="text-xs text-gray-500">ID: {it.id}</div>
-                                      </div>
-                                    ))
-                                )}
-                                {items.length === 0 && <div className="text-sm text-gray-500">No items</div>}
-                              </div>
-                            </div>
-                          )}
-                          {newListingItemId && (
-                            <div className="mt-2 text-sm">Selected: {userItems.find(u => u.id === Number(newListingItemId))?.item?.name || itemById.get(Number(newListingItemId))?.name || `Item ${newListingItemId}`}</div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-sm">Price</label>
-                            <Input type="number" value={newListingPrice ?? ''} onChange={(e) => setNewListingPrice(e.target.value ? Number(e.target.value) : '')} />
-                          </div>
-                          <div>
-                            <label className="block text-sm">Quantity</label>
-                            <Input type="number" min={1} value={newListingQuantity ?? 1} onChange={(e) => setNewListingQuantity(e.target.value ? Number(e.target.value) : 1)} />
-                          </div>
-                        </div>
-
-                        <div className="flex justify-end gap-2">
-                          <Button variant="secondary" onClick={() => setListingDialogOpen(false)}>Hủy</Button>
-                          <Button onClick={async () => {
-                            await createListing();
-                            setListingDialogOpen(false);
-                          }}>Tạo</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  {/* Listing modal is now a separate component */}
+                  <ListingModal
+                    open={listingDialogOpen}
+                    onOpenChange={(v) => { setListingDialogOpen(v); if (!v) { setNewListingItemId(''); setNewListingPrice(''); } }}
+                    items={items.map((it) => ({ id: it.id, name: it.name }))}
+                    userItems={userItems}
+                    itemById={itemById}
+                    listingQuery={listingQuery}
+                    setListingQuery={setListingQuery}
+                    showListingDropdown={showListingDropdown}
+                    setShowListingDropdown={setShowListingDropdown}
+                    newListingItemId={newListingItemId}
+                    setNewListingItemId={setNewListingItemId}
+                    newListingPrice={newListingPrice}
+                    setNewListingPrice={setNewListingPrice}
+                    newListingQuantity={newListingQuantity}
+                    setNewListingQuantity={setNewListingQuantity}
+                    createListing={createListing}
+                  />
                 </div>
                 {/* Floating action button (DropdownMenu) */}
-                <div className="fixed right-6 bottom-6 z-50">
+                <div className="fixed right-4 bottom-16 z-[9999] sm:right-6 sm:bottom-6">
                   <div className="flex items-end">
                     {/* DropdownMenu from shadcn */}
                     <DropdownMenu>
@@ -579,29 +592,29 @@ export default function MarketsPage() {
                         <Button className="w-12 h-12 rounded-full text-lg">+</Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setListingDialogOpen(true); setListingQuery(''); setShowListingDropdown(false); }}>
-                          Tạo listing
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { /* TODO: open my listings modal */ }}>
-                          Vật phẩm của tôi
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { /* TODO: open my offers modal */ }}>
-                          Offers của tôi
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={async () => { setHistoryOpen(true); await loadHistory(); }}>
-                          Lịch sử giao dịch
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => { setListingDialogOpen(true); setListingQuery(''); setShowListingDropdown(false); }}>
+                            Tạo listing
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={async () => { setMyItemsOpen(true); }}>
+                            Vật phẩm của tôi
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={async () => { setMyOffersOpen(true); }}>
+                            Offers của tôi
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={async () => { setHistoryOpen(true); await loadHistory(); }}>
+                            Lịch sử giao dịch
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
                 </div>
-                {filteredListings.length === 0 && <div className="text-gray-500">No listings match filters</div>}
+                {filteredListings.length === 0 && <div className="text-gray-500">Không có listing phù hợp</div>}
               </div>
             )}
           </div>
         </TabsContent>
       </Tabs>
-      {/* Buy confirmation dialog */}
+  {/* Buy confirmation dialog */}
       <Dialog open={!!buyingId} onOpenChange={(v) => { if (!v) setBuyingId(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -627,7 +640,7 @@ export default function MarketsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Offer dialog */}
+  {/* Offer dialog */}
       <Dialog open={offerDialogOpen} onOpenChange={(v) => { setOfferDialogOpen(v); if (!v) { setOfferListingId(null); setOfferAmount(''); } }}>
         <DialogContent>
           <DialogHeader>
@@ -648,49 +661,32 @@ export default function MarketsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Transaction history dialog */}
-      <Dialog open={historyOpen} onOpenChange={(v) => { setHistoryOpen(v); if (v) loadHistory(); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Lịch sử giao dịch</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {history.length === 0 ? (
-              <div className="text-sm text-gray-500">Không có giao dịch</div>
-            ) : (
-              <div className="max-h-80 overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500">
-                      <th>ID</th>
-                      <th>Item</th>
-                      <th>Buyer</th>
-                      <th>Seller</th>
-                      <th>Price</th>
-                      <th>At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((h) => (
-                      <tr key={h.id} className="border-t">
-                        <td className="py-1">{h.id}</td>
-                        <td>{h.itemId}</td>
-                        <td>{h.buyerId}</td>
-                        <td>{h.sellerId}</td>
-                        <td>{h.price}</td>
-                        <td>{h.createdAt ? new Date(h.createdAt).toLocaleString() : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="secondary" onClick={() => setHistoryOpen(false)}>Đóng</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* External modal components mounted here */}
+      {/* My listings + offers modal: show listings where current user is seller */}
+      <MyItemsModal
+        open={myItemsOpen}
+        onOpenChange={setMyItemsOpen}
+        listings={listings.filter((l) => authUser?.id && l.sellerId === authUser.id)}
+        itemById={itemById}
+        offersByListing={offersByListing}
+        onAcceptOffer={handleAcceptOffer}
+        onCancelOffer={handleCancelOffer}
+        authUserId={authUser?.id}
+        getUserName={getUserName}
+      />
+
+      {/* My offers modal: placeholder for offers where current user is buyer */}
+      <MyOffersModal
+        open={myOffersOpen}
+        onOpenChange={setMyOffersOpen}
+        offers={Object.values(offersByListing).flat().filter((o) => authUser?.id && o.buyerId === authUser.id)}
+        allOffersByListing={offersByListing}
+        onCancelOffer={handleCancelOffer}
+        getUserName={getUserName}
+      />
+
+  <TransactionHistoryModal open={historyOpen} onOpenChange={setHistoryOpen} history={history} getUserName={getUserName} />
+
     </div>
   );
 }

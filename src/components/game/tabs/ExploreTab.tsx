@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap } from 'lucide-react';
+import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf } from 'lucide-react';
 // queries/mutations moved to specific pages
 import { useRouter } from 'next/navigation';
 
@@ -65,33 +65,33 @@ export default function ExploreTab() {
   return (
     <div className="p-4">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">Khám Phá</h2>
-        <p className="text-gray-600">Chọn chế độ chơi để bắt đầu cuộc phiêu lưu!</p>
+        <h2 className="text-2xl font-bold mb-4">Hoạt động</h2>
+        <p className="text-gray-600">Chọn hoạt động để bắt đầu cuộc phiêu lưu!</p>
       </div>
 
       {/* Game Mode Buttons */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {/* Dungeon Button now navigates to /dungeons to keep Explore tab lightweight */}
+        {/* Hầm ngục (Dungeon) — navigate to /dungeons */}
         <Button
           variant="outline"
           className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-300"
           onClick={() => router.push('/game/explore/dungeons')}
         >
           <MapPin className="h-8 w-8 text-blue-600" />
-          <span className="font-medium">Dungeon</span>
+          <span className="font-medium">Hầm ngục</span>
         </Button>
 
-        {/* Markets Button */}
+        {/* Cửa hàng (Markets) */}
         <Button
           variant="outline"
           className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-indigo-50 hover:border-indigo-300"
           onClick={() => router.push('/game/explore/markets')}
         >
-          <MapPin className="h-8 w-8 text-indigo-600" />
+          <ShoppingCart className="h-8 w-8 text-indigo-600" />
           <span className="font-medium">Cửa hàng</span>
         </Button>
 
-        {/* PvP Button */}
+        {/* Đấu Xếp Hạng (PvP) Button */}
         <Dialog>
           <DialogTrigger asChild>
             <Button
@@ -99,17 +99,17 @@ export default function ExploreTab() {
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-red-50 hover:border-red-300"
             >
               <Target className="h-8 w-8 text-red-600" />
-              <span className="font-medium">PvP</span>
+              <span className="font-medium">Đấu Xếp Hạng</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center space-x-2">
                 <Target className="h-5 w-5 text-red-600" />
-                <span>Chế Độ PvP</span>
+                <span>Đấu Xếp Hạng</span>
               </DialogTitle>
               <DialogDescription>
-                Đây là trang PvP - nơi bạn có thể đấu với các người chơi khác
+                Đây là trang Đấu Xếp Hạng - nơi bạn có thể đấu với các người chơi khác
               </DialogDescription>
             </DialogHeader>
 
@@ -199,7 +199,7 @@ export default function ExploreTab() {
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-purple-50 hover:border-purple-300"
             >
               <Crown className="h-8 w-8 text-purple-600" />
-              <span className="font-medium">World Boss</span>
+              <span className="font-medium">Boss Thế Giới</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
@@ -265,8 +265,8 @@ export default function ExploreTab() {
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-green-50 hover:border-green-300"
             >
-              <Shield className="h-8 w-8 text-green-600" />
-              <span className="font-medium">Guild War</span>
+              <ShieldHalf className="h-8 w-8 text-green-600" />
+              <span className="font-medium">Công Hội Chiến</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
