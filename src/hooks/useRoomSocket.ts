@@ -86,6 +86,24 @@ export function useRoomSocket({
     const tryRestJoinForHost = async () => {
       try {
         if (isHost) {
+          // If the host is already present in the roomData.players with an active status,
+          // skip the REST join and proceed to socket join to avoid duplicate adds.
+          const hostAlreadyJoined = roomData.players?.some((p: unknown) => {
+            const rec = p as Record<string, unknown>;
+            const statusRaw = rec?.status as string | undefined;
+            const status = statusRaw ? statusRaw.toUpperCase() : '';
+            const playerObj = rec?.player as Record<string, unknown> | undefined;
+            const pid = (playerObj && typeof playerObj['id'] === 'number') ? (playerObj['id'] as number) : (typeof rec['id'] === 'number' ? (rec['id'] as number) : null);
+            return pid === userId && (status === 'JOINED' || status === 'READY');
+          });
+
+          if (hostAlreadyJoined) {
+            console.debug(`[useRoomSocket] Host ${userId} already present in room ${roomId}, skipping REST join.`);
+            // Still attempt socket join to attach the socket
+            await joinRoom(roomId, userId);
+            return true;
+          }
+
           console.debug(`[useRoomSocket] Attempting REST join for host ${userId} to room ${roomId}`);
           await apiService.joinRoomLobby(roomId, userId, pw);
           console.debug(`[useRoomSocket] REST join succeeded for host ${userId} to room ${roomId}`);
