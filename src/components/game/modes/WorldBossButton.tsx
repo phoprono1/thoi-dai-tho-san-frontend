@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Crown, Zap } from 'lucide-react';
+import { Crown } from 'lucide-react';
 
 export default function WorldBossButton() {
   return (

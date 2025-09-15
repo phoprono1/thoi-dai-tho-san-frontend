@@ -22,6 +22,25 @@ interface Props {
 }
 // Use CombatResult type exported from CombatModal for consistent typing
 
+type CombatReportEnemy = { id?: number; name?: string; hp?: number };
+type TeamMember = { userId?: number };
+type RewardItem = { itemId?: number; id?: number; quantity?: number; qty?: number };
+type RewardPerUserEntry = { items?: RewardItem[] };
+
+type CombatReport = {
+  id?: number;
+  combatResultId?: number;
+  result?: {
+    combatResultId?: number;
+    dungeonId?: number;
+    rewards?: { perUser?: RewardPerUserEntry[]; items?: RewardItem[] } | null;
+  };
+  dungeonId?: number;
+  enemies?: CombatReportEnemy[];
+  rewards?: { perUser?: RewardPerUserEntry[]; items?: RewardItem[] } | null;
+  teamStats?: { members?: TeamMember[] } | null;
+};
+
 export default function RoomPageContent({ roomId, dungeonId }: Props) {
   // keep dungeonId referenced for future use and to avoid unused-variable lint
   void dungeonId;
@@ -93,15 +112,72 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   });
 
   const reportCombatToQuests = useCallback(async (cr: unknown) => {
-    // simplified version: forward to API similar to original
+    // Forward minimal identifiers so backend can load the persisted CombatResult
+    // and attribute quest progress. Avoid sending the entire large payload.
     if (!cr || !user?.id) return;
     try {
-      const resp = await api.post('/quests/combat-progress', {});
-      console.log('Reported combat to quests', resp?.status);
+      const maybe = cr as CombatReport;
+      // combatResultId may be at top-level `id` or nested (depends on where socket provides it)
+      const combatResultId = maybe?.id ?? maybe?.combatResultId ?? maybe?.result?.combatResultId ?? null;
+  // Try several places for dungeonId: direct, nested result, or room info
+  const dungeonId = maybe?.dungeonId ?? maybe?.result?.dungeonId ?? socketRoomInfo?.dungeonId ?? room?.dungeon?.id ?? null;
+
+  const body: { combatResultId?: number; dungeonId?: number; enemyKills?: { enemyType: string; count: number }[]; collectedItems?: { itemId: number; quantity: number }[] } = {};
+      if (combatResultId) body.combatResultId = Number(combatResultId);
+      if (dungeonId) body.dungeonId = Number(dungeonId);
+
+      // If the socket payload includes enemies, compute kill counts from final HP
+      if (Array.isArray(maybe?.enemies)) {
+        // Count enemies with hp <= 0 as killed, aggregate by enemy name/type
+        const counts: Record<string, number> = {};
+        for (const e of maybe.enemies) {
+          try {
+            const killed = typeof e?.hp === 'number' ? (e.hp <= 0 ? 1 : 0) : 0;
+            const key = e?.name ?? String(e?.id ?? 'unknown');
+            if (!counts[key]) counts[key] = 0;
+            counts[key] += killed;
+          } catch {
+            // ignore malformed enemy entries
+          }
+        }
+        const enemyKills: Array<{ enemyType: string; count: number }> = [];
+        for (const [enemyType, count] of Object.entries(counts)) {
+          if (count > 0) enemyKills.push({ enemyType, count });
+        }
+        if (enemyKills.length > 0) body.enemyKills = enemyKills;
+      }
+
+      // Compute collected items for this user from combat rewards when available
+      try {
+        const rewards = maybe?.rewards ?? maybe?.result?.rewards ?? null;
+        let collected: Array<{ itemId: number; quantity: number }> = [];
+
+        // If rewards has perUser array, pick current user's index
+        const maybePerUser = rewards?.perUser ?? null;
+        if (Array.isArray(maybePerUser) && maybePerUser.length > 0 && maybe?.teamStats && user) {
+          const memberIndex = (maybe.teamStats.members || []).findIndex((m) => m.userId === user.id);
+          const entry = memberIndex >= 0 ? maybePerUser[memberIndex] : maybePerUser.length === 1 ? maybePerUser[0] : null;
+          if (entry && Array.isArray(entry.items)) {
+            collected = entry.items.map((it) => ({ itemId: Number(it.itemId ?? it.id), quantity: Number(it.quantity ?? it.qty ?? 1) }));
+          }
+        } else if (rewards && Array.isArray(rewards.items)) {
+          // Solo/legacy: rewards.items is aggregated for single-player
+          collected = rewards.items.map((it) => ({ itemId: Number(it.itemId ?? it.id), quantity: Number(it.quantity ?? it.qty ?? 1) }));
+        }
+
+        if (collected.length > 0) {
+          body.collectedItems = collected;
+        }
+      } catch {
+        // ignore collection extraction errors
+      }
+
+      const resp = await api.post('/quests/combat-progress', body);
+      console.log('Reported combat to quests', resp?.status, body);
     } catch (err) {
       console.error('Failed reporting combat to quests', err);
     }
-  }, [user]);
+  }, [user, socketRoomInfo?.dungeonId, room?.dungeon?.id]);
 
   useEffect(() => {
     if (socketCombatResult) {

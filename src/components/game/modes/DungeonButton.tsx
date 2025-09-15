@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { MapPin, Users } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 interface Props {
   children?: React.ReactNode;

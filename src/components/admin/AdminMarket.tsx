@@ -15,12 +15,14 @@ interface ShopItem {
   itemId: number;
   price: number;
   active: boolean;
+  quantity?: number;
   createdAt?: string;
 }
 
 export default function AdminMarket() {
   const [itemId, setItemId] = useState<number>(0);
   const [price, setPrice] = useState<number>(0);
+  const [quantity, setQuantity] = useState<number>(1);
   interface ItemFull {
     id: number;
     name?: string;
@@ -111,10 +113,11 @@ export default function AdminMarket() {
       return;
     }
     try {
-      await api.post('/market/shop', { itemId, price });
+      await api.post('/market/shop', { itemId, price, quantity });
       toast.success('Đã thêm vào shop');
       setItemId(0);
       setPrice(0);
+      setQuantity(1);
       refetch();
       refetchListings();
       refetchHistory();
@@ -199,6 +202,10 @@ export default function AdminMarket() {
                   <Input type="number" value={price} onChange={(e) => setPrice(parseInt(e.target.value || '0'))} />
                 </div>
                 <div>
+                  <label className="block text-sm">Quantity</label>
+                  <Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value || '1'))} />
+                </div>
+                <div>
                   <Button onClick={handleAdd}>Add to Shop</Button>
                 </div>
               </CardContent>
@@ -250,10 +257,21 @@ export default function AdminMarket() {
                   {shopItems?.map((s: ShopItem) => (
                     <div key={s.id} className="flex items-center justify-between p-2 border rounded">
                       <div>
-                        <div className="font-medium">{getItemName(s.itemId)} <span className="text-xs text-gray-400">(ID: {s.itemId})</span></div>
-                        <div className="text-sm text-gray-500">Price: {s.price} • Active: {s.active ? 'Yes' : 'No'}</div>
+              <div className="font-medium">{getItemName(s.itemId)} <span className="text-xs text-gray-400">(ID: {s.itemId})</span></div>
+              <div className="text-sm text-gray-500">Price: {s.price} • Qty: {s.quantity ?? 1} • Active: {s.active ? 'Yes' : 'No'}</div>
                       </div>
-                      <div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={async () => {
+                          const newPrice = Number(prompt('New price (leave empty to keep)', String(s.price)) || s.price);
+                          const newQty = Number((prompt('New quantity (leave empty to keep)', String(s.quantity ?? 1)) || String(s.quantity ?? 1)));
+                          try {
+                            await api.patch(`/market/shop/${s.id}`, { price: newPrice, quantity: newQty });
+                            toast.success('Updated');
+                            refetch();
+                          } catch {
+                            toast.error('Update failed');
+                          }
+                        }}>Edit</Button>
                         <Button variant="destructive" size="sm" onClick={() => handleRemove(s.id)}>Remove</Button>
                       </div>
                     </div>
