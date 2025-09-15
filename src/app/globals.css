@@ -129,6 +129,44 @@
   }
 }
 
+/* Top marquee banner */
+.top-marquee-banner {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  z-index: 60; /* above most UI but below modals */
+  pointer-events: none; /* let clicks passthrough except the link inside */
+}
+.top-marquee-banner .marquee-inner {
+  pointer-events: auto;
+  display: inline-block;
+  white-space: nowrap;
+  padding: 0.25rem 0.75rem; /* smaller */
+  margin: 0 auto;
+  transform: translateX(-110%);
+  animation: marquee-left-to-right 12s linear infinite;
+  font-size: 0.9rem; /* slightly smaller */
+  opacity: 0.9; /* slightly translucent */
+  border-radius: 0.5rem;
+  background-color: rgba(124,58,237,0.85); /* a translucent accent fallback */
+}
+.top-marquee-banner .marquee-inner a {
+  font-weight: 700;
+  text-decoration: underline;
+  color: var(--accent-foreground);
+}
+
+@keyframes marquee-left-to-right {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+
+/* ensure body content isn't covered by the fixed banner on small screens */
+@media (max-width: 640px) {
+  body { padding-top: calc(var(--safe-top) + 1.5rem); }
+}
+
 /* Mobile safe-area + touch improvements */
 :root {
   /* Expose safe area variables for iOS notch devices */

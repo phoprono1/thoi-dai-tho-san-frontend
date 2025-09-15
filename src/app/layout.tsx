@@ -45,6 +45,12 @@ export default function RootLayout({
         <ThemeProviderClient>
           <QueryProvider>
             <AuthProvider>
+              {/* Top-wide marquee banner (clickable) */}
+              <div className="top-marquee-banner">
+                <div className="marquee-inner bg-accent text-accent-foreground rounded-md mx-auto inline-block">
+                  <a href="https://discord.gg/DKQAM5Nf" target="_blank" rel="noopener noreferrer">Tham gia Discord của chúng tôi — Click để vào: https://discord.gg/DKQAM5Nf</a>
+                </div>
+              </div>
               {children}
               <GlobalChat />
             </AuthProvider>

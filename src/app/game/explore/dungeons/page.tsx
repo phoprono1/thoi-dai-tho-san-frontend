@@ -1,8 +1,8 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
-import { RoomLobby } from '@/types';
+import { RoomLobby, Dungeon, Item } from '@/types';
 
 // room APIs sometimes return a nested `dungeon` object or a flat shape
 // with `dungeonId` and `dungeonName`. Use LooseRoom to accept both.
@@ -64,6 +64,153 @@ export default function DungeonsPage() {
 
   // rooms list for sheet
   const { data: allRooms = [], isLoading: roomsLoading } = useQuery({ queryKey: ['room-lobbies'], queryFn: () => apiService.getRoomLobbies() });
+
+  // Fetch monster and item catalogs so we can render names for dungeon drops
+  // typed shape returned by apiService.getAllMonsters
+  type MonsterSummary = { id: number; name: string; level?: number; dropItems?: unknown[] };
+
+  const { data: monsters = [], isLoading: monstersLoading } = useQuery<MonsterSummary[]>({ queryKey: ['monsters'], queryFn: () => apiService.getAllMonsters() });
+  const { data: items = [], isLoading: itemsLoading } = useQuery<Item[]>({ queryKey: ['items'], queryFn: () => apiService.getItems() });
+
+  const monsterMap = useMemo(() => new Map<number, string>((monsters || []).map((m) => [m.id, m.name])), [monsters]);
+  const itemMap = useMemo(() => new Map<number, string>((items || []).map((i: Item) => [i.id, i.name])), [items]);
+  // map monsterId -> array of drop items from that monster
+  const monsterDropMap = useMemo(() => {
+    const mm = new Map<number, Array<{ itemId: number; dropRate?: number }>>();
+    (monsters || []).forEach((m: MonsterSummary) => {
+      const drops: Array<{ itemId: number; dropRate?: number }> = [];
+      const mDrops = (m.dropItems ?? []) as unknown[];
+      if (Array.isArray(mDrops)) {
+        mDrops.forEach((it) => {
+          if (it && typeof it === 'object') {
+            const rec = it as Record<string, unknown>;
+            const itemObj = rec['item'] as Record<string, unknown> | undefined;
+            const itemId = rec['itemId'] ?? rec['id'] ?? (itemObj && itemObj['id']);
+            const dropRate = rec['dropRate'] ?? rec['rate'] ?? rec['chance'];
+            const id = Number(itemId);
+            if (!Number.isNaN(id)) drops.push({ itemId: id, dropRate: typeof dropRate === 'number' ? dropRate : undefined });
+          }
+        });
+      }
+      if (drops.length) mm.set(m.id, drops);
+    });
+    return mm;
+  }, [monsters]);
+
+  const renderDropPreview = (d: Dungeon) => {
+    // collect monster ids
+    const maybe = d as unknown as Record<string, unknown>;
+    const monsterIds: number[] = [];
+    if (Array.isArray(maybe.monsterIds)) {
+      (maybe.monsterIds as unknown[]).forEach((v) => { if (typeof v === 'number') monsterIds.push(v); });
+    } else if (Array.isArray(maybe.monsterCounts)) {
+      (maybe.monsterCounts as unknown[]).forEach((mc) => {
+        if (mc && typeof mc === 'object' && 'monsterId' in (mc as Record<string, unknown>)) {
+          const id = Number((mc as Record<string, unknown>).monsterId);
+          if (!Number.isNaN(id)) monsterIds.push(id);
+        }
+      });
+    } else if (Array.isArray(maybe.monsters)) {
+      (maybe.monsters as unknown[]).forEach((m) => {
+        if (m && typeof m === 'object' && 'id' in (m as Record<string, unknown>)) {
+          const id = Number((m as Record<string, unknown>).id);
+          if (!Number.isNaN(id)) monsterIds.push(id);
+        } else if (typeof m === 'number') {
+          monsterIds.push(m as number);
+        }
+      });
+    }
+
+    const monsterNames = monsterIds.map((id) => monsterMap.get(id) ?? `Quái #${id}`);
+
+    // collect item drops
+    const dropItems: Array<{ itemId: number; dropRate?: number }> = [];
+    // include drops from monsters (if any)
+    monsterIds.forEach((mid) => {
+      const mDrops = monsterDropMap.get(mid);
+      if (Array.isArray(mDrops)) {
+        mDrops.forEach((md) => dropItems.push({ itemId: md.itemId, dropRate: md.dropRate }));
+      }
+    });
+    if (Array.isArray(maybe.dropItems)) {
+      (maybe.dropItems as unknown[]).forEach((it) => {
+                    if (it && typeof it === 'object') {
+          const rec = it as Record<string, unknown>;
+          const itemObj = rec['item'] as Record<string, unknown> | undefined;
+          const itemId = rec['itemId'] ?? rec['id'] ?? (itemObj && itemObj['id']);
+          const dropRate = rec['dropRate'] ?? rec['rate'] ?? rec['chance'];
+          const id = Number(itemId);
+          if (!Number.isNaN(id)) dropItems.push({ itemId: id, dropRate: typeof dropRate === 'number' ? dropRate : undefined });
+        }
+      });
+    } else if (Array.isArray(maybe.loot)) {
+      (maybe.loot as unknown[]).forEach((it) => {
+        if (it && typeof it === 'object') {
+          const rec = it as Record<string, unknown>;
+          const itemObj = rec['item'] as Record<string, unknown> | undefined;
+          const itemId = rec['itemId'] ?? rec['id'] ?? (itemObj && itemObj['id']);
+          const dropRate = rec['dropRate'] ?? rec['rate'] ?? rec['chance'];
+          const id = Number(itemId);
+          if (!Number.isNaN(id)) dropItems.push({ itemId: id, dropRate: typeof dropRate === 'number' ? dropRate : undefined });
+        }
+      });
+    }
+
+    // include dungeon-level rewards (e.g., d.rewards.items) which may be names or ids
+    const rewardNamesFromDungeon: string[] = [];
+    const rewardsObj = maybe['rewards'] as Record<string, unknown> | undefined;
+    if (rewardsObj && Array.isArray(rewardsObj['items'])) {
+      (rewardsObj['items'] as unknown[]).forEach((it) => {
+        if (typeof it === 'number') {
+          // item id
+          const id = it as number;
+          dropItems.push({ itemId: id });
+        } else if (typeof it === 'string') {
+          // could be an item name or numeric id in string form
+          const asNum = Number(it);
+          if (!Number.isNaN(asNum)) {
+            dropItems.push({ itemId: asNum });
+          } else {
+            rewardNamesFromDungeon.push(it);
+          }
+        }
+      });
+    }
+
+    const itemNames = dropItems.map((di) => ({ name: itemMap.get(di.itemId) ?? `Vật phẩm #${di.itemId}`, rate: di.dropRate }));
+    // append any explicit reward names from dungeon.rewards.items
+  rewardNamesFromDungeon.forEach((n) => itemNames.push({ name: n, rate: undefined }));
+
+    // dedupe itemNames by itemId/name, prefer higher drop rates when available
+    const dedupMap = new Map<string, number | undefined>();
+    const finalItems: Array<{ name: string; rate?: number }> = [];
+    itemNames.forEach((it) => {
+      const key = it.name;
+      const existing = dedupMap.get(key);
+      if (existing === undefined) {
+        dedupMap.set(key, it.rate);
+      } else if (it.rate !== undefined && (existing === undefined || it.rate > existing)) {
+        dedupMap.set(key, it.rate);
+      }
+    });
+    dedupMap.forEach((rate, name) => finalItems.push({ name, rate }));
+
+    const shortParts: string[] = [];
+    if (monsterNames.length) shortParts.push(`Quái: ${monsterNames.slice(0, 3).join(', ')}${monsterNames.length > 3 ? ', …' : ''}`);
+    if (itemNames.length) shortParts.push(`Rơi: ${itemNames.slice(0, 3).map((it) => it.name).join(', ')}${itemNames.length > 3 ? ', …' : ''}`);
+    const short = shortParts.join(' • ') || '';
+
+  const fullLines: string[] = [];
+  if (monsterNames.length) fullLines.push(`Quái: ${monsterNames.join(', ')}`);
+  if (finalItems.length) fullLines.push(`Rơi: ${finalItems.map((it) => (it.rate ? `${it.name} (${Math.round(it.rate * 100)}%)` : it.name)).join(', ')}`);
+  const full = fullLines.join('\n');
+
+    // show loading if catalogs are still loading
+    if (monstersLoading || itemsLoading) return { short: 'Đang tải...', full: 'Đang tải...' };
+
+    return { short, full, items: finalItems };
+  };
+
 
   const openRoomsSheet = () => setShowAllRooms(true);
   const closeRoomsSheet = () => setShowAllRooms(false);
@@ -145,6 +292,63 @@ export default function DungeonsPage() {
                   <span className="text-sm text-muted-foreground">{roomCount === null ? 'Đang tải...' : `${roomCount} phòng chờ`}</span>
                 </CardTitle>
                 <CardDescription>Lv. {d.levelRequirement} • {d.description || 'Không có mô tả'}</CardDescription>
+                {/* Small muted italic line for monsters/drops. Hover to see full list (title attr used for tooltip). */}
+                {(() => {
+                  const p = renderDropPreview(d);
+                  // helper to format item stats using the items catalog
+                  const formatItemTooltip = (name: string, rate?: number) => {
+                    // try to find item by name in catalog
+                    const found = (items || []).find((it) => it.name === name) as Item | undefined;
+                    const parts: string[] = [];
+                    if (found) {
+                      if (found.stats) {
+                        const s = found.stats as Record<string, unknown>;
+                        Object.entries(s).forEach(([k, v]) => {
+                          if (v !== undefined && v !== null) parts.push(`${k}: ${String(v)}`);
+                        });
+                      }
+                      if (found.type) parts.push(`Loại: ${found.type}`);
+                      if (found.rarity) parts.push(`Hiếm: ${found.rarity}`);
+                    }
+                    if (rate !== undefined) parts.push(`Tỉ lệ rơi: ${Math.round(rate * 100)}%`);
+                    return parts.join(' • ') || (rate !== undefined ? `Tỉ lệ rơi: ${Math.round(rate * 100)}%` : name);
+                  };
+
+                  // map rarity to badge colors (tailwind)
+                  const rarityColor = (name: string) => {
+                    const found = (items || []).find((it) => it.name === name) as Item | undefined;
+                    const r = Number(found?.rarity ?? 1);
+                    switch (Math.min(Math.max(Math.round(r), 1), 5)) {
+                      case 5:
+                        return 'bg-purple-600 text-white';
+                      case 4:
+                        return 'bg-indigo-600 text-white';
+                      case 3:
+                        return 'bg-sky-600 text-white';
+                      case 2:
+                        return 'bg-green-600 text-white';
+                      default:
+                        return 'bg-gray-200 text-gray-800';
+                    }
+                  };
+
+                  return (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(p.items || []).slice(0, 8).map((it, idx) => (
+                        <span
+                          key={`${d.id}-item-${idx}`}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${rarityColor(it.name)}`}
+                          title={formatItemTooltip(it.name, it.rate)}
+                        >
+                          {it.name}
+                        </span>
+                      ))}
+                      {(p.items || []).length > 8 && (
+                        <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">+{(p.items || []).length - 8} thêm</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardHeader>
               <CardContent>
                 <div className="flex justify-between items-center">

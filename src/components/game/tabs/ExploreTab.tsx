@@ -91,6 +91,16 @@ export default function ExploreTab() {
           <span className="font-medium">Cửa hàng</span>
         </Button>
 
+        {/* Leaderboard Button */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-yellow-50 hover:border-yellow-300"
+          onClick={() => router.push('/game/explore/leaderboard')}
+        >
+          <Trophy className="h-8 w-8 text-yellow-600" />
+          <span className="font-medium">Bảng xếp hạng</span>
+        </Button>
+
         {/* Đấu Xếp Hạng (PvP) Button */}
         <Dialog>
           <DialogTrigger asChild>

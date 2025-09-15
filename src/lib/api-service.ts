@@ -17,7 +17,27 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost
 
 class ApiService {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    // Ensure API_BASE_URL has no trailing slash
+  const base = API_BASE_URL.replace(/\/$/, '');
+    // If base already ends with '/api', avoid adding another '/api' to the path
+    const baseHasApi = /\/api(?:$|\/)/.test(base);
+
+    // Normalize endpoint to start with '/'
+    let path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+    if (baseHasApi) {
+      // strip leading '/api' from path if present to avoid /api/api
+      if (path.startsWith('/api/')) {
+        path = path.replace(/^\/api/, '');
+      }
+    } else {
+      // ensure path starts with '/api/'
+      if (!path.startsWith('/api/')) {
+        path = `/api${path}`;
+      }
+    }
+
+    const url = `${base}${path}`;
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -26,8 +46,17 @@ class ApiService {
       ...options,
     };
 
-    // Add auth token if available
-    const token = localStorage.getItem('token');
+    // Add auth token if available (only in browser)
+    let token: string | null = null;
+    try {
+      if (typeof window !== 'undefined' && window?.localStorage) {
+        token = localStorage.getItem('token');
+      }
+    } catch {
+      // ignore when running on server or restricted env
+      token = null;
+    }
+
     if (token) {
       config.headers = {
         ...config.headers,
@@ -281,6 +310,39 @@ class ApiService {
   // Dungeon APIs
   async getDungeons(): Promise<Dungeon[]> {
     return this.request<Dungeon[]>('/dungeons');
+  }
+
+  // Monster APIs
+  async getAllMonsters(): Promise<
+    Array<{ id: number; name: string; level?: number; dropItems?: unknown[] }>
+  > {
+    return this.request(`/monsters`);
+  }
+
+  // Leaderboard APIs
+  async getCombatLeaderboard(limit = 100): Promise<Array<{ userId: number; score: number; rank: number }>> {
+    return this.request(`/user-power/leaderboard/top?limit=${limit}`) as Promise<Array<{ userId: number; score: number; rank: number }>>;
+  }
+
+  async getCombatLeaderboardAround(userId: number, radius = 5): Promise<Array<{ userId: number; score: number; rank: number }>> {
+    // server endpoint: GET /user-power/leaderboard/around/:userId?radius=R
+    return this.request(`/user-power/leaderboard/around/${userId}?radius=${radius}`) as Promise<
+      Array<{ userId: number; score: number; rank: number }>
+    >;
+  }
+
+  // Best-effort: fetch users and sort by level to produce a level leaderboard (server-side endpoint may be added later)
+  async getUsersTopByLevel(
+    limit = 100,
+  ): Promise<Array<{ userId: number; level: number; username?: string; rank: number }>> {
+    type UserSummary = { id: number; level?: number; username?: string };
+    const users = await this.request<UserSummary[]>(`/users`);
+    const sorted = users
+      .map((u) => ({ userId: u.id, level: u.level || 0, username: u.username }))
+      .sort((a, b) => b.level - a.level)
+      .slice(0, limit)
+      .map((u, idx) => ({ ...u, rank: idx + 1 }));
+    return sorted;
   }
 
   // Authenticated endpoint that returns only dungeons the current user
