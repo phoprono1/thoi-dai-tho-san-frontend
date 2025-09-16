@@ -39,6 +39,10 @@ export function useRoomSocket({
   const leaveRoom = useRoomSocketStore((state) => state.leaveRoom);
   const toggleReady = useRoomSocketStore((state) => state.toggleReady);
   const startCombat = useRoomSocketStore((state) => state.startCombat);
+  const prepareStart = useRoomSocketStore((state) => state.prepareStart);
+  const preventStart = useRoomSocketStore((state) => state.preventStart);
+  const setPreventStart = useRoomSocketStore((state) => state.setPreventStart);
+  const prepareInfo = useRoomSocketStore((state) => state.prepareInfo);
   const updateDungeon = useRoomSocketStore((state) => state.updateDungeon);
   const kickPlayer = useRoomSocketStore((state) => state.kickPlayer);
   const clearError = useRoomSocketStore((state) => state.clearError);
@@ -173,6 +177,7 @@ export function useRoomSocket({
     // Room data
     roomInfo,
     combatResult,
+    prepareInfo,
     
     // Status
     isJoined: roomData ? joinedRooms.has(roomData.id) : false,
@@ -183,9 +188,12 @@ export function useRoomSocket({
     leaveRoom,
     toggleReady,
     startCombat,
+  prepareStart,
     updateDungeon,
     kickPlayer,
     clearError,
+    preventStart,
+    setPreventStart,
     
     // Utilities
     resetJoinAttempts: (roomId: number) => {

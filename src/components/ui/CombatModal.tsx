@@ -12,10 +12,7 @@ import {
   Sword, 
   Shield, 
   Crown,
-  Play,
-  Pause,
-  SkipForward,
-  FastForward,
+  
   Trophy,
   Skull,
   CornerUpLeft
@@ -95,7 +92,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   const { user: authUser } = useAuth();
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Auto play
-  const [playbackSpeed, setPlaybackSpeed] = useState(500); // Default 2x speed (500ms instead of 1000ms)
+  const [playbackSpeed] = useState(500); // Fixed 2x speed (500ms)
   const [showResult, setShowResult] = useState(false);
 
   // Animation states
@@ -156,21 +153,33 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
 
     // Update HP based on log
     if (log.details.actor === 'player') {
-      // Player attacks enemy - use targetIndex to update correct enemy
+      // Player attacks enemy - prefer details.targetIndex, otherwise attempt
+      // to resolve by targetName (fallback) so UI still updates correctly.
       setEnemyHp(prev => {
         const updatedEnemyHp = { ...prev };
-        const targetIndex = log.details.targetIndex ?? 0; // Default to 0 if not provided
-        
-        
-        if (updatedEnemyHp[targetIndex]) {
-          updatedEnemyHp[targetIndex] = { 
-            ...updatedEnemyHp[targetIndex], 
-            current: Math.max(0, log.details.hpAfter || 0)
+        let targetIndex = log.details.targetIndex;
+
+        if (typeof targetIndex === 'undefined') {
+          // fallback: try to find enemy by name
+          const keys = Object.keys(updatedEnemyHp);
+          const found = keys.find((k) => {
+            const idx = Number(k);
+            // access combatResult enemies by same index
+            const e = (combatResult.originalEnemies || combatResult.enemies)?.[idx];
+            return e && e.name === log.details.targetName;
+          });
+          if (found) targetIndex = Number(found);
+        }
+
+        if (typeof targetIndex !== 'undefined' && updatedEnemyHp[targetIndex]) {
+          updatedEnemyHp[targetIndex] = {
+            ...updatedEnemyHp[targetIndex],
+            current: Math.max(0, log.details.hpAfter || 0),
           };
         } else {
-          console.error('No enemy found at targetIndex:', targetIndex, 'Available keys:', Object.keys(updatedEnemyHp));
+          console.warn('No enemy found to apply player action:', log.details.targetName, 'idx:', targetIndex);
         }
-        
+
         return updatedEnemyHp;
       });
       setDamageAnimation(prev => ({ ...prev, enemy: true }));
@@ -211,38 +220,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
     return () => clearTimeout(timer);
   }, [isPlaying, currentLogIndex, playbackSpeed, combatResult, processNextLog]);
 
-  const handlePlay = () => {
-    if (showResult) return;
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleNext = () => {
-    setIsPlaying(false);
-    processNextLog();
-  };
-
-  const handleSkipToEnd = () => {
-    setIsPlaying(false);
-    setCurrentLogIndex(combatResult?.logs.length || 0);
-    setShowResult(true);
-  };
-
-  const handleSpeedChange = () => {
-    const speeds = [2000, 1000, 500, 250]; // 0.5x, 1x, 2x, 4x
-    const currentIndex = speeds.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % speeds.length;
-    setPlaybackSpeed(speeds[nextIndex]);
-  };
-
-  const getSpeedLabel = () => {
-    switch (playbackSpeed) {
-      case 2000: return '0.5x';
-      case 1000: return '1x';
-      case 500: return '2x';
-      case 250: return '4x';
-      default: return '1x';
-    }
-  };
+  // Playback is fixed at 2x (500ms). No user controls are provided for pause/skip/speed.
 
   // getResultColor removed (unused) - icons used for result instead
 
@@ -467,43 +445,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
           {/* Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePlay}
-                disabled={showResult}
-              >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {isPlaying ? 'Tạm dừng' : 'Phát'}
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNext}
-                disabled={isPlaying || showResult}
-              >
-                <SkipForward className="h-4 w-4" />
-                Tiếp theo
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSkipToEnd}
-                disabled={showResult}
-              >
-                <FastForward className="h-4 w-4" />
-                Kết thúc
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSpeedChange}
-              >
-                {getSpeedLabel()}
-              </Button>
+              {/* Playback fixed at 2x. No controls shown to keep multiplayer sessions synchronized. */}
             </div>
 
             <div className="w-full sm:w-auto flex items-center">

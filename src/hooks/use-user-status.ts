@@ -113,12 +113,14 @@ export const useUserStats = (userId: number) => {
   });
 };
 
-export const useUserStamina = (userId: number) => {
+export const useUserStamina = (userId: number, options?: { refetchInterval?: number }) => {
   return useQuery({
     queryKey: ['user-stamina', userId],
     queryFn: () => apiService.getUserStamina(userId),
     enabled: !!userId,
-    staleTime: 1000 * 30, // 30 seconds for stamina
+    staleTime: 1000 * 30, // 30 seconds for stamina by default
+    // allow callers to request more frequent polling while on views like Room
+    refetchInterval: options?.refetchInterval,
   });
 };
 

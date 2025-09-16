@@ -79,6 +79,11 @@ interface RoomSocketState {
   // Room data
   roomInfo: RoomInfo | null;
   combatResult: CombatResult | null;
+  // Prepare-to-start UI state provided by server when host initiates prepare
+  prepareInfo: RoomInfo | null;
+  // Prevent starting another combat until UI/server acknowledges reset
+  preventStart: boolean;
+  setPreventStart: (val: boolean) => void;
   
   // Connection state
   joinedRooms: Set<number>; // Track which rooms we've joined
@@ -94,6 +99,7 @@ interface RoomSocketState {
   leaveRoom: (roomId: number, userId: number) => Promise<void>;
   toggleReady: (roomId: number, userId: number) => Promise<void>;
   startCombat: (roomId: number, userId: number) => Promise<void>;
+  prepareStart: (roomId: number, userId: number) => Promise<void>;
   updateDungeon: (roomId: number, hostId: number, dungeonId: number) => Promise<void>;
   kickPlayer: (roomId: number, hostId: number, playerId: number) => Promise<void>;
   clearError: () => void;
@@ -107,6 +113,8 @@ export const useRoomSocketStore = create<RoomSocketState>()(
     isConnected: false,
     roomInfo: null,
     combatResult: null,
+  prepareInfo: null,
+  preventStart: false,
     joinedRooms: new Set(),
     connectionAttempts: new Map(),
     error: null,
@@ -165,6 +173,14 @@ export const useRoomSocketStore = create<RoomSocketState>()(
         set({ roomInfo: data });
       });
 
+      socket.on('prepareToStart', (data: RoomInfo) => {
+        set({ prepareInfo: data });
+      });
+
+      socket.on('combatEnqueued', () => {
+        set({ prepareInfo: null });
+      });
+
       socket.on('combatResult', (data: { roomId: number; result: unknown } | CombatResult) => {
         console.log('[RoomSocket] Received combatResult:', data);
         // Extract the actual combat result from the wrapper
@@ -203,6 +219,27 @@ export const useRoomSocketStore = create<RoomSocketState>()(
       });
 
       set({ socket });
+    },
+
+    setPreventStart: (val: boolean) => {
+      set({ preventStart: val });
+    },
+
+    prepareStart: async (roomId: number, userId: number) => {
+      const { socket } = get();
+      if (!socket) throw new Error('Socket not connected');
+      return new Promise<void>((resolve, reject) => {
+        socket.emit('prepareStart', { roomId, userId }, (resp: unknown) => {
+          const r = resp as { success?: boolean; error?: string } | undefined;
+          if (r?.success) {
+            resolve();
+          } else {
+            const err = r?.error || 'Unknown error';
+            try { toast.error(err); } catch {}
+            reject(new Error(err));
+          }
+        });
+      });
     },
 
     disconnect: () => {

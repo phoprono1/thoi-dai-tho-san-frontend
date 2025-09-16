@@ -13,6 +13,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Dungeon } from '@/types/game';
 import { useRoomSocket } from '@/hooks/useRoomSocket';
 import { useRoomSocketStore } from '@/stores/useRoomSocketStore';
+import { useUserStamina } from '@/hooks/use-user-status';
 import { toast } from 'sonner';
 import CombatModal, { CombatResult } from '@/components/ui/CombatModal';
 
@@ -103,8 +104,12 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     joinRoom: socketJoinRoom,
     toggleReady: socketToggleReady,
     startCombat: socketStartCombat,
+    prepareStart: socketPrepareStart,
+    prepareInfo: socketPrepareInfo,
     updateDungeon: socketUpdateDungeon,
     kickPlayer: socketKickPlayer,
+    preventStart,
+    setPreventStart,
   } = useRoomSocket({ 
     roomData: room ? { id: room.id, host: room.host, players: room.players } : undefined,
     userId: user?.id,
@@ -183,12 +188,14 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     if (socketCombatResult) {
       setCombatResult(socketCombatResult as CombatResult);
       setShowCombatModal(true);
+      // Lock Start while combat UI is showing so host cannot re-start
+      try { setPreventStart(true); } catch {}
       if (user?.id) {
         queryClient.invalidateQueries({ queryKey: ['user', user.id] });
       }
       void reportCombatToQuests(socketCombatResult);
     }
-  }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests]);
+  }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests, setPreventStart]);
 
   // mutations
   const updateDungeonMutation = useMutation({
@@ -308,6 +315,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['room', id] });
+      try { setPreventStart(false); } catch {}
     },
     onError: (error: Error) => {
       console.error('Failed to reset room:', error);
@@ -318,6 +326,15 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     setShowCombatModal(false);
     setCombatResult(null);
   try { useRoomSocketStore.setState({ combatResult: null }); } catch { }
+    // Keep the players in their current ready state after combat (per request)
+    // but clear the prepare UI and keep the combatResult cleared locally
+    try {
+      useRoomSocketStore.setState({ prepareInfo: null, combatResult: null });
+    } catch {}
+
+    // Keep Start disabled until server/host explicitly resets room state
+    try { setPreventStart(true); } catch {}
+
     if (isHost) resetRoomMutation.mutate();
   };
 
@@ -341,6 +358,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
             <Button onClick={() => router.push('/game/explore')}>Quay lại khám phá</Button>
           </CardContent>
         </Card>
+        
       </div>
     );
   }
@@ -350,7 +368,6 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   const socketPlayer = socketRoomInfo?.players?.find((p: { id: number }) => p.id === user?.id);
   const regularPlayer = room.players?.find((p: { player: { id: number } }) => p.player.id === user?.id);
   const isPlayerInRoom = !!(socketPlayer || regularPlayer);
-  const isPlayerReady = socketPlayer?.isReady || false;
   const socketJoined = socketRoomInfo?.id === room.id;
   const currentDungeonName = socketRoomInfo?.dungeonName || room.dungeon.name;
   const currentDungeonLevel = room.dungeon.level;
@@ -382,6 +399,44 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     };
     return variants[status] || 'bg-gray-100 text-gray-800';
   };
+
+  function PlayerRow({ player }: { player: { id: number; player: { username: string; level: number; id: number }; status: string } }) {
+    const userId = player.player.id;
+    // request faster polling while on the room page (every 5s)
+    const { data: stamina, isLoading: staminaLoading } = useUserStamina(userId, { refetchInterval: 5000 });
+    const current = stamina?.currentStamina ?? 0;
+    const max = stamina?.maxStamina ?? 100;
+    const pct = Math.max(0, Math.min(100, Math.round((current / Math.max(1, max)) * 100)));
+    const barColor = pct <= 20 ? 'bg-red-500' : pct <= 50 ? 'bg-yellow-400' : 'bg-green-500';
+
+    return (
+      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {player.player.id === room.host.id && (<Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />)}
+          <div className="min-w-0">
+            <p className="font-medium text-sm truncate">{player.player.username}</p>
+            <p className="text-xs text-gray-500">Lv {player.player.level}</p>
+            <div className="mt-1 w-40">
+              {staminaLoading ? (
+                <div className="w-full h-2 bg-gray-200 rounded" />
+              ) : (
+                <div className="w-full bg-gray-200 rounded h-2">
+                  <div className={`${barColor} h-2 rounded`} style={{ width: `${pct}%` }} />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">{staminaLoading ? 'Đang tải...' : `${current}/${max}`}{!staminaLoading && pct <= 20 ? ' ⚠' : ''}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className={getPlayerStatusBadge(player.status)}>{player.status}</Badge>
+          {isHost && player.player.id !== room.host.id && (
+            <Button variant="outline" size="sm" onClick={() => kickPlayerMutation.mutate({ playerId: player.player.id })} disabled={kickPlayerMutation.isPending} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"><UserX className="h-3 w-3" /></Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-full px-4 py-8">
@@ -441,21 +496,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
           <CardContent>
             <div className="space-y-3">
               {room.players.map((player: { id: number; player: { username: string; level: number; id: number }; status: string }) => (
-                <div key={player.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {player.player.id === room.host.id && (<Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />)}
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{player.player.username}</p>
-                      <p className="text-xs text-gray-500">Lv {player.player.level}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getPlayerStatusBadge(player.status)}>{player.status}</Badge>
-                    {isHost && player.player.id !== room.host.id && (
-                      <Button variant="outline" size="sm" onClick={() => kickPlayerMutation.mutate({ playerId: player.player.id })} disabled={kickPlayerMutation.isPending} className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"><UserX className="h-3 w-3" /></Button>
-                    )}
-                  </div>
-                </div>
+                <PlayerRow key={player.id} player={player} />
               ))}
 
               {room.players.length === 0 && (<p className="text-center text-gray-500 py-4">Chưa có người chơi nào trong phòng</p>)}
@@ -470,20 +511,75 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
               {isHost ? (
                 <>
                   <Button onClick={async () => {
-                    // Ensure all players are ready before attempting to start (client-side guard)
-                    if (!allPlayersReady) {
-                      toast.error('Không thể bắt đầu: một số người chơi chưa sẵn sàng');
+                    // Ensure host is marked Ready before initiating prepare/start
+                    if (!user?.id) return;
+                    try {
+                      const hostPlayer = socketRoomInfo?.players?.find((p: { id: number; isReady?: boolean } ) => p.id === user.id);
+                      const hostIsReady = hostPlayer?.isReady === true;
+                      if (!hostIsReady) {
+                        if (socketToggleReady) {
+                          await socketToggleReady(Number(id), user.id);
+                        } else {
+                          // fallback: optimistically update local socket store so UI shows host as ready
+                          try {
+                            const s = useRoomSocketStore.getState();
+                            const currentRoom = s.roomInfo;
+                            if (currentRoom && currentRoom.id === room.id) {
+                              const updated = {
+                                ...currentRoom,
+                                players: (currentRoom.players || []).map((p: { id: number; isReady?: boolean; status?: string; username?: string; joinedAt?: string }) => {
+                                  if (p.id === user.id) return { ...p, isReady: true, status: 'READY', joinedAt: p.joinedAt || new Date().toISOString(), username: p.username || '' };
+                                  return { id: p.id, username: p.username || '', status: p.status || 'JOINED', isReady: Boolean(p.isReady), joinedAt: p.joinedAt || new Date().toISOString() };
+                                }),
+                              };
+                              useRoomSocketStore.setState({ roomInfo: updated });
+                            }
+                          } catch {}
+                        }
+                      }
+                    } catch (err) {
+                      console.error('Failed to set host ready:', err);
+                      toast.error('Không thể đặt trạng thái sẵn sàng cho host');
                       return;
                     }
-                    if (user?.id && socketStartCombat) {
+
+                    // Trigger prepare flow: host asks all players to ready up
+                    if (user?.id && socketPrepareStart) {
                       try {
-                        await socketStartCombat(Number(id), user.id);
-                      } catch (error) {
-                        console.error('Failed to start combat via socket:', error);
-                        startMutation.mutate();
+                        await socketPrepareStart(Number(id), user.id);
+                        toast.success('Đã gửi yêu cầu chuẩn bị cho tất cả người chơi');
+                      } catch (err) {
+                        console.error('Failed to emit prepareStart:', err);
+                        // Fallback: attempt immediate start if everyone is already ready
+                        if (!allPlayersReady) {
+                          toast.error('Không thể bắt đầu: một số người chơi chưa sẵn sàng');
+                          return;
+                        }
+                        if (user?.id && socketStartCombat) {
+                          try {
+                            await socketStartCombat(Number(id), user.id);
+                          } catch (error) {
+                            console.error('Failed to start combat via socket:', error);
+                            startMutation.mutate();
+                          }
+                        }
+                      }
+                    } else {
+                      // If socket prepare isn't available, fall back to old flow
+                      if (!allPlayersReady) {
+                        toast.error('Không thể bắt đầu: một số người chơi chưa sẵn sàng');
+                        return;
+                      }
+                      if (user?.id && socketStartCombat) {
+                        try {
+                          await socketStartCombat(Number(id), user.id);
+                        } catch (error) {
+                          console.error('Failed to start combat via socket:', error);
+                          startMutation.mutate();
+                        }
                       }
                     }
-                  }} disabled={!canStart || startMutation.isPending} className="px-8">{startMutation.isPending ? 'Đang bắt đầu...' : 'Bắt đầu trận chiến'}</Button>
+                  }} disabled={!canStart || startMutation.isPending || preventStart} className="px-8">{startMutation.isPending ? 'Đang bắt đầu...' : 'Bắt đầu trận chiến'}</Button>
                   <Button variant="destructive" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>{leaveMutation.isPending ? 'Đang hủy...' : 'Hủy phòng'}</Button>
                 </>
               ) : (
@@ -518,12 +614,12 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                                 await socketJoinRoom(Number(id), user.id, stored);
                               }
                             } catch (err) {
-                              console.warn('Rejoin via socket failed, fallback to ready toggle', err);
+                              console.warn('Rejoin via socket failed', err);
                               toast.error('Không thể kết nối lại tới phòng');
                             }
                           }} variant="outline" className="px-8">Kết nối lại</Button>
                         ) : (
-                          <Button onClick={async () => { if (user?.id && socketToggleReady) { try { await socketToggleReady(Number(id), user.id); } catch { toast.error('Không thể thay đổi trạng thái sẵn sàng'); } } }} variant={isPlayerReady ? "default" : "outline"} className="px-8">{isPlayerReady ? '✓ Sẵn sàng' : 'Sẵn sàng'}</Button>
+                          <></>
                         )
                       )}
                       <Button variant="outline" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>{leaveMutation.isPending ? 'Đang rời...' : 'Rời phòng'}</Button>
@@ -581,6 +677,37 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
       </Dialog>
 
       <CombatModal isOpen={showCombatModal} onClose={handleCombatModalClose} combatResult={combatResult} dungeonName={room?.dungeon?.name || 'Dungeon'} />
+      {/* Prepare-to-Start Modal: shown when server emits prepareToStart and prepareInfo matches this room */}
+      <Dialog open={Boolean(socketPrepareInfo && socketPrepareInfo.id === room.id)} onOpenChange={() => { /* controlled by server */ }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chuẩn bị bắt đầu trận chiến</DialogTitle>
+            <DialogDescription>Host đã yêu cầu tất cả người chơi sẵn sàng. Khi tất cả đã sẵn sàng, trận chiến sẽ bắt đầu tự động.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <p className="text-sm">{socketPrepareInfo?.players?.filter((p: { id: number; username?: string; isReady?: boolean }) => p.isReady).length || 0} / {socketPrepareInfo?.players?.length || 0} đã sẵn sàng</p>
+            <div className="space-y-2">
+              {(socketPrepareInfo?.players || []).map((p: { id: number; username?: string; isReady?: boolean }) => (
+                <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <div>
+                    <p className="font-medium text-sm">{p.username}</p>
+                  </div>
+                  <div>
+                    {p.id === user?.id ? (
+                      <Button variant={p.isReady ? 'default' : 'outline'} onClick={async () => { if (user?.id && socketToggleReady) { try { await socketToggleReady(Number(id), user.id); } catch { toast.error('Không thể thay đổi trạng thái sẵn sàng'); } } }}>{p.isReady ? '✓ Sẵn sàng' : 'Sẵn sàng'}</Button>
+                    ) : (
+                      <Badge className={p.isReady ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}>{p.isReady ? 'Sẵn sàng' : 'Chưa'}</Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { /* host can cancel by leaving dialog on server; client just closes local UI when server clears prepareInfo */ }}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
