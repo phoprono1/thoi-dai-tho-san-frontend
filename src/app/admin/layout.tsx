@@ -27,7 +27,8 @@ import {
   Target,
   UserCheck,
   PawPrint,
-  Crosshair
+  Crosshair,
+  Building2
 } from 'lucide-react';
 import AdminLogin from '@/components/admin/AdminLogin';
 import { useAdmin } from '@/components/providers/AdminProvider';
@@ -60,7 +61,7 @@ const navigation = [
   { name: 'Market', href: '/admin/market', icon: Shop },
   { name: 'Monsters', href: '/admin/monsters', icon: PawPrint },
   { name: 'Dungeons', href: '/admin/dungeons', icon: Shield },
-  { name: 'Classes', href: '/admin/classes', icon: Crown },
+  {name: 'Rooms', href: '/admin/rooms', icon: Building2 },
   { name: 'Character Classes', href: '/admin/character-classes', icon: UserCheck },
   { name: 'Combat Results', href: '/admin/combat', icon: Crosshair },
   { name: 'Quests', href: '/admin/quests', icon: Target },

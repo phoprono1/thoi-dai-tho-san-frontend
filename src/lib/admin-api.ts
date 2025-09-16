@@ -13,6 +13,17 @@ export const adminApi = axios.create({
 adminApi.interceptors.request.use((config) => {
   // Add admin-specific headers here if backend requires them
   config.headers['X-Admin-Access'] = 'true';
+  // Copy Authorization token from regular api client storage if present
+  try {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  } catch {
+    // ignore
+  }
   return config;
 });
 
@@ -20,7 +31,10 @@ adminApi.interceptors.request.use((config) => {
 adminApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('Admin API Error:', error.response?.data || error.message);
+    // Provide clearer diagnostics for admin requests
+    const status = error.response?.status;
+    const data = error.response?.data;
+    console.error('Admin API Error:', { status, data, message: error.message });
     // Don't redirect, let components handle errors
     return Promise.reject(error);
   },
@@ -139,6 +153,10 @@ export const adminApiEndpoints = {
       };
     }
   },
+  // Room admin actions
+  getRooms: () => adminApi.get('/room-lobby'),
+  adminCancelRoom: (roomId: number) => adminApi.post(`/room-lobby/${roomId}/admin-cancel`),
+  adminBulkCancelEmpty: () => adminApi.post('/room-lobby/admin/bulk-cancel-empty'),
 };
 
 export default adminApi;
