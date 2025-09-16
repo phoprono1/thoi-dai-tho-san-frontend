@@ -92,7 +92,8 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   const { user: authUser } = useAuth();
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Auto play
-  const [playbackSpeed] = useState(500); // Fixed 2x speed (500ms)
+  // Increase playback speed to ~6x (about 167ms per log) as requested
+  const [playbackSpeed] = useState(167); // ~6x speed
   const [showResult, setShowResult] = useState(false);
 
   // Animation states
@@ -110,8 +111,10 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
     
     // Reset everything when NEW combat result arrives (not just when modal opens/closes)
     const initialHp: { [key: number]: { current: number; max: number } } = {};
+    // Use maxHp as the initial displayed HP so clients don't see the post-combat
+    // final HP immediately (teamStats.members currently carries final HP).
     combatResult?.teamStats?.members?.forEach(member => {
-      initialHp[member.userId] = { current: member.hp, max: member.maxHp }; // Use current HP from teamStats
+      initialHp[member.userId] = { current: member.maxHp, max: member.maxHp };
     });
     setPlayerHp(initialHp);
     
@@ -160,15 +163,38 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
         let targetIndex = log.details.targetIndex;
 
         if (typeof targetIndex === 'undefined') {
-          // fallback: try to find enemy by name
+          // fallback resolution: try to pick enemy by matching name AND hpBefore
           const keys = Object.keys(updatedEnemyHp);
-          const found = keys.find((k) => {
+
+          // First try: exact name + hpBefore match
+          const foundByNameAndHp = keys.find((k) => {
             const idx = Number(k);
-            // access combatResult enemies by same index
             const e = (combatResult.originalEnemies || combatResult.enemies)?.[idx];
-            return e && e.name === log.details.targetName;
+            if (!e || e.name !== log.details.targetName) return false;
+            const cur = updatedEnemyHp[idx]?.current;
+            return typeof cur === 'number' && cur === (log.details.hpBefore ?? cur);
           });
-          if (found) targetIndex = Number(found);
+          if (foundByNameAndHp) {
+            targetIndex = Number(foundByNameAndHp);
+          } else {
+            // Second try: any enemy with matching hpBefore (best effort)
+            const foundByHp = keys.find((k) => {
+              const idx = Number(k);
+              const cur = updatedEnemyHp[idx]?.current;
+              return typeof cur === 'number' && cur === (log.details.hpBefore ?? cur);
+            });
+            if (foundByHp) {
+              targetIndex = Number(foundByHp);
+            } else {
+              // Last resort: find first enemy with same name (legacy behavior)
+              const found = keys.find((k) => {
+                const idx = Number(k);
+                const e = (combatResult.originalEnemies || combatResult.enemies)?.[idx];
+                return e && e.name === log.details.targetName;
+              });
+              if (found) targetIndex = Number(found);
+            }
+          }
         }
 
         if (typeof targetIndex !== 'undefined' && updatedEnemyHp[targetIndex]) {
@@ -182,8 +208,9 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
 
         return updatedEnemyHp;
       });
-      setDamageAnimation(prev => ({ ...prev, enemy: true }));
-      setTimeout(() => setDamageAnimation(prev => ({ ...prev, enemy: false })), 500);
+  setDamageAnimation(prev => ({ ...prev, enemy: true }));
+  // match damage animation length with playback speed (slightly longer for visibility)
+  setTimeout(() => setDamageAnimation(prev => ({ ...prev, enemy: false })), Math.max(120, playbackSpeed * 1.0));
     } else {
       // Enemy attacks player
       setPlayerHp(prev => ({
@@ -193,13 +220,13 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
           current: Math.max(0, log.details.hpAfter || 0)
         }
       }));
-      setDamageAnimation(prev => ({ ...prev, player: true }));
-      setTimeout(() => setDamageAnimation(prev => ({ ...prev, player: false })), 500);
+  setDamageAnimation(prev => ({ ...prev, player: true }));
+  setTimeout(() => setDamageAnimation(prev => ({ ...prev, player: false })), Math.max(120, playbackSpeed * 1.0));
     }
 
     setLastAction(log.details.description);
     setCurrentLogIndex(prev => prev + 1);
-  }, [combatResult?.logs, currentLogIndex]);
+  }, [combatResult?.logs, currentLogIndex, playbackSpeed, combatResult?.enemies, combatResult?.originalEnemies]);
 
   useEffect(() => {
     if (!isPlaying || !combatResult?.logs) {
@@ -208,9 +235,16 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
     
     // Check if we've processed all logs
     if (currentLogIndex >= (combatResult?.logs?.length || 0)) {
-      setShowResult(true);
-      setIsPlaying(false);
-      return;
+      // Delay showing result slightly so the final damage animation can
+      // complete and the last enemy's HP is visible at 0 before switching
+      // to the result panel.
+      const animationDelay = Math.max(120, playbackSpeed);
+      const t = setTimeout(() => {
+        setShowResult(true);
+        setIsPlaying(false);
+      }, animationDelay);
+
+      return () => clearTimeout(t);
     }
 
     const timer = setTimeout(() => {

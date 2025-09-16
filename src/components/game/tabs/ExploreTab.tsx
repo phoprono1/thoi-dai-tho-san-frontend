@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf } from 'lucide-react';
 // queries/mutations moved to specific pages
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface PvPMatch {
   id: number;
@@ -20,6 +21,7 @@ export default function ExploreTab() {
   // user context can be used within specific pages if needed
   const router = useRouter();
   // Explore tab is now lightweight; dungeon flows moved to /dungeons
+  const { user, isLoading } = useAuth();
 
   // No room/dungeon queries here anymore; moved to /dungeons route
 
@@ -79,6 +81,26 @@ export default function ExploreTab() {
         >
           <MapPin className="h-8 w-8 text-blue-600" />
           <span className="font-medium">Hầm ngục</span>
+        </Button>
+
+        {/* Khu Dã Ngoại (Wild Area) — navigate to /wildarea */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-emerald-50 hover:border-emerald-300"
+          onClick={async () => {
+            // If auth is still initializing, wait briefly
+            if (isLoading) {
+              await new Promise((r) => setTimeout(r, 300));
+            }
+            if (!user) {
+              router.push('/login');
+            } else {
+              router.push('/game/explore/wildarea');
+            }
+          }}
+        >
+          <Sword className="h-8 w-8 text-emerald-600" />
+          <span className="font-medium">Khu Dã Ngoại</span>
         </Button>
 
         {/* Cửa hàng (Markets) */}

@@ -694,7 +694,46 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                   </div>
                   <div>
                     {p.id === user?.id ? (
-                      <Button variant={p.isReady ? 'default' : 'outline'} onClick={async () => { if (user?.id && socketToggleReady) { try { await socketToggleReady(Number(id), user.id); } catch { toast.error('Không thể thay đổi trạng thái sẵn sàng'); } } }}>{p.isReady ? '✓ Sẵn sàng' : 'Sẵn sàng'}</Button>
+                      <Button variant={p.isReady ? 'default' : 'outline'} onClick={async () => {
+                        if (!user?.id || !socketToggleReady) return;
+                        // optimistic local update so UI reflects the change immediately
+                        try {
+                          try {
+                            const store = useRoomSocketStore.getState();
+                            const pi = store.prepareInfo;
+                            if (pi && pi.id === room.id) {
+                              type P = { id: number; username?: string; isReady?: boolean };
+                              const updated = {
+                                ...pi,
+                                players: (pi.players || []).map((q: P) => q.id === user.id ? { ...q, isReady: !q.isReady } : q)
+                              } as typeof pi;
+                              useRoomSocketStore.setState({ prepareInfo: updated });
+                            }
+                          } catch (e) {
+                            // swallow optimistic update failures
+                            void e;
+                          }
+
+                          await socketToggleReady(Number(id), user.id);
+                        } catch  {
+                          toast.error('Không thể thay đổi trạng thái sẵn sàng');
+                          // revert optimistic change if server call failed
+                          try {
+                            const store = useRoomSocketStore.getState();
+                            const pi = store.prepareInfo;
+                            if (pi && pi.id === room.id) {
+                              type P = { id: number; username?: string; isReady?: boolean };
+                              const updated = {
+                                ...pi,
+                                players: (pi.players || []).map((q: P) => q.id === user.id ? { ...q, isReady: !q.isReady } : q)
+                              } as typeof pi;
+                              useRoomSocketStore.setState({ prepareInfo: updated });
+                            }
+                          } catch {}
+                        }
+                      }}>
+                        {p.isReady ? '✓ Sẵn sàng' : 'Sẵn sàng'}
+                      </Button>
                     ) : (
                       <Badge className={p.isReady ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}>{p.isReady ? 'Sẵn sàng' : 'Chưa'}</Badge>
                     )}

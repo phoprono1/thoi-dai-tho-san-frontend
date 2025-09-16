@@ -170,7 +170,17 @@ export const useRoomSocketStore = create<RoomSocketState>()(
 
       // Room events
       socket.on('roomUpdated', (data: RoomInfo) => {
+        // Update the main roomInfo
         set({ roomInfo: data });
+        try {
+          // If we currently have a prepareInfo for the same room, keep it in sync
+          const currentPrepare = get().prepareInfo;
+          if (currentPrepare && currentPrepare.id === data.id) {
+            set({ prepareInfo: data });
+          }
+        } catch {
+          // ignore errors reading store during socket callback
+        }
       });
 
       socket.on('prepareToStart', (data: RoomInfo) => {
@@ -358,7 +368,18 @@ export const useRoomSocketStore = create<RoomSocketState>()(
       return new Promise<void>((resolve, reject) => {
         socket.emit('toggleReady', { roomId, userId }, (response: SocketResponse) => {
           if (response.success) {
-            set({ roomInfo: response.roomInfo || null, error: null });
+            const room = response.roomInfo || null;
+            // Update roomInfo
+            set({ roomInfo: room, error: null });
+            try {
+              // If prepare modal is active for this room, also update prepareInfo so UI reflects ready changes
+              const currentPrepare = get().prepareInfo;
+              if (currentPrepare && room && currentPrepare.id === room.id) {
+                set({ prepareInfo: room });
+              }
+            } catch {
+              // ignore store read/set errors
+            }
             resolve();
           } else {
             const errorMsg = response.error || 'Unknown error';

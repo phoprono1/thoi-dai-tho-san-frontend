@@ -282,7 +282,15 @@ export default function DungeonsPage() {
             // API may return either a nested `dungeon` object or flat `dungeonId` field.
             const roomCount = roomsLoading ? null : (allRooms || []).filter((r: LooseRoom) => {
               const rid = r.dungeon?.id ?? r.dungeonId;
-              return rid === d.id;
+              if (rid !== d.id) return false;
+              try {
+                const status = String(r.status || '').toLowerCase();
+                const current = Number(r.currentPlayers || 0);
+                if (status === 'starting' && current === 0) return false;
+              } catch {
+                // ignore
+              }
+              return true;
             }).length;
             return (
             <Card key={d.id} className="hover:shadow-md">
@@ -392,7 +400,20 @@ export default function DungeonsPage() {
           ) : (
             <div className="space-y-3">
               {allRooms.length === 0 && <div className="text-sm text-gray-500">Không có phòng nào đang hoạt động</div>}
-              {allRooms.map((r: LooseRoom) => {
+              { /* Exclude rooms that are in 'starting' state with zero players (these are transient/closing) */ }
+              {allRooms
+                .filter((r: LooseRoom) => {
+                  try {
+                    const status = String(r.status || '').toLowerCase();
+                    const current = Number(r.currentPlayers || 0);
+                    // hide rooms that are 'starting' and have no players
+                    if (status === 'starting' && current === 0) return false;
+                    return true;
+                  } catch {
+                    return true;
+                  }
+                })
+                .map((r: LooseRoom) => {
                 // resolve dungeon info from nested object or from global `dungeons` list via dungeonId
                 const sheetDungeon = r.dungeon ?? dungeons.find((dd) => dd.id === r.dungeonId);
                 const dungeonName = sheetDungeon?.name ?? r.dungeonName ?? 'N/A';

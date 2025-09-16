@@ -113,6 +113,15 @@ export const gameApi = {
   },
 };
 
+// Explore API
+export const exploreApi = {
+  startWildArea: async (preferredCount?: number) => {
+    // normalize to project convention: backend base may already include /api
+    const response = await api.post('/explore/wildarea/start', { preferredCount });
+    return response.data;
+  },
+};
+
 // Guild API
 export const guildApi = {
   getGuilds: async () => {
