@@ -15,10 +15,6 @@ const AuthProvider = dynamic(() => import('@/components/providers/AuthProvider')
   loading: () => <div className="min-h-screen flex items-center justify-center">Loading...</div>
 });
 
-const GlobalChat = dynamic(() => import('@/components/global-chat/global-chat').then(mod => mod.GlobalChat), {
-  ssr: false,
-});
-
 
 const ThemeProviderClient = dynamic(() => import('@/components/providers/ThemeProviderClient'), { ssr: false });
 
@@ -52,7 +48,6 @@ export default function RootLayout({
                 </div>
               </div>
               {children}
-              <GlobalChat />
             </AuthProvider>
           </QueryProvider>
         </ThemeProviderClient>

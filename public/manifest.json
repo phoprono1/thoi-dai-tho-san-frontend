@@ -8,9 +8,21 @@
   "description": "Web game textbase Thời Đại Thợ Săn",
   "icons": [
     {
-      "src": "/file.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/game-logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/game-logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/game-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

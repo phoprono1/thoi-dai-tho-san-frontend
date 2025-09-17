@@ -217,7 +217,7 @@ export default function DungeonsPage() {
 
   return (
     <>
-    <div className="p-6">
+  <div className="p-6">
   <div className="mb-4">
     <div className="flex items-center justify-between">
       <h1 className="text-2xl font-bold">Hầm Ngục</h1>
@@ -273,7 +273,7 @@ export default function DungeonsPage() {
     </div>
   </div>
 
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
         {isLoading ? (
           <div>Đang tải...</div>
         ) : (
@@ -295,11 +295,11 @@ export default function DungeonsPage() {
             return (
             <Card key={d.id} className="hover:shadow-md">
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{d.name}</span>
-                  <span className="text-sm text-muted-foreground">{roomCount === null ? 'Đang tải...' : `${roomCount} phòng chờ`}</span>
+                <CardTitle className="flex items-center justify-between min-w-0">
+                  <span className="truncate min-w-0">{d.name}</span>
+                  <span className="text-sm text-muted-foreground ml-2 whitespace-nowrap min-w-0 overflow-hidden">{roomCount === null ? 'Đang tải...' : `${roomCount} phòng chờ`}</span>
                 </CardTitle>
-                <CardDescription>Lv. {d.levelRequirement} • {d.description || 'Không có mô tả'}</CardDescription>
+                <CardDescription className="truncate min-w-0">Lv. {d.levelRequirement} • <span className="truncate block min-w-0">{d.description || 'Không có mô tả'}</span></CardDescription>
                 {/* Small muted italic line for monsters/drops. Hover to see full list (title attr used for tooltip). */}
                 {(() => {
                   const p = renderDropPreview(d);
@@ -341,29 +341,29 @@ export default function DungeonsPage() {
                   };
 
                   return (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {(p.items || []).slice(0, 8).map((it, idx) => (
-                        <span
-                          key={`${d.id}-item-${idx}`}
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${rarityColor(it.name)}`}
-                          title={formatItemTooltip(it.name, it.rate)}
-                        >
-                          {it.name}
-                        </span>
-                      ))}
-                      {(p.items || []).length > 8 && (
-                        <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">+{(p.items || []).length - 8} thêm</span>
-                      )}
-                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2 min-w-0 overflow-hidden">
+                        {(p.items || []).slice(0, 8).map((it, idx) => (
+                          <span
+                            key={`${d.id}-item-${idx}`}
+                            className={`px-2 py-1 rounded-full text-xs font-medium truncate max-w-[9rem] block ${rarityColor(it.name)}`}
+                            title={formatItemTooltip(it.name, it.rate)}
+                          >
+                            {it.name}
+                          </span>
+                        ))}
+                        {(p.items || []).length > 8 && (
+                          <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">+{(p.items || []).length - 8} thêm</span>
+                        )}
+                      </div>
                   );
                 })()}
               </CardHeader>
               <CardContent>
                 <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm">Yêu cầu cấp: {d.levelRequirement}</div>
+                  <div className="min-w-0">
+                    <div className="text-sm truncate">Yêu cầu cấp: {d.levelRequirement}</div>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 flex-shrink-0">
 
                     {/* Create room dialog (controlled) */}
                     <Button onClick={() => setCreatingDungeonId(d.id)}>Tạo phòng</Button>

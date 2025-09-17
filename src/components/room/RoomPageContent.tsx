@@ -550,7 +550,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     const barColor = pct <= 20 ? 'bg-red-500' : pct <= 50 ? 'bg-yellow-400' : 'bg-green-500';
 
     return (
-      <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg gap-2">
+    <div className="w-full min-w-0 flex items-center justify-between p-2 bg-gray-50 rounded-lg gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {player.player.id === room.host.id && (<Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />)}
           <div className="min-w-0">
@@ -579,18 +579,18 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   }
 
   return (
-    <div className="w-full max-w-full px-4 py-8">
-      <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-full px-3 py-6">
+      <div className="w-full max-w-4xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">{room.name}</h1>
-            <div className="flex items-center gap-2 mt-2">
+            <h1 className="text-2xl font-medium">{room.name}</h1>
+            <div className="flex items-center gap-2 mt-1">
               <Badge className={getStatusBadge(room.status)}>{room.status}</Badge>
               {room.isPrivate && (<Badge variant="outline">Phòng riêng tư</Badge>)}
             </div>
           </div>
-          <Button variant="outline" onClick={() => router.push('/game/explore')}>Quay lại</Button>
+          <Button variant="outline" onClick={() => router.push('/game/explore')} className="px-3 py-1 text-sm">Quay lại</Button>
         </div>
 
         {/* Room Info */}
@@ -598,7 +598,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Thông tin phòng</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-1">
             {/* compact responsive layout: two columns on small screens, 4 columns on md+ */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-start">
               <div className="col-span-2 md:col-span-1">
@@ -634,12 +634,12 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
             <CardTitle>Danh sách người chơi ({room.players.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {room.players.map((player: { id: number; player: { username: string; level: number; id: number }; status: string }) => (
                 <PlayerRow key={player.id} player={player} />
               ))}
 
-              {room.players.length === 0 && (<p className="text-center text-gray-500 py-4">Chưa có người chơi nào trong phòng</p>)}
+              {room.players.length === 0 && (<p className="text-center text-gray-500 py-2 col-span-1 sm:col-span-2">Chưa có người chơi nào trong phòng</p>)}
             </div>
           </CardContent>
         </Card>
@@ -649,14 +649,14 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
           <CardHeader>
             <CardTitle>Chat phòng</CardTitle>
           </CardHeader>
-          <CardContent className="p-4">
-            <div className="flex flex-col h-48 md:h-56">
-              <div ref={chatListRef} className="flex-1 overflow-y-auto pr-2 mb-2" id="room-chat-list" aria-live="polite">
+          <CardContent className="p-3">
+            <div className="flex flex-col h-36 md:h-44">
+              <div ref={chatListRef} className="flex-1 overflow-y-auto pr-1 mb-1" id="room-chat-list" aria-live="polite">
                 {(roomChatMessages || []).length === 0 ? (
                   <p className="text-xs text-gray-500 dark:text-gray-400">Chưa có tin nhắn — bắt đầu cuộc trò chuyện!</p>
                 ) : (
                   (roomChatMessages || []).map((m, i) => (
-                    <div key={i} className="mb-2">
+                    <div key={i} className="mb-1">
                       <p className="text-sm font-medium truncate">{m.username} <span className="text-xs text-gray-400">· {new Date(m.ts).toLocaleTimeString()}</span></p>
                       <p className="text-sm text-gray-700 dark:text-gray-200">{m.text}</p>
                     </div>
@@ -667,12 +667,12 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                 <form onSubmit={handleChatSubmit} className="flex gap-2">
                   <input
                     aria-label="Gửi tin nhắn trong phòng"
-                    className="flex-1 px-3 py-2 border rounded bg-white dark:bg-slate-800 text-sm dark:text-gray-100"
+                    className="flex-1 px-2 py-1 border rounded bg-white dark:bg-slate-800 text-sm dark:text-gray-100"
                     placeholder="Gõ tin nhắn và nhấn Enter..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                   />
-                  <Button type="submit" className="whitespace-nowrap">Gửi</Button>
+                  <Button type="submit" className="whitespace-nowrap px-3 py-1 text-sm">Gửi</Button>
                 </form>
               </div>
             </div>
@@ -681,8 +681,8 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
 
         {/* Actions */}
         <Card>
-          <CardContent className="p-6">
-            <div className="flex gap-3 justify-center">
+          <CardContent className="p-3">
+            <div className="flex gap-2 justify-center">
               {isHost ? (
                 <>
                   <Button onClick={async () => {
@@ -754,9 +754,9 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                         }
                       }
                     }
-                  }} disabled={!canStart || startMutation.isPending || preventStart} className="px-8">{startMutation.isPending ? 'Đang bắt đầu...' : 'Bắt đầu trận chiến'}</Button>
+                  }} disabled={!canStart || startMutation.isPending || preventStart} className="px-4 py-1 text-sm">{startMutation.isPending ? 'Đang...' : 'Bắt đầu'}</Button>
                   <ShareButton room={room} hostUsername={room.host.username} />
-                  <Button variant="destructive" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>{leaveMutation.isPending ? 'Đang hủy...' : 'Hủy phòng'}</Button>
+                  <Button variant="destructive" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending} className="px-3 py-1 text-sm">{leaveMutation.isPending ? 'Đang...' : 'Hủy'}</Button>
                 </>
               ) : (
                 <>
@@ -777,7 +777,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                             joinMutation.mutate();
                           }
                         }
-                      }} disabled={joinMutation.isPending || room.currentPlayers >= room.maxPlayers} className="px-8">{joinMutation.isPending ? 'Đang tham gia...' : 'Tham gia phòng'}</Button>
+                      }} disabled={joinMutation.isPending || room.currentPlayers >= room.maxPlayers} className="px-4 py-1 text-sm">{joinMutation.isPending ? 'Đang...' : 'Tham gia'}</Button>
                     </>
                   ) : (
                     <>
@@ -793,12 +793,12 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                               console.warn('Rejoin via socket failed', err);
                               toast.error('Không thể kết nối lại tới phòng');
                             }
-                          }} variant="outline" className="px-8">Kết nối lại</Button>
+                          }} variant="outline" className="px-4 py-1 text-sm">Kết nối lại</Button>
                         ) : (
                           <></>
                         )
                       )}
-                      <Button variant="outline" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>{leaveMutation.isPending ? 'Đang rời...' : 'Rời phòng'}</Button>
+                      <Button variant="outline" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending} className="px-3 py-1 text-sm">{leaveMutation.isPending ? 'Đang...' : 'Rời'}</Button>
                     </>
                   )}
                 </>

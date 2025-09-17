@@ -1,5 +1,6 @@
-'use client';
+ 'use client';
 
+import Image from 'next/image';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -36,7 +37,12 @@ export default function GameDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">Thời Đại Thợ Săn</h1>
+              <div className="flex items-center space-x-3">
+                <div style={{ width: 40, height: 40, overflow: 'hidden' }} className="rounded-md">
+                  <Image src="/game-logo.png" alt="Thời Đại Thợ Săn" width={40} height={40} style={{ objectFit: 'cover', objectPosition: 'center' }} />
+                </div>
+                <div className="text-lg font-bold text-gray-900">Thời Đại Thợ Săn</div>
+              </div>
               <div className="text-sm text-gray-600">
                 Chào mừng, <span className="font-semibold">{user.username}</span>
               </div>

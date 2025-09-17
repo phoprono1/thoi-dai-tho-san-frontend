@@ -3,8 +3,9 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+// Progress removed for compact layout
 import { User, Heart, Zap, Shield, Sword, Coins, Star, TrendingUp } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useUserStatusStore } from '@/stores/user-status.store';
 import { UserStats, UserItem } from '@/types';
 
@@ -82,10 +83,10 @@ function computeCombatPowerFromStats(
   const finalAttack =
     Math.floor(
       baseAttack +
-        equipAttackFlat +
+      equipAttackFlat +
       atkFromSTR * eff(STR) +
-        atkFromINT * eff(INT) +
-        atkFromDEX * eff(DEX),
+      atkFromINT * eff(INT) +
+      atkFromDEX * eff(DEX),
     ) * (1 + equipAttackMult);
 
   const finalMaxHp =
@@ -166,17 +167,15 @@ const StatusTab: React.FC = () => {
     );
   }
 
-  const expPercent = nextLevel
-    ? (user.experience / nextLevel.experienceRequired) * 100
-    : 100;
-  const staminaPercent = (stamina.currentStamina / stamina.maxStamina) * 100;
-
   // Use server-provided stats directly. Server persists derived stats when equipping,
   // so avoid adding item bonuses again on the client which causes double-counting.
   const displayedStats = { ...stats } as typeof stats;
   const displayedMaxHp = displayedStats.maxHp || 0;
   const displayedCurrentHp = Math.min(displayedStats.currentHp || 0, displayedMaxHp);
+
   const displayedHealthPercent = displayedMaxHp > 0 ? (displayedCurrentHp / displayedMaxHp) * 100 : 0;
+  const expPercent = nextLevel ? (user.experience / (nextLevel.experienceRequired || 1)) * 100 : 100;
+  const staminaPercent = stamina.maxStamina > 0 ? (stamina.currentStamina / stamina.maxStamina) * 100 : 0;
 
   // Prefer the server-provided, authoritative combatPower attached to `user`.
   // If it's missing (older backend or race condition), compute deterministically
@@ -192,79 +191,85 @@ const StatusTab: React.FC = () => {
 
   // Small inline Stat cell to avoid extra file
   const StatCell: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNode }> = ({ icon, label, value }) => (
-    <div className="flex items-center gap-2 p-2 border-2 border-[var(--border)] rounded-md bg-[var(--card)]">
-      <div className="w-6 h-6 flex items-center justify-center">{icon}</div>
+    <div className="flex items-center gap-2 p-1.5 border border-[var(--border)] rounded-md bg-[var(--card)] text-sm">
+      <div className="w-5 h-5 flex items-center justify-center">{icon}</div>
       <div className="flex-1">
-        <div className="text-xs text-[var(--muted-foreground)]">{label}</div>
-        <div className="text-sm font-semibold">{value}</div>
+        <div className="text-[11px] text-[var(--muted-foreground)]">{label}</div>
+        <div className="text-sm font-semibold leading-tight">{value}</div>
       </div>
     </div>
   );
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-3 p-3">
       {/* Thông tin nhân vật chính */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-4">
+        <CardHeader className="pb-0">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <User className="h-6 w-6" />
+              <User className="h-5 w-5" />
               <div className="flex flex-col">
-                <span className="font-semibold">{user.username}</span>
-                <span className="text-xs text-[var(--muted-foreground)]">{characterClass?.name || 'Chưa chọn lớp'}</span>
+                <span className="font-semibold text-sm">{user.username}</span>
+                <span className="text-[10px] text-[var(--muted-foreground)]">{characterClass?.name || 'Chưa chọn lớp'}</span>
               </div>
             </div>
 
-            <div className="ml-auto flex items-center gap-3">
-              <Badge variant="secondary">Cấp {currentLevel.level}</Badge>
-              <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-[linear-gradient(90deg,#fef3c7,#fed7aa)] text-black font-semibold text-sm border border-[rgba(0,0,0,0.06)]">
-                <Sword className="h-4 w-4 text-[rgba(0,0,0,0.6)]" />
-                <span className="leading-none">{combatPower.toLocaleString()}</span>
+            <div className="ml-auto flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs py-0.5 px-2">Cấp {currentLevel.level}</Badge>
+              <div className="flex items-center gap-1 px-1 py-0.5 rounded-md bg-[linear-gradient(90deg,#fef3c7,#fed7aa)] text-black font-semibold text-xs border border-[rgba(0,0,0,0.06)]">
+                <Sword className="h-3 w-3 text-[rgba(0,0,0,0.6)]" />
+                <span className="leading-none text-xs">{combatPower.toLocaleString()}</span>
               </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-2">
           {/* Lớp nhân vật */}
           <div className="flex items-center gap-2 text-[var(--foreground)]">
-            <Star className="h-4 w-4 text-[var(--chart-5)]" />
-            <span className="text-sm font-medium">{characterClass?.name || 'Chưa chọn lớp'}</span>
+            <Star className="h-3 w-3 text-[var(--chart-5)]" />
+            <span className="text-xs font-medium">{characterClass?.name || 'Chưa chọn lớp'}</span>
           </div>
 
           {/* Thanh máu */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1">
-                <Heart className="h-4 w-4 text-[var(--destructive)]" />
-                <span className="text-[var(--destructive)] font-medium">Máu</span>
+                <Heart className="h-3 w-3 text-[var(--destructive)]" />
+                <span className="text-[var(--destructive)] font-medium text-xs">Máu</span>
               </div>
-              <span className="text-[var(--destructive)] font-bold">{displayedCurrentHp}/{displayedMaxHp}</span>
+              <span className="text-[var(--destructive)] font-bold text-sm">{displayedCurrentHp}/{displayedMaxHp}</span>
             </div>
-            <Progress value={displayedHealthPercent} className="h-2 [&>div]:bg-[var(--destructive)]" />
+            <div className="h-2 bg-[rgba(255,255,255,0.06)] rounded overflow-hidden">
+              <div className="h-full bg-[var(--destructive)]" style={{ width: `${displayedHealthPercent}%` }} />
+            </div>
           </div>
 
           {/* Thanh kinh nghiệm */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1">
-                <TrendingUp className="h-4 w-4 text-[var(--chart-2)]" />
-                <span className="text-[var(--chart-2)] font-medium">Kinh nghiệm</span>
+                <TrendingUp className="h-3 w-3 text-[var(--chart-2)]" />
+                <span className="text-[var(--chart-2)] font-medium text-xs">Kinh nghiệm</span>
               </div>
-              <span className="text-[var(--chart-2)] font-bold">{user.experience}/{nextLevel?.experienceRequired || user.experience}</span>
+              <span className="text-[var(--chart-2)] font-bold text-sm">{user.experience}/{nextLevel?.experienceRequired || user.experience}</span>
             </div>
-            <Progress value={expPercent} className="h-2 [&>div]:bg-[var(--chart-2)]" />
+            <div className="h-2 bg-[rgba(255,255,255,0.06)] rounded overflow-hidden">
+              <div className="h-full bg-[var(--chart-2)]" style={{ width: `${expPercent}%` }} />
+            </div>
           </div>
 
           {/* Thanh năng lượng */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1">
-                <Zap className="h-4 w-4 text-[var(--chart-4)]" />
-                <span className="text-[var(--chart-4)] font-medium">Năng lượng</span>
+                <Zap className="h-3 w-3 text-[var(--chart-4)]" />
+                <span className="text-[var(--chart-4)] font-medium text-xs">Năng lượng</span>
               </div>
-              <span className="text-[var(--chart-4)] font-bold">{stamina.currentStamina}/{stamina.maxStamina}</span>
+              <span className="text-[var(--chart-4)] font-bold text-sm">{stamina.currentStamina}/{stamina.maxStamina}</span>
             </div>
-            <Progress value={staminaPercent} className="h-2 [&>div]:bg-[var(--chart-4)]" />
+            <div className="h-2 bg-[rgba(255,255,255,0.06)] rounded overflow-hidden">
+              <div className="h-full bg-[var(--chart-4)]" style={{ width: `${staminaPercent}%` }} />
+            </div>
           </div>
 
           {/* Vàng */}
@@ -278,166 +283,172 @@ const StatusTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Thuộc tính chi tiết */}
+      {/* Thuộc tính (gộp chung) */}
       <Card>
         <CardHeader>
-          <CardTitle>Thuộc tính</CardTitle>
+          <CardTitle className="text-sm">Thuộc tính</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Compact attributes grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/** left column: core derived stats */}
-            <div className="p-4 border-2 border-[var(--border)] rounded-lg bg-[var(--card)]">
-              <h4 className="text-sm font-semibold mb-3">Thuộc tính chính</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Tấn công" value={displayedStats.attack} />
-                <StatCell icon={<Shield className="h-4 w-4 text-[var(--chart-4)]" />} label="Phòng thủ" value={displayedStats.defense} />
-                <StatCell icon={<Heart className="h-4 w-4 text-[var(--chart-5)]" />} label="Máu" value={displayedStats.vitality} />
-                <StatCell icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} label="Trí tuệ" value={displayedStats.intelligence} />
-              </div>
-            </div>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Tấn công" value={displayedStats.attack} />
+            <StatCell icon={<Shield className="h-4 w-4 text-[var(--chart-4)]" />} label="Phòng thủ" value={displayedStats.defense} />
+            <StatCell icon={<Heart className="h-4 w-4 text-[var(--chart-5)]" />} label="Máu" value={displayedStats.vitality} />
+            <StatCell icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} label="Trí tuệ" value={displayedStats.intelligence} />
 
-            {/** middle column: core attributes */}
-            <div className="p-4 border-2 border-[var(--border)] rounded-lg bg-[var(--card)]">
-              <h4 className="text-sm font-semibold mb-3">Thuộc tính cốt lõi</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Sức mạnh" value={displayedStats.strength} />
-                <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-4)]" />} label="Nhanh nhẹn" value={displayedStats.dexterity} />
-                <StatCell icon={<Shield className="h-4 w-4 text-[var(--muted-foreground)]" />} label="May mắn" value={displayedStats.luck} />
-                <StatCell icon={<Star className="h-4 w-4 text-[var(--chart-5)]" />} label="Chính xác" value={`${displayedStats.accuracy}%`} />
-              </div>
-            </div>
+            <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Sức mạnh" value={displayedStats.strength} />
+            <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-4)]" />} label="Nhanh nhẹn" value={displayedStats.dexterity} />
+            <StatCell icon={<Star className="h-4 w-4 text-[var(--muted-foreground)]" />} label="May mắn" value={displayedStats.luck} />
+            <StatCell icon={<Star className="h-4 w-4 text-[var(--chart-5)]" />} label="Chính xác" value={`${displayedStats.accuracy}%`} />
 
-            {/** right column: advanced */}
-            <div className="p-4 border-2 border-[var(--border)] rounded-lg bg-[var(--card)]">
-              <h4 className="text-sm font-semibold mb-3">Thuộc tính nâng cao</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCell icon={<TrendingUp className="h-4 w-4 text-[var(--chart-2)]" />} label="Chí mạng" value={`${displayedStats.critRate}%`} />
-                <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-1)]" />} label="Crit DMG" value={`${displayedStats.critDamage}%`} />
-                <StatCell icon={<Star className="h-4 w-4 text-[var(--accent)]" />} label="Combo" value={`${displayedStats.comboRate}%`} />
-                <StatCell icon={<Star className="h-4 w-4 text-[var(--destructive)]" />} label="Phản công" value={`${displayedStats.counterRate}%`} />
-              </div>
-            </div>
+            <StatCell icon={<TrendingUp className="h-4 w-4 text-[var(--chart-2)]" />} label="Chí mạng" value={`${displayedStats.critRate}%`} />
+            <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-1)]" />} label="Crit DMG" value={`${displayedStats.critDamage}%`} />
+            <StatCell icon={<Star className="h-4 w-4 text-[var(--accent)]" />} label="Combo" value={`${displayedStats.comboRate}%`} />
+            <StatCell icon={<Star className="h-4 w-4 text-[var(--destructive)]" />} label="Phản công" value={`${displayedStats.counterRate}%`} />
           </div>
         </CardContent>
       </Card>
 
       {/* Equipped Items Section - 3 slots */}
-      <Card className="shadow-lg border-2 border-[var(--border)] bg-[var(--card)]">
+      <Card className="shadow-sm border border-[var(--border)] bg-[var(--card)]">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center text-[var(--card-foreground)] flex items-center gap-2 justify-center">
-            <Shield className="h-6 w-6" />
+          <CardTitle className="text-base font-semibold text-center flex items-center gap-2 justify-center">
+            <Shield className="h-5 w-5" />
             Trang bị hiện tại
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="flex gap-4 overflow-x-auto py-2 md:grid md:grid-cols-3 md:overflow-visible md:gap-4 snap-x snap-mandatory">
+        <CardContent className="p-4">
+          <div className="flex gap-2 overflow-x-auto py-1 md:grid md:grid-cols-3 md:overflow-visible md:gap-2 snap-x snap-mandatory">
             {/* Weapon */}
-            <div className="min-w-[260px] md:min-w-0 flex-shrink-0 snap-start border-2 border-[var(--border)] rounded-lg p-4 bg-[var(--card)] text-[var(--foreground)]">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-lg font-semibold">Vũ khí</h4>
-                <Sword className="h-5 w-5 text-[var(--chart-3)]" />
-              </div>
+            <div className="min-w-[140px] md:min-w-0 flex-shrink-0 snap-start border border-[var(--border)] rounded px-2 py-1 bg-[var(--card)] text-[var(--foreground)]">
               {equippedItems?.find((it) => it.item.type === 'weapon') ? (
                 (() => {
                   const w = equippedItems.find((it) => it.item.type === 'weapon')!;
                   return (
                     <div>
-                      <h5 className="font-medium text-sm mb-1">{w.item.name}</h5>
-                      <div className="text-xs text-[var(--muted-foreground)] mb-2 flex items-center gap-2">
-                        <span>Lv.{w.item.level} •</span>
-                        <Badge variant="outline">{w.item.rarity}</Badge>
-                      </div>
-                      <p className="text-sm text-[var(--foreground)] mb-2">{w.item.description}</p>
-                      {w.item.stats && (
-                        <div className="space-y-1 text-sm">
-                          {Object.entries(w.item.stats).map(([k, v]) => (
-                            <div key={k} className="flex items-center justify-between">
-                              <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
-                              <span className="font-medium">+{v}</span>
+                      <h5 className="font-medium text-sm leading-tight">{w.item.name}</h5>
+
+                      {w.item.stats ? (
+                        <Collapsible>
+                          <div className="flex items-center justify-between mt-1">
+                            {w.item.level ? (
+                              <span className="text-xs text-[var(--muted-foreground)]">Lv.{w.item.level}</span>
+                            ) : w.item.rarity ? (
+                              <Badge variant="outline" className="text-[11px]">{w.item.rarity}</Badge>
+                            ) : (
+                              <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
+                            )}
+                            <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Hiện</CollapsibleTrigger>
+                          </div>
+                          <CollapsibleContent>
+                            <p className="text-xs text-[var(--muted-foreground)] mt-2">{w.item.description}</p>
+                            <div className="space-y-1 text-sm mt-2">
+                              {Object.entries(w.item.stats).map(([k, v]) => (
+                                <div key={k} className="flex items-center justify-between text-sm">
+                                  <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
+                                  <span className="font-medium">+{v}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ) : (
+                        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{w.item.description}</div>
                       )}
                     </div>
                   );
                 })()
               ) : (
-                <div className="py-8 text-center text-[var(--muted-foreground)]">
+                <div className="py-4 text-center text-[var(--muted-foreground)] text-sm">
                   <p>Trống</p>
                 </div>
               )}
             </div>
 
             {/* Armor */}
-            <div className="min-w-[260px] md:min-w-0 flex-shrink-0 snap-start border-2 border-[var(--border)] rounded-lg p-4 bg-[var(--card)] text-[var(--foreground)]">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-lg font-semibold">Giáp</h4>
-                <Shield className="h-5 w-5 text-[var(--chart-4)]" />
-              </div>
+            <div className="min-w-[140px] md:min-w-0 flex-shrink-0 snap-start border border-[var(--border)] rounded px-2 py-1 bg-[var(--card)] text-[var(--foreground)]">
               {equippedItems?.find((it) => it.item.type === 'armor') ? (
                 (() => {
                   const a = equippedItems.find((it) => it.item.type === 'armor')!;
                   return (
                     <div>
-                      <h5 className="font-medium text-sm mb-1">{a.item.name}</h5>
-                      <div className="text-xs text-[var(--muted-foreground)] mb-2 flex items-center gap-2">
-                        <span>Lv.{a.item.level} •</span>
-                        <Badge variant="outline">{a.item.rarity}</Badge>
-                      </div>
-                      <p className="text-sm text-[var(--foreground)] mb-2">{a.item.description}</p>
-                      {a.item.stats && (
-                        <div className="space-y-1 text-sm">
-                          {Object.entries(a.item.stats).map(([k, v]) => (
-                            <div key={k} className="flex items-center justify-between">
-                              <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
-                              <span className="font-medium">+{v}</span>
+                      <h5 className="font-medium text-sm leading-tight">{a.item.name}</h5>
+                      {a.item.stats ? (
+                        <Collapsible>
+                          <div className="flex items-center justify-between mt-1">
+                            {a.item.level ? (
+                              <span className="text-xs text-[var(--muted-foreground)]">Lv.{a.item.level}</span>
+                            ) : a.item.rarity ? (
+                              <Badge variant="outline" className="text-[11px]">{a.item.rarity}</Badge>
+                            ) : (
+                              <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
+                            )}
+                            <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Hiện</CollapsibleTrigger>
+                          </div>
+                          <CollapsibleContent>
+                            <p className="text-xs text-[var(--muted-foreground)] mt-2">{a.item.description}</p>
+                            <div className="space-y-1 text-sm mt-2">
+                              {Object.entries(a.item.stats).map(([k, v]) => (
+                                <div key={k} className="flex items-center justify-between">
+                                  <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
+                                  <span className="font-medium">+{v}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ) : (
+                        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{a.item.description}</div>
                       )}
                     </div>
                   );
                 })()
               ) : (
-                <div className="py-8 text-center text-[var(--muted-foreground)]">
+                <div className="py-4 text-center text-[var(--muted-foreground)] text-sm">
                   <p>Trống</p>
                 </div>
               )}
             </div>
 
             {/* Accessory */}
-            <div className="min-w-[260px] md:min-w-0 flex-shrink-0 snap-start border-2 border-[var(--border)] rounded-lg p-4 bg-[var(--card)] text-[var(--foreground)]">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-lg font-semibold">Phụ kiện</h4>
-                <Star className="h-5 w-5 text-[var(--accent)]" />
-              </div>
+            <div className="min-w-[140px] md:min-w-0 flex-shrink-0 snap-start border border-[var(--border)] rounded px-2 py-1 bg-[var(--card)] text-[var(--foreground)]">
               {equippedItems?.find((it) => it.item.type === 'accessory') ? (
                 (() => {
                   const acc = equippedItems.find((it) => it.item.type === 'accessory')!;
                   return (
                     <div>
-                      <h5 className="font-medium text-sm mb-1">{acc.item.name}</h5>
-                      <div className="text-xs text-[var(--muted-foreground)] mb-2 flex items-center gap-2">
-                        <span>Lv.{acc.item.level} •</span>
-                        <Badge variant="outline">{acc.item.rarity}</Badge>
-                      </div>
-                      <p className="text-sm text-[var(--foreground)] mb-2">{acc.item.description}</p>
-                      {acc.item.stats && (
-                        <div className="space-y-1 text-sm">
-                          {Object.entries(acc.item.stats).map(([k, v]) => (
-                            <div key={k} className="flex items-center justify-between">
-                              <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
-                              <span className="font-medium">+{v}</span>
+                      <h5 className="font-medium text-sm leading-tight">{acc.item.name}</h5>
+                      {acc.item.stats ? (
+                        <Collapsible>
+                          <div className="flex items-center justify-between mt-1">
+                            {acc.item.level ? (
+                              <span className="text-xs text-[var(--muted-foreground)]">Lv.{acc.item.level}</span>
+                            ) : acc.item.rarity ? (
+                              <Badge variant="outline" className="text-[11px]">{acc.item.rarity}</Badge>
+                            ) : (
+                              <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
+                            )}
+                            <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Hiện</CollapsibleTrigger>
+                          </div>
+                          <CollapsibleContent>
+                            <p className="text-xs text-[var(--muted-foreground)] mt-2">{acc.item.description}</p>
+                            <div className="space-y-1 text-sm mt-2">
+                              {Object.entries(acc.item.stats).map(([k, v]) => (
+                                <div key={k} className="flex items-center justify-between">
+                                  <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
+                                  <span className="font-medium">+{v}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ) : (
+                        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{acc.item.description}</div>
                       )}
                     </div>
                   );
                 })()
               ) : (
-                <div className="py-8 text-center text-[var(--muted-foreground)]">
+                <div className="py-4 text-center text-[var(--muted-foreground)] text-sm">
                   <p>Trống</p>
                 </div>
               )}

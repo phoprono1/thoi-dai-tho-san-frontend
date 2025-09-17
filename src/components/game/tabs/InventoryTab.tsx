@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,16 +87,20 @@ export default function InventoryTab() {
     return !type || (type !== 'weapon' && type !== 'armor' && type !== 'accessory');
   };
 
+  const isEquipableType = (type?: string) => {
+    return !!type && (type === 'weapon' || type === 'armor' || type === 'accessory');
+  };
+
   // Build grouped display list: for stackable types we show one tile with a count
   const buildDisplayList = (list: UserItem[]) => {
     const groups: Record<string, { sample: UserItem; count: number; ids: number[] }> = {};
     for (const ui of list) {
-  const key = isStackable(ui.item.type) ? `stack:${ui.item.id}` : `single:${ui.id}`;
-  const uiRec = ui as unknown as Record<string, unknown>;
-  const qty = Number(uiRec.quantity || uiRec.qty || 1);
-  if (!groups[key]) groups[key] = { sample: ui, count: 0, ids: [] };
-  groups[key].count += qty;
-  groups[key].ids.push(ui.id);
+      const key = isStackable(ui.item.type) ? `stack:${ui.item.id}` : `single:${ui.id}`;
+      const uiRec = ui as unknown as Record<string, unknown>;
+      const qty = Number(uiRec.quantity || uiRec.qty || 1);
+      if (!groups[key]) groups[key] = { sample: ui, count: 0, ids: [] };
+      groups[key].count += qty;
+      groups[key].ids.push(ui.id);
     }
     return Object.values(groups).map((g) => ({ sample: g.sample, count: g.count, ids: g.ids }));
   };
@@ -269,9 +273,9 @@ export default function InventoryTab() {
 
 
   return (
-    <div className="p-4">
+    <div className="p-3">
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-4">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 gap-2 mb-4 text-center">
           <TabsTrigger value="all">Tất cả</TabsTrigger>
           <TabsTrigger value="weapon">Vũ khí</TabsTrigger>
           <TabsTrigger value="armor">Giáp</TabsTrigger>
@@ -315,42 +319,42 @@ export default function InventoryTab() {
             {refreshCountdown > 0 && <div className="text-sm text-gray-500">({refreshCountdown}s)</div>}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              {(() => {
-                const grouped = buildDisplayList(items);
-                const sorted = sortDisplay(grouped);
-                const { pageItems, pageCount } = getPage(sorted);
-                // ensure pageCount is referenced so linters don't complain
-                const _pageCount = pageCount;
-                void _pageCount;
-                return pageItems.map(({ sample, count, ids }) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-1.5">
+            {(() => {
+              const grouped = buildDisplayList(items);
+              const sorted = sortDisplay(grouped);
+              const { pageItems, pageCount } = getPage(sorted);
+              // ensure pageCount is referenced so linters don't complain
+              const _pageCount = pageCount;
+              void _pageCount;
+              return pageItems.map(({ sample, count, ids }) => {
                 const item = sample.item;
                 return (
                   <Card
                     key={ids.join('-')}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      sample.isEquipped ? 'ring-2 ring-blue-500' : ''
-                    }`}
+                    className={`cursor-pointer transition-all hover:shadow-md ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
                     onClick={() => setSelectedItem(sample)}
                   >
-                    <CardContent className="p-2">
+                    <CardContent className="p-1.5">
                       <div className="flex items-center space-x-2">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                          {renderItemIcon(item.type, 'h-6 w-6 text-gray-600')}
+                        <div className="p-1.5 bg-gray-100 rounded-md flex items-center justify-center">
+                          {renderItemIcon(item.type, 'h-5 w-5 text-gray-600')}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between mb-0.5">
                             <h3 className="font-medium text-sm truncate">{item.name}</h3>
-                            {sample.isEquipped && (
-                              <Badge variant="secondary" className="text-xs ml-2">Đã mặc</Badge>
-                            )}
                           </div>
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <Badge className={`text-xs ${getRarityColor(item.rarity)}`}>{item.rarity}</Badge>
-                              <span className="text-xs text-gray-500">Lv.{item.level}</span>
+                            <div className="flex items-center space-x-1">
+                              <Badge className={`text-[11px] ${getRarityColor(item.rarity)}`}>{item.rarity}</Badge>
+                              <span className="text-[11px] text-gray-500">Lv.{item.level}</span>
                             </div>
-                            {count > 1 && <div className="text-xs text-gray-600">x{count}</div>}
+                            <div className="flex items-center gap-1">
+                              {sample.isEquipped && isEquipableType(item.type) && (
+                                <Badge variant="secondary" className="text-[11px]">Đã mặc</Badge>
+                              )}
+                              {count > 1 && <div className="text-xs text-gray-600">x{count}</div>}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -367,10 +371,10 @@ export default function InventoryTab() {
             const { total, pageCount } = getPage(grouped);
             return (
               <div className="flex items-center justify-center gap-2 mt-3">
-                  <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Prev</Button>
-                  <div className="text-sm text-gray-600">{page} / {pageCount} — {total} mục</div>
-                  <Button variant="outline" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={page >= pageCount}>Next</Button>
-                </div>
+                <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Prev</Button>
+                <div className="text-sm text-gray-600">{page} / {pageCount} — {total} mục</div>
+                <Button variant="outline" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={page >= pageCount}>Next</Button>
+              </div>
             );
           })()}
         </TabsContent>
@@ -378,7 +382,7 @@ export default function InventoryTab() {
         {/* Other tabs with filtered items */}
         {['weapon', 'armor', 'accessory', 'consumable'].map((type) => (
           <TabsContent key={type} value={type} className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2">
               {(() => {
                 const filtered = items.filter((ui) => ui.item.type === type);
                 const grouped = sortDisplay(buildDisplayList(filtered));
@@ -423,11 +427,11 @@ export default function InventoryTab() {
       {/* Item Detail Modal */}
       {selectedItem && (
         <div
-          className="fixed inset-0 bg-[var(--overlay)] backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-[var(--overlay)] backdrop-blur-sm flex items-center justify-center p-3 z-50"
           onClick={() => setSelectedItem(null)}
         >
           <Card
-            className="w-full max-w-md bg-[var(--card)] text-[var(--card-foreground)]"
+            className="w-full max-w-sm bg-[var(--card)] text-[var(--card-foreground)]"
             onClick={(e) => e.stopPropagation()}
           >
             <CardHeader>
@@ -485,7 +489,7 @@ export default function InventoryTab() {
 
               {/* Action Buttons */}
               <div className="flex space-x-2">
-                {selectedItem.item.type !== 'consumable' ? (
+                {isEquipableType(selectedItem.item.type) ? (
                   <Button
                     className="flex-1"
                     onClick={() => handleEquipItem(selectedItem)}
@@ -493,13 +497,15 @@ export default function InventoryTab() {
                   >
                     {selectedItem.isEquipped ? 'Tháo ra' : 'Mặc vào'}
                   </Button>
-                ) : (
+                ) : selectedItem.item.type === 'consumable' ? (
                   <Button
                     className="flex-1"
                     onClick={() => handleUseItem(selectedItem)}
                   >
                     Sử dụng
                   </Button>
+                ) : (
+                  <div className="flex-1" />
                 )}
                 <Button
                   variant="outline"
