@@ -685,9 +685,15 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
             <DialogDescription>Host đã yêu cầu tất cả người chơi sẵn sàng. Khi tất cả đã sẵn sàng, trận chiến sẽ bắt đầu tự động.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
-            <p className="text-sm">{socketPrepareInfo?.players?.filter((p: { id: number; username?: string; isReady?: boolean }) => p.isReady).length || 0} / {socketPrepareInfo?.players?.length || 0} đã sẵn sàng</p>
+            {/* Exclude players who have LEFT so counts match the main room player list */}
+            {(() => {
+              const visiblePlayers = (socketPrepareInfo?.players || []).filter((p: { status?: string }) => p.status !== 'LEFT');
+              const readyCount = visiblePlayers.filter((p: { isReady?: boolean }) => p.isReady).length;
+              return <p className="text-sm">{readyCount} / {visiblePlayers.length} đã sẵn sàng</p>;
+            })()}
             <div className="space-y-2">
-              {(socketPrepareInfo?.players || []).map((p: { id: number; username?: string; isReady?: boolean }) => (
+              {/* Only show players who are still present (not LEFT) */}
+              {(socketPrepareInfo?.players || []).filter((p: { status?: string }) => p.status !== 'LEFT').map((p: { id: number; username?: string; isReady?: boolean }) => (
                 <div key={p.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                   <div>
                     <p className="font-medium text-sm">{p.username}</p>
