@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,9 +13,72 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Dungeon } from '@/types/game';
 import { useRoomSocket } from '@/hooks/useRoomSocket';
 import { useRoomSocketStore } from '@/stores/useRoomSocketStore';
+import useRoomChat from '@/hooks/useRoomChat';
+import { useChatStore } from '@/stores/useChatStore';
 import { useUserStamina } from '@/hooks/use-user-status';
 import { toast } from 'sonner';
 import CombatModal, { CombatResult } from '@/components/ui/CombatModal';
+
+// Small ShareButton component placed here to avoid new file churn
+function ShareButton({ room, hostUsername }: { room: { id: number; name?: string; dungeon?: { id?: number } }; hostUsername: string }) {
+  const sendWorld = useChatStore((s) => s.sendMessage);
+  const checkAndConnect = useChatStore((s) => s.checkAuthAndConnect);
+  const [open, setOpen] = useState(false);
+
+  const handleShareWorld = async () => {
+    try {
+      checkAndConnect();
+      // wait briefly for connection
+      const waitMs = 5000;
+      const pollInterval = 150;
+      const deadline = Date.now() + waitMs;
+      while (!useChatStore.getState().isConnected && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, pollInterval));
+      }
+      if (!useChatStore.getState().isConnected) {
+        toast.error('Không thể kết nối tới chat thế giới, thử lại sau');
+        return;
+      }
+
+      const maybe = room as unknown as { dungeonId?: number; dungeon?: { id?: number } };
+      const dungeonSegment = typeof maybe.dungeonId === 'number' ? maybe.dungeonId : (maybe.dungeon && typeof maybe.dungeon.id === 'number' ? maybe.dungeon.id : undefined);
+      const invite = `[ROOM_INVITE|${room.id}|${room.name || 'Phòng'}|${hostUsername}|${dungeonSegment ?? ''}]`;
+      sendWorld(invite);
+      toast.success('Đã chia sẻ liên kết phòng lên kênh thế giới');
+      setOpen(false);
+    } catch (e) {
+      console.error('Failed to share room to world:', e);
+      toast.error('Không thể chia sẻ phòng');
+    }
+  };
+
+  const handleShareGuild = () => {
+    // Placeholder: guild sharing requires backend/guild channel support.
+    toast('Chia sẻ cho Guild chưa hỗ trợ');
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)} className="px-4">Chia sẻ</Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chia sẻ phòng</DialogTitle>
+            <DialogDescription>Chọn kênh để chia sẻ lời mời tham gia phòng</DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex flex-col gap-3">
+            <Button onClick={handleShareWorld} className="w-full">Kênh Thế Giới</Button>
+            <Button variant="outline" onClick={handleShareGuild} className="w-full">Kênh Công Hội</Button>
+          </div>
+          <div className="mt-4 text-right">
+            <Button variant="ghost" onClick={() => setOpen(false)}>Đóng</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 interface Props {
   roomId: number | string;
@@ -115,6 +178,77 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     userId: user?.id,
     enabled: !!user?.id && !!id && !!room
   });
+
+  const [chatInput, setChatInput] = useState('');
+  const { messages: roomChatMessages, sendMessage } = useRoomChat(id);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+
+  // Auto-scroll to bottom when messages update, but only if autoScrollEnabled is true
+  useEffect(() => {
+    try {
+      const el = chatListRef.current;
+      if (!el) return;
+      if (!autoScrollEnabled) return;
+      // Scroll to bottom smoothly
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } catch {}
+  }, [roomChatMessages, autoScrollEnabled]);
+
+  // Detect user scroll to disable auto-scroll when user scrolls up
+  useEffect(() => {
+    const el = chatListRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      try {
+        const threshold = 80; // px from bottom considered "at bottom"
+        const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+        setAutoScrollEnabled(atBottom);
+      } catch {}
+    };
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const handleChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = chatInput.trim();
+    console.debug('[RoomPage] handleChatSubmit called, text=', text, 'user=', user?.id, user?.username);
+    if (!text) return;
+    try {
+      // Ensure socket has joined this room before emitting chat.
+      // Await the joinRoom promise so we only emit after server ack.
+      if (!socketJoined && socketJoinRoom && user?.id) {
+        const stored = typeof window !== 'undefined' ? sessionStorage.getItem(`room:${id}:password`) || undefined : undefined;
+        console.log('[RoomPage] socket not joined - attempting socketJoinRoom', { roomId: Number(id), userId: user.id });
+        try {
+          await socketJoinRoom(Number(id), user.id, stored);
+          console.log('[RoomPage] socketJoinRoom succeeded before chat emit');
+        } catch (joinErr) {
+          console.warn('[RoomPage] socketJoinRoom failed before chat emit:', joinErr);
+          // If join failed, avoid emitting chat to prevent server rejection.
+          toast.error('Không thể gửi tin nhắn — chưa tham gia phòng qua socket');
+          setChatInput('');
+          return;
+        }
+      }
+
+      sendMessage(text, user?.username || String(user?.id || 'Anon'));
+      console.debug('[RoomPage] sendMessage invoked');
+    } catch (err) {
+      console.error('[RoomPage] sendMessage error', err);
+    }
+    setChatInput('');
+  };
+
+  // Debug: observe roomChatMessages lifecycle
+  useEffect(() => {
+    try { console.debug('[RoomPage] useRoomChat hook mounted'); } catch {}
+  }, []);
+
+  useEffect(() => {
+    try { console.debug('[RoomPage] roomChatMessages updated, count=', (roomChatMessages || []).length); } catch {}
+  }, [roomChatMessages]);
 
   const reportCombatToQuests = useCallback(async (cr: unknown) => {
     // Forward minimal identifiers so backend can load the persisted CombatResult
@@ -226,6 +360,12 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['room', id] });
       toast.success('Đã tham gia phòng thành công!');
+      // Best-effort: ensure socket also joins the room so we receive socket events like roomChat
+      try {
+        if (socketJoinRoom) {
+          void socketJoinRoom(Number(id), user?.id as number).catch(() => {});
+        }
+      } catch {}
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Không thể tham gia phòng');
@@ -504,6 +644,41 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
           </CardContent>
         </Card>
 
+        {/* In-Room Chat (ephemeral, socket-backed when available) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Chat phòng</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="flex flex-col h-48 md:h-56">
+              <div ref={chatListRef} className="flex-1 overflow-y-auto pr-2 mb-2" id="room-chat-list" aria-live="polite">
+                {(roomChatMessages || []).length === 0 ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Chưa có tin nhắn — bắt đầu cuộc trò chuyện!</p>
+                ) : (
+                  (roomChatMessages || []).map((m, i) => (
+                    <div key={i} className="mb-2">
+                      <p className="text-sm font-medium truncate">{m.username} <span className="text-xs text-gray-400">· {new Date(m.ts).toLocaleTimeString()}</span></p>
+                      <p className="text-sm text-gray-700 dark:text-gray-200">{m.text}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="mt-auto">
+                <form onSubmit={handleChatSubmit} className="flex gap-2">
+                  <input
+                    aria-label="Gửi tin nhắn trong phòng"
+                    className="flex-1 px-3 py-2 border rounded bg-white dark:bg-slate-800 text-sm dark:text-gray-100"
+                    placeholder="Gõ tin nhắn và nhấn Enter..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                  />
+                  <Button type="submit" className="whitespace-nowrap">Gửi</Button>
+                </form>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Actions */}
         <Card>
           <CardContent className="p-6">
@@ -580,6 +755,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                       }
                     }
                   }} disabled={!canStart || startMutation.isPending || preventStart} className="px-8">{startMutation.isPending ? 'Đang bắt đầu...' : 'Bắt đầu trận chiến'}</Button>
+                  <ShareButton room={room} hostUsername={room.host.username} />
                   <Button variant="destructive" onClick={() => leaveMutation.mutate()} disabled={leaveMutation.isPending}>{leaveMutation.isPending ? 'Đang hủy...' : 'Hủy phòng'}</Button>
                 </>
               ) : (

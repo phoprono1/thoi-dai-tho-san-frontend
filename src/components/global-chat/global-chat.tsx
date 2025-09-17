@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useChatStore, ChatMessage } from '@/stores/useChatStore';
 
 export function GlobalChat() {
@@ -24,6 +25,7 @@ export function GlobalChat() {
   const error = useChatStore((state) => state.error);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Limit messages to last 20 for performance
   const displayMessages = messages.slice(-20);
@@ -109,15 +111,57 @@ export function GlobalChat() {
                   </div>
                 )}
                 {displayMessages.map((msg: ChatMessage, index: number) => (
-                  <div key={msg.id || index} className="flex items-start gap-2">
-                    <span className="font-bold text-blue-500">
-                      {msg.username}:
-                    </span>
-                    <p className="flex-1 break-words">{msg.message}</p>
-                    <span className="text-xs text-gray-400">
-                      {new Date(msg.createdAt).toLocaleTimeString()}
-                    </span>
-                  </div>
+                  // Render room invite messages specially so players can join
+                  msg.message && msg.message.startsWith('[ROOM_INVITE|') ? (
+                    (() => {
+                      try {
+                        const parts = msg.message.split('|');
+                        // Format: [ROOM_INVITE|<roomId>|<roomName>|<hostUsername>|<dungeonId?>]
+                        const roomId = Number(parts[1]);
+                        const roomName = parts[2] || 'Phòng';
+                        const hostName = parts[3] || msg.username;
+                        const dungeonIdPart = parts[4] || '';
+                        const dungeonId = dungeonIdPart ? Number(dungeonIdPart) : undefined;
+                        // If dungeonId is provided and numeric, route to full path
+                        const joinTarget = dungeonId && !Number.isNaN(dungeonId)
+                          ? `/game/explore/dungeons/${dungeonId}/rooms/${roomId}`
+                          : `/room/${roomId}`;
+                        return (
+                          <div key={`invite-${msg.id || index}`} className="w-full p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm font-medium">Lời mời tham gia phòng</div>
+                                <div className="text-xs text-gray-600">{roomName} — Host: {hostName}</div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => router.push(joinTarget)} className="px-3 py-1 bg-green-500 text-white rounded">Tham gia</button>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-400 mt-2">{new Date(msg.createdAt).toLocaleTimeString()}</div>
+                          </div>
+                        );
+                      } catch {
+                        // fall back to rendering raw message
+                        return (
+                          <div key={msg.id || index} className="flex items-start gap-2">
+                            <span className="font-bold text-blue-500">{msg.username}:</span>
+                            <p className="flex-1 break-words">{msg.message}</p>
+                            <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                          </div>
+                        );
+                      }
+                    })()
+                  ) : (
+                    <div key={msg.id || index} className="flex items-start gap-2">
+                      <span className="font-bold text-blue-500">
+                        {msg.username}:
+                      </span>
+                      <p className="flex-1 break-words">{msg.message}</p>
+                      <span className="text-xs text-gray-400">
+                        {new Date(msg.createdAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  )
                 ))}
                 {/* Invisible element to scroll to */}
                 <div ref={messagesEndRef} />

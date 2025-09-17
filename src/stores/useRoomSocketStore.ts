@@ -131,14 +131,17 @@ export const useRoomSocketStore = create<RoomSocketState>()(
       if (existingSocket) {
         existingSocket.disconnect();
       }
-
-  // Connecting to WebSocket (debug logs removed)
+      // Connecting to WebSocket
+      try {
+        console.log('[RoomSocket] connect() called, existingSocketConnected=', Boolean(existingSocket?.connected));
+      } catch {}
       
       // Get auth token for WebSocket authentication
       const token = localStorage.getItem('token');
       
       const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
       const base = rawBase.replace(/\/api\/?$/, '');
+      try { console.log('[RoomSocket] connecting to', base, 'with tokenPresent=', token ? true : false); } catch {}
 
       const socket = io(`${base}/rooms`, {
         transports: ['websocket'],
