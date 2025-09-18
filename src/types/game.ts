@@ -118,10 +118,18 @@ export interface Guild {
 export interface GuildMember {
   userId: number;
   user: User;
-  role: GuildRole;
+  role: GuildRole | string;
   contributionGold: number;
   honorPoints: number;
   joinedAt: Date;
+}
+
+// Mirror backend roles
+export enum GuildMemberRole {
+  LEADER = 'LEADER',
+  DEPUTY = 'DEPUTY',
+  ELDER = 'ELDER',
+  MEMBER = 'MEMBER',
 }
 
 export enum GuildRole {

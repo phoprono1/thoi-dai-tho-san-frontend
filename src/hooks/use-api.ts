@@ -151,6 +151,13 @@ export const useGuild = (guildId: number) => {
   });
 };
 
+export const useUserGuild = () => {
+  return useQuery({
+    queryKey: ['userGuild'],
+    queryFn: () => guildApi.getUserGuild(),
+  });
+};
+
 export const useCreateGuild = () => {
   const queryClient = useQueryClient();
 
@@ -159,6 +166,39 @@ export const useCreateGuild = () => {
       guildApi.createGuild(name, description),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['guilds'] });
+      queryClient.invalidateQueries({ queryKey: ['userGuild'] });
+    },
+  });
+};
+
+export const useGuildRequests = (guildId: number) => {
+  return useQuery({
+    queryKey: ['guildRequests', guildId],
+    queryFn: () => guildApi.getGuildRequests(guildId),
+    enabled: !!guildId,
+  });
+};
+
+export const useApproveMember = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ guildId, userId }: { guildId: number; userId: number }) => guildApi.approveMember(guildId, userId),
+    onSuccess: (_data, variables) => {
+      const gid = (variables as { guildId: number }).guildId;
+      queryClient.invalidateQueries({ queryKey: ['guild', gid] });
+      queryClient.invalidateQueries({ queryKey: ['guildRequests', gid] });
+      queryClient.invalidateQueries({ queryKey: ['userGuild'] });
+    },
+  });
+};
+
+export const useRejectMember = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ guildId, userId }: { guildId: number; userId: number }) => guildApi.rejectMember(guildId, userId),
+    onSuccess: (_data, variables) => {
+      const gid = (variables as { guildId: number }).guildId;
+      queryClient.invalidateQueries({ queryKey: ['guildRequests', gid] });
     },
   });
 };
@@ -174,9 +214,88 @@ export const useJoinGuild = () => {
   queryClient.invalidateQueries({ queryKey: ['user-status'] });
   queryClient.invalidateQueries({ queryKey: ['userStats'] });
   queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['userGuild'] });
     },
   });
 };
+
+export const useLeaveGuild = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (guildId: number) => guildApi.leaveGuild(guildId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userGuild'] });
+      queryClient.invalidateQueries({ queryKey: ['guilds'] });
+    },
+  });
+};
+
+export const useAssignRole = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ guildId, userId, role }: { guildId: number; userId: number; role: string }) => guildApi.assignRole(guildId, userId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guilds'] });
+      queryClient.invalidateQueries({ queryKey: ['userGuild'] });
+      queryClient.invalidateQueries({ queryKey: ['guild', 'members'] });
+    },
+  });
+};
+
+export const useKickMember = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ guildId, userId }: { guildId: number; userId: number }) =>
+      guildApi.kickMember(guildId, userId),
+    onSuccess: (_data, variables) => {
+      const gid = (variables as { guildId: number }).guildId;
+      queryClient.invalidateQueries({ queryKey: ['guild', gid] });
+      queryClient.invalidateQueries({ queryKey: ['userGuild'] });
+    },
+  });
+};
+
+export const useInviteGuild = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (guildId: number) => guildApi.inviteGuild(guildId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worldMessages'] });
+    },
+  });
+};
+
+export const useContribute = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ guildId, amount }: { guildId: number; amount: number }) => guildApi.contribute(guildId, amount),
+    onSuccess: (_data, variables) => {
+      const gid = (variables as { guildId: number }).guildId;
+      queryClient.invalidateQueries({ queryKey: ['guild', gid] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['userGuild'] });
+      queryClient.invalidateQueries({ queryKey: ['guilds'] });
+    },
+  });
+};
+
+export const useUpgradeGuild = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (guildId: number) => guildApi.upgrade(guildId),
+    onSuccess: (_data, guildId) => {
+      queryClient.invalidateQueries({ queryKey: ['guild', guildId as number] });
+      queryClient.invalidateQueries({ queryKey: ['guilds'] });
+      queryClient.invalidateQueries({ queryKey: ['userGuild'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+};
+;
 
 // Chat hooks
 export const useWorldMessages = (limit = 50) => {

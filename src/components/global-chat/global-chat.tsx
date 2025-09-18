@@ -9,6 +9,9 @@ import { MessageSquare } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChatStore, ChatMessage } from '@/stores/useChatStore';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { useJoinGuild } from '@/hooks/use-api';
 
 export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
   // When embedded we always render the panel (desktop right column). Otherwise use the floating drawer trigger.
@@ -80,6 +83,33 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
           block: 'end'
         });
       }, 50);
+    }
+  };
+
+  // Invite confirm state (for guild invites sent via world chat)
+  const [inviteConfirmOpen, setInviteConfirmOpen] = useState(false);
+  const [inviteGuildId, setInviteGuildId] = useState<number | null>(null);
+  const [inviteGuildName, setInviteGuildName] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const joinGuild = useJoinGuild();
+
+  const acceptInvite = async () => {
+    if (!inviteGuildId) {
+      setInviteConfirmOpen(false);
+      return;
+    }
+    try {
+      setInviteLoading(true);
+      await joinGuild.mutateAsync(inviteGuildId);
+      toast('Yêu cầu tham gia đã được gửi');
+    } catch (err) {
+      console.error('join guild failed', err);
+      toast('Không thể gửi yêu cầu tham gia');
+    } finally {
+      setInviteLoading(false);
+      setInviteConfirmOpen(false);
+      setInviteGuildId(null);
+      setInviteGuildName('');
     }
   };
 
@@ -161,6 +191,91 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
                 return null; // unreachable
               }
 
+              // Render structured guildInvite events broadcast as worldMessage { type: 'guildInvite', guildId, guildName, inviterId, inviterUsername }
+              if (rec['type'] === 'guildInvite') {
+                try {
+                  const guildId = Number(rec['guildId']);
+                  if (Number.isNaN(guildId)) throw new Error('invalid guild id');
+                  const guildName = String(rec['guildName'] ?? 'Công hội');
+                  const inviter = String(rec['inviterUsername'] ?? rec['inviterId'] ?? 'Người chơi');
+
+                  return (
+                    <div key={`guild-invite-${computedKey}`} className="w-full p-3 bg-emerald-50 border border-emerald-200 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">Lời mời tham gia công hội</div>
+                          <div className="text-xs text-gray-600">{guildName} — Mời bởi: {inviter}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setInviteGuildId(guildId);
+                              setInviteGuildName(guildName);
+                              setInviteConfirmOpen(true);
+                            }}
+                            className="px-3 py-1 bg-green-600 text-white rounded"
+                          >
+                            Tham gia
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">{new Date(String(rec['timestamp'] ?? msg.createdAt)).toLocaleTimeString()}</div>
+                    </div>
+                  );
+                } catch {
+                  return (
+                    <div key={`guild-invite-${computedKey}`} className="flex items-start gap-2">
+                      <span className="font-bold text-blue-500">{msg.username}:</span>
+                      <p className="flex-1 break-words">{msg.message}</p>
+                      <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                  );
+                }
+              }
+
+              // Render guild invite messages: format [GUILD_INVITE|<guildId>|<guildName>|<inviterUsername>]
+              if (rec['message'] && String(rec['message']).startsWith('[GUILD_INVITE|')) {
+                try {
+                  const parts = String(rec['message']).split('|');
+                  const guildId = Number(parts[1]);
+                  if (Number.isNaN(guildId)) throw new Error('invalid guild id');
+                  const guildName = parts[2] || 'Công hội';
+                  const inviter = parts[3] || (msg.username as string | undefined) || 'Người chơi';
+
+                  return (
+                    <div key={`guild-invite-${computedKey}`} className="w-full p-3 bg-emerald-50 border border-emerald-200 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium">Lời mời tham gia công hội</div>
+                          <div className="text-xs text-gray-600">{guildName} — Mời bởi: {inviter}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setInviteGuildId(guildId);
+                              setInviteGuildName(guildName);
+                              setInviteConfirmOpen(true);
+                            }}
+                            className="px-3 py-1 bg-green-600 text-white rounded"
+                          >
+                            Tham gia
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">{new Date(msg.createdAt).toLocaleTimeString()}</div>
+                    </div>
+                  );
+                } catch {
+                  return (
+                    <div key={`guild-invite-${computedKey}`} className="flex items-start gap-2">
+                      <span className="font-bold text-blue-500">{msg.username}:</span>
+                      <p className="flex-1 break-words">{msg.message}</p>
+                      <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                  );
+                }
+              }
+
               // Normal message render
               return (
                 <div key={computedKey} className="flex items-start gap-2">
@@ -198,6 +313,18 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
     return (
       <div className="h-full w-full">
         {PanelContent}
+        <Dialog open={inviteConfirmOpen} onOpenChange={(v) => setInviteConfirmOpen(v)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Xác nhận tham gia</DialogTitle>
+            </DialogHeader>
+            <div className="py-2 text-sm text-gray-700">Bạn có muốn gửi yêu cầu tham gia công hội &quot;{inviteGuildName}&quot;?</div>
+            <DialogFooter>
+              <button onClick={() => setInviteConfirmOpen(false)} className="mr-2 px-3 py-1">Hủy</button>
+              <button onClick={() => void acceptInvite()} className="px-3 py-1 bg-green-600 text-white rounded">{inviteLoading ? 'Đang xử lý...' : 'Gửi yêu cầu'}</button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -220,6 +347,18 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
       {/* as bottom sheet: on small screens use height 60% from bottom */}
       <DrawerContent className="w-full sm:w-full h-[60vh] sm:h-[60vh] md:h-[80vh]">
         {PanelContent}
+        <Dialog open={inviteConfirmOpen} onOpenChange={(v) => setInviteConfirmOpen(v)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Xác nhận tham gia</DialogTitle>
+            </DialogHeader>
+            <div className="py-2 text-sm text-gray-700">Bạn có muốn gửi yêu cầu tham gia công hội &quot;{inviteGuildName}&quot;?</div>
+            <DialogFooter>
+              <button onClick={() => setInviteConfirmOpen(false)} className="mr-2 px-3 py-1">Hủy</button>
+              <button onClick={() => void acceptInvite()} className="px-3 py-1 bg-green-600 text-white rounded">{inviteLoading ? 'Đang xử lý...' : 'Gửi yêu cầu'}</button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DrawerContent>
     </Drawer>
   );

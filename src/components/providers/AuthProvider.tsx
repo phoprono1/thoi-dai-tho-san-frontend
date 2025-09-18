@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import api from '@/lib/api';
+import { useAuthStore } from '@/stores';
 import { toast } from 'sonner';
 
 interface User {
@@ -62,6 +63,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Verify token and get user data
       const response = await api.get('/auth/me');
       setUser(response.data);
+      try {
+        // Also update global zustand auth store so components using it see the user
+        useAuthStore.setState({ user: response.data, userStats: null, isAuthenticated: true, isLoading: false });
+      } catch {
+        // ignore if zustand not available
+      }
       // persist user for other parts of the app that read localStorage
       try {
         localStorage.setItem('user', JSON.stringify(response.data));
@@ -89,6 +96,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Set user data
       setUser(userData);
+      try {
+        // Sync into zustand store
+        useAuthStore.setState({ user: userData, userStats: null, isAuthenticated: true, isLoading: false });
+      } catch {
+        // ignore
+      }
       try {
         localStorage.setItem('user', JSON.stringify(userData));
       } catch {}
@@ -136,6 +149,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Clear user data
     setUser(null);
+    try {
+      useAuthStore.getState().logout();
+    } catch {
+      // ignore
+    }
 
     toast.success('Đã đăng xuất');
     // Use window.location for reliable redirect in context
@@ -148,6 +166,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const response = await api.get('/auth/me');
       setUser(response.data);
+      try {
+        useAuthStore.setState({ user: response.data, userStats: null, isAuthenticated: true, isLoading: false });
+      } catch {}
     } catch (error) {
       console.error('Failed to refresh user:', error);
       throw error;

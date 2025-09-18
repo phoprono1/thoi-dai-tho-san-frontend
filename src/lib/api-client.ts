@@ -17,7 +17,8 @@ export const setupInterceptors = () => {
   // Request interceptor để thêm auth token
   api.interceptors.request.use((config) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token'); // Fixed: use 'token' instead of 'auth_token'
+      // Support both legacy 'token' key and newer 'auth_token'
+      const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -30,8 +31,9 @@ export const setupInterceptors = () => {
     (response) => response,
     (error) => {
       if (typeof window !== 'undefined' && error.response?.status === 401) {
-        // Token expired, redirect to login
-        localStorage.removeItem('token'); // Fixed: use 'token' instead of 'auth_token'
+        // Token expired, remove both keys (support legacy storage) and redirect to login
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('token');
         window.location.href = '/login';
       }
       return Promise.reject(error);
@@ -124,28 +126,77 @@ export const exploreApi = {
 
 // Guild API
 export const guildApi = {
+  // NOTE: backend controller prefixes routes with /guild (singular)
   getGuilds: async () => {
-    const response = await api.get('/guilds');
+    const response = await api.get('/guild');
     return response.data;
   },
 
   getGuild: async (guildId: number) => {
-    const response = await api.get(`/guilds/${guildId}`);
+    const response = await api.get(`/guild/${guildId}`);
+    return response.data;
+  },
+
+  getUserGuild: async () => {
+    const response = await api.get('/guild/user/current');
     return response.data;
   },
 
   createGuild: async (name: string, description?: string) => {
-    const response = await api.post('/guilds', { name, description });
+    const response = await api.post('/guild/create', { name, description });
+    return response.data;
+  },
+
+  inviteGuild: async (guildId: number) => {
+    const response = await api.post(`/guild/${guildId}/invite`);
     return response.data;
   },
 
   joinGuild: async (guildId: number) => {
-    const response = await api.post(`/guilds/${guildId}/join`);
+    const response = await api.post(`/guild/${guildId}/join`);
     return response.data;
   },
 
-  leaveGuild: async () => {
-    const response = await api.post('/guilds/leave');
+  approveMember: async (guildId: number, userId: number) => {
+    const response = await api.post(`/guild/${guildId}/approve/${userId}`);
+    return response.data;
+  },
+  rejectMember: async (guildId: number, userId: number) => {
+    const response = await api.post(`/guild/${guildId}/reject/${userId}`);
+    return response.data;
+  },
+  getGuildRequests: async (guildId: number) => {
+    const response = await api.get(`/guild/${guildId}/requests`);
+    return response.data;
+  },
+
+  contribute: async (guildId: number, amount: number) => {
+    const response = await api.post(`/guild/${guildId}/contribute`, { amount });
+    return response.data;
+  },
+
+  upgrade: async (guildId: number) => {
+    const response = await api.post(`/guild/${guildId}/upgrade`);
+    return response.data;
+  },
+
+  assignRole: async (guildId: number, userId: number, role: string) => {
+    const response = await api.put(`/guild/${guildId}/assign-role/${userId}`, { role });
+    return response.data;
+  },
+
+  leaveGuild: async (guildId: number) => {
+    const response = await api.post(`/guild/${guildId}/leave`);
+    return response.data;
+  },
+
+  kickMember: async (guildId: number, userId: number) => {
+    const response = await api.post(`/guild/${guildId}/kick/${userId}`);
+    return response.data;
+  },
+
+  createGuildWar: async (guildId: number, opponentGuildId: number, scheduledAt?: string) => {
+    const response = await api.post(`/guild/${guildId}/create-guild-war`, { opponentGuildId, scheduledAt });
     return response.data;
   },
 };

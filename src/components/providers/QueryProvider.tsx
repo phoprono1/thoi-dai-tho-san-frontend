@@ -4,6 +4,9 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { setupInterceptors } from '@/lib/api-client';
+import { useEffect } from 'react';
+import { queryClient as exportedQueryClient } from '@/lib/query-client';
+import { useChatStore } from '@/stores/useChatStore';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -33,6 +36,18 @@ export default function QueryProvider({
 }) {
   React.useEffect(() => {
     setupInterceptors();
+  }, []);
+
+  // Attach the same QueryClient instance to the chat store so socket handlers
+  // can invalidate queries directly.
+  useEffect(() => {
+    try {
+      const setQc = useChatStore.getState().setQueryClient;
+      if (setQc) setQc(exportedQueryClient);
+    } catch (e) {
+      // do not crash if store is unavailable
+      console.warn('[QueryProvider] failed to set query client on chat store', e);
+    }
   }, []);
 
   return (

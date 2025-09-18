@@ -17,12 +17,35 @@ import {
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
+import { itemsApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { UserItem } from '@/types';
+// Local, lightweight types for ItemSet display (prevent tight coupling with global types)
+interface SetBonusLocal {
+  pieces: number;
+  type?: string;
+  stats?: Record<string, number>;
+  description?: string;
+}
+
+interface SetItemLocal {
+  id: number;
+  name: string;
+}
+
+interface ItemSetLocal {
+  id: number;
+  name: string;
+  description?: string;
+  rarity?: number;
+  setBonuses?: SetBonusLocal[];
+  items?: SetItemLocal[];
+}
 import { useUserStatusStore } from '@/stores/user-status.store';
 
 export default function InventoryTab() {
   const [selectedItem, setSelectedItem] = useState<UserItem | null>(null);
+  const [setDetails, setSetDetails] = useState<ItemSetLocal | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [sortField, setSortField] = useState<'name' | 'price' | 'rarity' | 'type'>('name');
@@ -43,6 +66,41 @@ export default function InventoryTab() {
   const setEquippedItems = useUserStatusStore((s) => s.setEquippedItems);
   const [refreshDisabled, setRefreshDisabled] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState(0);
+
+  // When an item is selected, ensure we have its ItemSet details available.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!selectedItem) {
+        setSetDetails(null);
+        return;
+      }
+
+      // If backend populated the relation, it may be in selectedItem.item.itemSet
+      const maybeSet = (selectedItem.item as unknown as Record<string, unknown>)?.itemSet as ItemSetLocal | undefined;
+      // If we have a set but it doesn't include the members list, fetch full item details
+      if (maybeSet && maybeSet.items && maybeSet.items.length > 0) {
+        setSetDetails(maybeSet as ItemSetLocal);
+        return;
+      }
+
+      // Otherwise, fetch item details to get set info (if any)
+      try {
+        if ((selectedItem.item as unknown as Record<string, unknown>)?.id) {
+          const full = await itemsApi.getItem(selectedItem.item.id);
+          if (!mounted) return;
+          setSetDetails((full?.itemSet ?? null) as ItemSetLocal | null);
+        } else {
+          setSetDetails(null);
+        }
+      } catch {
+        setSetDetails(null);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedItem]);
 
   // If not authenticated, show message
   if (!isAuthenticated || !userId) {
@@ -144,6 +202,8 @@ export default function InventoryTab() {
         return <Sword className={className} />;
     }
   };
+
+  // Note: setDetails useEffect moved earlier to keep hook order stable
 
   const handleEquipItem = async (userItem: UserItem) => {
     try {
@@ -484,6 +544,74 @@ export default function InventoryTab() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Item Set Info (if any) */}
+              {setDetails && (
+                <div className="space-y-2 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold">Bộ: {setDetails.name}</div>
+                      {setDetails.description && (
+                        <div className="text-xs text-muted-foreground">{setDetails.description}</div>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">Rarity: {setDetails.rarity}</div>
+                  </div>
+
+                  {/* Compute how many pieces of this set the player currently has equipped */}
+                  {(() => {
+                    const setItemIds = new Set<number>((setDetails.items || []).map((s) => s.id));
+                    const equippedCount = items.filter((ui) => ui.isEquipped && setItemIds.has(ui.item.id)).length;
+                    return (
+                      <div className="space-y-2">
+                        <div className="text-xs text-gray-500">Đã trang bị: <span className="font-medium">{equippedCount}</span> / {setDetails.items?.length ?? 0}</div>
+
+                        <div className="space-y-1">
+                          {setDetails.setBonuses?.map((b: SetBonusLocal) => {
+                            const active = equippedCount >= (b.pieces ?? 0);
+                            return (
+                              <div key={String(b.pieces) + b.description} className={`flex items-start gap-2 ${active ? 'font-semibold text-white' : 'text-gray-400'}`}>
+                                <div className={`flex items-center justify-center w-6 h-6 rounded ${active ? 'bg-green-600' : 'bg-gray-200'} text-xs`}>
+                                  {b.pieces}
+                                </div>
+                                <div className="text-sm">
+                                  <div className={active ? 'font-bold' : ''}>{b.description}</div>
+                                  {/* Show a compact stat summary if available; clarify percentage vs flat */}
+                                  {b.stats && (
+                                    <div className="text-xs text-gray-300">
+                                      {Object.entries(b.stats)
+                                        .map(([k, v]) => {
+                                          const isPct = (b.type === 'percentage' || b.type === 'percent');
+                                          const num = Number(v || 0);
+                                          return `${k}: ${isPct ? `+${num}%` : `+${num}`}`;
+                                        })
+                                        .join(', ')}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="pt-2">
+                          <div className="text-xs text-gray-400 mb-1">Thành phần bộ:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {setDetails.items?.map((si: SetItemLocal) => {
+                              const isEquipped = items.some((ui) => ui.item.id === si.id && ui.isEquipped);
+                              return (
+                                <div key={si.id} className={`px-2 py-1 rounded text-sm border ${isEquipped ? 'border-green-500 bg-green-600 text-white' : 'border-gray-200 bg-[var(--card)] text-[var(--card-foreground)]'}`}>
+                                  <div className="leading-none">{si.name}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
