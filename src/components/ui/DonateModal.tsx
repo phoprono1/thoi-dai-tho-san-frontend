@@ -29,7 +29,7 @@ export default function DonateModal() {
         <div className="space-y-4 text-center">
           <div className="mx-auto w-56 h-56 relative">
             {/* Place your QR image at /public/donate-qr.png */}
-            <Image src="/donate.jpg" alt="Donate QR" fill style={{ objectFit: 'contain' }} />
+            <Image src="/donate.png" alt="Donate QR" fill style={{ objectFit: 'contain' }} />
           </div>
 
           <div className="text-sm text-gray-700">
