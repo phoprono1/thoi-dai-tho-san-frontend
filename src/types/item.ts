@@ -18,6 +18,8 @@ export interface Item {
   name: string;
   type: ItemType;
   rarity: ItemRarity;
+  /** Optional URL to the item's image/thumbnail served by backend */
+  image?: string | null;
   stats: {
     // Base stats
     attack?: number;

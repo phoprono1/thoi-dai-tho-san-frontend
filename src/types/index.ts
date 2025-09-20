@@ -172,6 +172,8 @@ export interface UserItem {
 export interface Item {
   id: number;
   name: string;
+  /** Optional URL to the item's image/thumbnail served by backend */
+  image?: string | null;
   description: string;
   type: string;
   rarity: string;

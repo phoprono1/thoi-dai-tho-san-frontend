@@ -8,6 +8,7 @@ import { RoomLobby, Dungeon, Item } from '@/types';
 // with `dungeonId` and `dungeonName`. Use LooseRoom to accept both.
 type LooseRoom = RoomLobby & { dungeonId?: number; dungeonName?: string };
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { resolveAssetUrl } from '@/lib/asset';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -292,14 +293,18 @@ export default function DungeonsPage() {
               }
               return true;
             }).length;
+            const imgSrc = (d as unknown as Record<string, unknown>)?.image as string | undefined;
+            const bg = imgSrc ? `url('${resolveAssetUrl(imgSrc)}')` : undefined;
             return (
-            <Card key={d.id} className="hover:shadow-md">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between min-w-0">
+            <Card key={d.id} className="relative overflow-hidden hover:shadow-md bg-cover bg-center" style={bg ? { backgroundImage: bg } : undefined}>
+              <CardHeader className="relative">
+                {/* header-only gradient to improve contrast on top of background image */}
+                {bg && <div className="absolute inset-0 top-0 h-full -z-10 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />}
+                <CardTitle className={`flex items-center justify-between min-w-0 ${bg ? 'text-white drop-shadow-md' : ''}`}>
                   <span className="truncate min-w-0">{d.name}</span>
-                  <span className="text-sm text-muted-foreground ml-2 whitespace-nowrap min-w-0 overflow-hidden">{roomCount === null ? 'Đang tải...' : `${roomCount} phòng chờ`}</span>
+                  <span className={`${bg ? 'text-white/90' : 'text-muted-foreground'} text-sm ml-2 whitespace-nowrap min-w-0 overflow-hidden`}>{roomCount === null ? 'Đang tải...' : `${roomCount} phòng chờ`}</span>
                 </CardTitle>
-                <CardDescription className="truncate min-w-0">Lv. {d.levelRequirement} • <span className="truncate block min-w-0">{d.description || 'Không có mô tả'}</span></CardDescription>
+                <CardDescription className={`truncate min-w-0 ${bg ? 'text-white/90' : ''}`}>Lv. {d.levelRequirement} • <span className="truncate block min-w-0">{d.description || 'Không có mô tả'}</span></CardDescription>
                 {/* Small muted italic line for monsters/drops. Hover to see full list (title attr used for tooltip). */}
                 {(() => {
                   const p = renderDropPreview(d);
@@ -358,7 +363,7 @@ export default function DungeonsPage() {
                   );
                 })()}
               </CardHeader>
-              <CardContent>
+              <CardContent className="relative z-10">
                 <div className="flex justify-between items-center">
                   <div className="min-w-0">
                     <div className="text-sm truncate">Yêu cầu cấp: {d.levelRequirement}</div>

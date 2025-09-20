@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sword,
@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
+import { resolveAssetUrl } from '@/lib/asset';
 import { itemsApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { UserItem } from '@/types';
@@ -129,14 +130,24 @@ export default function InventoryTab() {
     );
   }
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case 'common': return 'text-gray-600 bg-gray-100';
-      case 'uncommon': return 'text-green-600 bg-green-100';
-      case 'rare': return 'text-blue-600 bg-blue-100';
-      case 'epic': return 'text-purple-600 bg-purple-100';
-      case 'legendary': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
+
+
+  // Return structured Tailwind classes for a given numeric rarity
+  const rarityStyle = (rarity?: number | string) => {
+    const r = Number(rarity) || 1;
+    switch (r) {
+      case 1: // common
+        return { border: 'border-gray-200', bg: 'bg-gray-50', glow: '' };
+      case 2: // uncommon
+        return { border: 'border-green-400', bg: 'bg-gradient-to-br from-green-50 to-green-100', glow: '' };
+      case 3: // rare
+        return { border: 'border-blue-400', bg: 'bg-gradient-to-br from-blue-50 to-blue-100', glow: '' };
+      case 4: // epic
+        return { border: 'border-purple-500', bg: 'bg-gradient-to-br from-purple-50 to-purple-100', glow: 'shadow-md' };
+      case 5: // legendary
+        return { border: 'border-yellow-400', bg: 'bg-gradient-to-br from-yellow-50 to-yellow-100', glow: 'shadow-lg ring-1 ring-yellow-300' };
+      default:
+        return { border: 'border-gray-200', bg: 'bg-gray-50', glow: '' };
     }
   };
 
@@ -379,7 +390,7 @@ export default function InventoryTab() {
             {refreshCountdown > 0 && <div className="text-sm text-gray-500">({refreshCountdown}s)</div>}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
             {(() => {
               const grouped = buildDisplayList(items);
               const sorted = sortDisplay(grouped);
@@ -389,34 +400,40 @@ export default function InventoryTab() {
               void _pageCount;
               return pageItems.map(({ sample, count, ids }) => {
                 const item = sample.item;
+                const rs = rarityStyle(item.rarity);
+                const imgSrc = (item as unknown as { image?: string }).image;
+                const resolved = resolveAssetUrl(imgSrc);
                 return (
                   <Card
                     key={ids.join('-')}
-                    className={`cursor-pointer transition-all hover:shadow-md ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
+                    className={`group cursor-pointer transition-all transform-gpu will-change-transform hover:scale-[1.03] hover:shadow-xl flex items-stretch justify-center ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
                     onClick={() => setSelectedItem(sample)}
                   >
-                    <CardContent className="p-1.5">
-                      <div className="flex items-center space-x-2">
-                        <div className="p-1.5 bg-gray-100 rounded-md flex items-center justify-center">
-                          {renderItemIcon(item.type, 'h-5 w-5 text-gray-600')}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <h3 className="font-medium text-sm truncate">{item.name}</h3>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-1">
-                              <Badge className={`text-[11px] ${getRarityColor(item.rarity)}`}>{item.rarity}</Badge>
-                              <span className="text-[11px] text-gray-500">Lv.{item.level}</span>
+                    <CardContent className="p-1 flex items-center justify-center">
+                      {/* Tile with hover scale + shine, border color by rarity, and count badge */}
+                      <div className={`relative rounded-md overflow-hidden ${rs.bg} ${rs.glow}`}>
+                        <div className={`${rs.border} rounded-md overflow-hidden border-2`}>
+                          {resolved ? (
+                            <div className="h-24 w-24 relative">
+                              <Image src={resolved} alt={item.name} width={96} height={96} style={{ objectFit: 'cover' }} unoptimized />
+                              {/* Shine overlay */}
+                              <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-60 transition-opacity duration-500">
+                                <span className="block absolute -left-16 top-0 w-32 h-full transform rotate-12 bg-gradient-to-r from-white/0 via-white/30 to-white/0 blur-sm animate-[shine_1s_linear]" />
+                              </span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              {sample.isEquipped && isEquipableType(item.type) && (
-                                <Badge variant="secondary" className="text-[11px]">Đã mặc</Badge>
-                              )}
-                              {count > 1 && <div className="text-xs text-gray-600">x{count}</div>}
+                          ) : (
+                            <div className="h-24 w-24 flex items-center justify-center bg-gray-100">
+                              {renderItemIcon(item.type, 'h-8 w-8 text-gray-600')}
                             </div>
-                          </div>
+                          )}
                         </div>
+
+                        {/* Count badge for stacked items */}
+                        {count > 1 && (
+                          <div className="absolute bottom-1 right-1">
+                            <div className="bg-black/85 text-white text-xs px-1 rounded">x{count}</div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -442,37 +459,44 @@ export default function InventoryTab() {
         {/* Other tabs with filtered items */}
         {['weapon', 'armor', 'accessory', 'consumable'].map((type) => (
           <TabsContent key={type} value={type} className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
               {(() => {
                 const filtered = items.filter((ui) => ui.item.type === type);
                 const grouped = sortDisplay(buildDisplayList(filtered));
                 const { pageItems } = getPage(grouped);
                 return pageItems.map(({ sample, count, ids }) => {
                   const item = sample.item;
+                  const rs = rarityStyle(item.rarity);
+                  const imgSrc = (item as unknown as { image?: string }).image;
+                  const resolved = resolveAssetUrl(imgSrc);
                   return (
                     <Card
                       key={ids.join('-')}
-                      className={`cursor-pointer transition-all hover:shadow-md ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
+                      className={`group cursor-pointer transition-all transform-gpu will-change-transform hover:scale-[1.03] hover:shadow-xl ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
                       onClick={() => setSelectedItem(sample)}
                     >
-                      <CardContent className="p-2">
-                        <div className="flex items-center space-x-2">
-                          <div className="p-2 bg-gray-100 rounded-lg">
-                            {renderItemIcon(item.type, 'h-6 w-6 text-gray-600')}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className="font-medium text-sm truncate">{item.name}</h3>
-                              {sample.isEquipped && (<Badge variant="secondary" className="text-xs ml-2">Đã mặc</Badge>)}
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <Badge className={`text-xs ${getRarityColor(item.rarity)}`}>{item.rarity}</Badge>
-                                <span className="text-xs text-gray-500">Lv.{item.level}</span>
+                      <CardContent className="p-1 flex items-center justify-center">
+                        <div className={`relative rounded-md overflow-hidden ${rs.bg} ${rs.glow}`}>
+                          <div className={`${rs.border} rounded-md overflow-hidden border-2`}>
+                            {resolved ? (
+                              <div className="h-24 w-24 relative">
+                                <Image src={resolved} alt={item.name} width={96} height={96} style={{ objectFit: 'cover' }} unoptimized />
+                                <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-60 transition-opacity duration-500">
+                                  <span className="block absolute -left-16 top-0 w-32 h-full transform rotate-12 bg-gradient-to-r from-white/0 via-white/30 to-white/0 blur-sm animate-[shine_1s_linear]" />
+                                </span>
                               </div>
-                              {count > 1 && <div className="text-xs text-gray-600">x{count}</div>}
-                            </div>
+                            ) : (
+                              <div className="h-24 w-24 flex items-center justify-center bg-gray-100">
+                                {renderItemIcon(item.type, 'h-8 w-8 text-gray-600')}
+                              </div>
+                            )}
                           </div>
+
+                          {count > 1 && (
+                            <div className="absolute bottom-1 right-1">
+                              <div className="bg-black/85 text-white text-xs px-1 rounded">x{count}</div>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

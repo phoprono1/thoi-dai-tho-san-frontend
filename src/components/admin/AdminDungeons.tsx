@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { Shield } from 'lucide-react';
+import Image from 'next/image';
 import { Monster } from '@/types/monster';
 import { Item } from '@/types/item';
 import { DataTable } from '@/components/admin/DataTable';
@@ -41,6 +42,8 @@ export default function AdminDungeons() {
   });
 
   const queryClient = useQueryClient();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Fetch all dungeons
   const { data: dungeons, isLoading } = useQuery({
@@ -178,7 +181,24 @@ export default function AdminDungeons() {
       dropItems: formData.dropItems.length > 0 ? formData.dropItems : null,
     };
 
-    createMutation.mutate(dungeonData);
+    createMutation.mutate(dungeonData, {
+      onSuccess: async (res: unknown) => {
+        const created = (res as unknown as { data?: Dungeon }).data;
+        if (selectedFile && created?.id) {
+          try {
+            const form = new FormData();
+            form.append('image', selectedFile);
+            const up = await api.post(`/uploads/dungeons/${created.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const upData = (up as unknown as { data?: unknown }).data as Record<string, unknown> | undefined;
+            const thumbnails = upData && (upData['thumbnails'] as Record<string, string> | undefined);
+            const prefer = thumbnails?.medium || upData?.path;
+            if (prefer) await api.put(`/dungeons/${created.id}`, { image: prefer });
+          } catch (err) {
+            console.warn('Image upload failed for new dungeon', err);
+          }
+        }
+      }
+    });
   };
 
   const handleUpdateDungeon = () => {
@@ -198,7 +218,23 @@ export default function AdminDungeons() {
       dropItems: formData.dropItems.length > 0 ? formData.dropItems : null,
     };
 
-    updateMutation.mutate({ id: editingDungeon.id, data: dungeonData });
+    updateMutation.mutate({ id: editingDungeon.id, data: dungeonData }, {
+      onSuccess: async () => {
+        if (selectedFile && editingDungeon) {
+          try {
+            const form = new FormData();
+            form.append('image', selectedFile);
+            const up = await api.post(`/uploads/dungeons/${editingDungeon.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const upData = (up as unknown as { data?: unknown }).data as Record<string, unknown> | undefined;
+            const thumbnails = upData && (upData['thumbnails'] as Record<string, string> | undefined);
+            const prefer = thumbnails?.medium || upData?.path;
+            if (prefer) await api.put(`/dungeons/${editingDungeon.id}`, { image: prefer });
+          } catch (err) {
+            console.warn('Image upload failed for dungeon update', err);
+          }
+        }
+      }
+    });
   };
 
   const handleDeleteDungeon = (dungeon: Dungeon) => {
@@ -538,6 +574,25 @@ export default function AdminDungeons() {
                   rows={3}
                 />
               </div>
+
+            <div className="space-y-2">
+              <Label>Hình ảnh (tùy chọn)</Label>
+              <div className="flex items-center space-x-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setSelectedFile(f);
+                    if (f) setPreviewUrl(URL.createObjectURL(f));
+                    else setPreviewUrl(null);
+                  }}
+                />
+                {previewUrl && (
+                  <Image src={previewUrl} alt="preview" width={96} height={96} className="rounded object-cover" unoptimized />
+                )}
+              </div>
+            </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">

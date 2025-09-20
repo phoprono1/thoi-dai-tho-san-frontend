@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { resolveAssetUrl } from '@/lib/asset';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -164,6 +166,11 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   const { 
     roomInfo: socketRoomInfo, 
     combatResult: socketCombatResult,
+    latestCombatNotification,
+    clearLatestCombatNotification,
+    // expose raw store controls for debug
+    socket,
+    // allow clearing prepare info locally
     joinRoom: socketJoinRoom,
     toggleReady: socketToggleReady,
     startCombat: socketStartCombat,
@@ -178,6 +185,8 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     userId: user?.id,
     enabled: !!user?.id && !!id && !!room
   });
+
+  // Local debug UI state
 
   const [chatInput, setChatInput] = useState('');
   const { messages: roomChatMessages, sendMessage } = useRoomChat(id);
@@ -213,7 +222,6 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = chatInput.trim();
-    console.debug('[RoomPage] handleChatSubmit called, text=', text, 'user=', user?.id, user?.username);
     if (!text) return;
     try {
       // Ensure socket has joined this room before emitting chat.
@@ -241,13 +249,13 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     setChatInput('');
   };
 
-  // Debug: observe roomChatMessages lifecycle
+  // lifecycle hooks for room chat (no debug logs)
   useEffect(() => {
-    try { console.debug('[RoomPage] useRoomChat hook mounted'); } catch {}
+    // intentionally left blank for lifecycle side-effects
   }, []);
 
   useEffect(() => {
-    try { console.debug('[RoomPage] roomChatMessages updated, count=', (roomChatMessages || []).length); } catch {}
+    // intentionally left blank; chat list updates are handled by render
   }, [roomChatMessages]);
 
   const reportCombatToQuests = useCallback(async (cr: unknown) => {
@@ -320,6 +328,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
 
   useEffect(() => {
     if (socketCombatResult) {
+      console.debug('[RoomPage] socketCombatResult effect running, payload=', socketCombatResult);
       setCombatResult(socketCombatResult as CombatResult);
       setShowCombatModal(true);
       // Lock Start while combat UI is showing so host cannot re-start
@@ -330,6 +339,16 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
       void reportCombatToQuests(socketCombatResult);
     }
   }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests, setPreventStart]);
+
+  // Auto-hide notification banner after showing
+  useEffect(() => {
+    if (latestCombatNotification) {
+      const timer = setTimeout(() => {
+        try { clearLatestCombatNotification(); } catch {}
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [latestCombatNotification, clearLatestCombatNotification]);
 
   // mutations
   const updateDungeonMutation = useMutation({
@@ -578,13 +597,29 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     );
   }
 
+  // compute page background from room dungeon image if available
+  const roomImgSrc = (room?.dungeon as unknown as Record<string, unknown>)?.image as string | undefined;
+  const pageBg = roomImgSrc ? `url('${resolveAssetUrl(roomImgSrc)}')` : undefined;
+
   return (
-    <div className="w-full max-w-full px-3 py-6">
-      <div className="w-full max-w-4xl mx-auto space-y-4">
+    <div className="w-full max-w-full px-3 py-6" style={pageBg ? { backgroundImage: pageBg, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+      <div className="relative w-full max-w-4xl mx-auto space-y-4 z-10">
+        {/* Temporary banner to show that a combatResult arrived via socket */}
+        {latestCombatNotification && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+            <div className="bg-indigo-600 text-white px-4 py-2 rounded shadow-lg flex items-center gap-3">
+              <div className="text-sm">{latestCombatNotification.short}</div>
+              <button onClick={() => { try { clearLatestCombatNotification(); } catch {} }} className="text-xs opacity-80 hover:opacity-100">Đóng</button>
+            </div>
+          </div>
+        )}
         {/* Header */}
+        
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-medium">{room.name}</h1>
+            <h1 className="text-2xl font-medium">
+              <span className="inline-block px-2 py-1 rounded bg-black/60 text-white backdrop-blur-sm max-w-[60vw] truncate">{room.name}</span>
+            </h1>
             <div className="flex items-center gap-2 mt-1">
               <Badge className={getStatusBadge(room.status)}>{room.status}</Badge>
               {room.isPrivate && (<Badge variant="outline">Phòng riêng tư</Badge>)}
@@ -854,7 +889,18 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
 
       <CombatModal isOpen={showCombatModal} onClose={handleCombatModalClose} combatResult={combatResult} dungeonName={room?.dungeon?.name || 'Dungeon'} />
       {/* Prepare-to-Start Modal: shown when server emits prepareToStart and prepareInfo matches this room */}
-      <Dialog open={Boolean(socketPrepareInfo && socketPrepareInfo.id === room.id)} onOpenChange={() => { /* controlled by server */ }}>
+      <Dialog
+        open={Boolean(socketPrepareInfo && socketPrepareInfo.id === room.id)}
+        onOpenChange={(open) => {
+          // Allow the client to close the prepare modal locally. Server still controls prepare flow
+          // but clearing local prepareInfo makes the Dialog dismissible for the user during debugging.
+          if (!open) {
+            try {
+              useRoomSocketStore.setState({ prepareInfo: null });
+            } catch {}
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Chuẩn bị bắt đầu trận chiến</DialogTitle>
@@ -925,7 +971,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { /* host can cancel by leaving dialog on server; client just closes local UI when server clears prepareInfo */ }}>Đóng</Button>
+            <Button variant="outline" onClick={() => { try { useRoomSocketStore.setState({ prepareInfo: null }); } catch {} }}>Đóng</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

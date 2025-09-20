@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, setupInterceptors } from '@/lib/api-client';
+import Image from 'next/image';
 import { toast } from 'sonner';
 import { Swords, UploadCloud, DownloadCloud } from 'lucide-react';
 import { DataTable } from '@/components/admin/DataTable';
@@ -32,6 +33,8 @@ export default function AdminMonsters() {
     goldReward: 10,
     dropItems: [] as { itemId: number; dropRate: number; minQuantity: number; maxQuantity: number }[],
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -135,7 +138,24 @@ export default function AdminMonsters() {
       dropItems: formData.dropItems.length > 0 ? formData.dropItems : null,
     };
 
-    createMutation.mutate(monsterData);
+    createMutation.mutate(monsterData, {
+    onSuccess: async (res: unknown) => {
+      // server returns created entity in res.data
+  const created: Monster | undefined = (res as Record<string, unknown>)?.data as Monster | undefined;
+        if (selectedFile && created?.id) {
+          try {
+            const form = new FormData();
+            form.append('image', selectedFile);
+            const up = await api.post(`/uploads/monsters/${created.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const thumbnails = up?.data?.thumbnails;
+            const prefer = thumbnails?.medium || up?.data?.path;
+            if (prefer) await api.put(`/monsters/${created.id}`, { image: prefer });
+          } catch (err) {
+            console.warn('Image upload failed for new monster', err);
+          }
+        }
+      }
+    });
   };
 
   const handleUpdateMonster = () => {
@@ -149,7 +169,22 @@ export default function AdminMonsters() {
       dropItems: formData.dropItems.length > 0 ? formData.dropItems : null,
     };
 
-    updateMutation.mutate({ id: editingMonster.id, data: monsterData });
+    updateMutation.mutate({ id: editingMonster.id, data: monsterData }, {
+      onSuccess: async () => {
+        if (selectedFile && editingMonster) {
+          try {
+            const form = new FormData();
+            form.append('image', selectedFile);
+            const up = await api.post(`/uploads/monsters/${editingMonster.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const thumbnails = up?.data?.thumbnails;
+            const prefer = thumbnails?.medium || up?.data?.path;
+            if (prefer) await api.put(`/monsters/${editingMonster.id}`, { image: prefer });
+          } catch (err) {
+            console.warn('Image upload failed for monster update', err);
+          }
+        }
+      }
+    });
   };
 
   const handleDeleteMonster = (monster: Monster) => {
@@ -460,6 +495,25 @@ export default function AdminMonsters() {
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 placeholder="Mô tả về monster"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Hình ảnh (tùy chọn)</Label>
+              <div className="flex items-center space-x-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setSelectedFile(f);
+                    if (f) setPreviewUrl(URL.createObjectURL(f));
+                    else setPreviewUrl(null);
+                  }}
+                />
+                {previewUrl && (
+                  <Image src={previewUrl} alt="preview" width={96} height={96} className="rounded object-cover" unoptimized />
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

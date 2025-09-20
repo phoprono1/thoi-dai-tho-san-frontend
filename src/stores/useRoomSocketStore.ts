@@ -43,6 +43,13 @@ interface CombatResult {
   }>;
 }
 
+// Small notification payload when a combat result arrives so the UI can show a banner
+export type CombatNotification = {
+  roomId: number;
+  short: string;
+  ts: number;
+};
+
 interface RoomInfo {
   id: number;
   name: string;
@@ -91,6 +98,10 @@ interface RoomSocketState {
   
   // Error handling
   error: string | null;
+  // Short-lived UI notification when combatResult arrives
+  latestCombatNotification: CombatNotification | null;
+  setLatestCombatNotification: (n: CombatNotification | null) => void;
+  clearLatestCombatNotification: () => void;
   
   // Actions
   connect: () => void;
@@ -104,7 +115,10 @@ interface RoomSocketState {
   kickPlayer: (roomId: number, hostId: number, playerId: number) => Promise<void>;
   clearError: () => void;
   resetConnectionAttempts: (roomId: number) => void;
+
 }
+
+// (CombatNotification type declared above)
 
 export const useRoomSocketStore = create<RoomSocketState>()(
   subscribeWithSelector((set, get) => ({
@@ -118,6 +132,13 @@ export const useRoomSocketStore = create<RoomSocketState>()(
     joinedRooms: new Set(),
     connectionAttempts: new Map(),
     error: null,
+    latestCombatNotification: null,
+    setLatestCombatNotification: (n: CombatNotification | null) => {
+      try { set({ latestCombatNotification: n }); } catch {}
+    },
+    clearLatestCombatNotification: () => {
+      try { set({ latestCombatNotification: null }); } catch {}
+    },
 
     connect: () => {
       const { socket: existingSocket } = get();
@@ -154,6 +175,7 @@ export const useRoomSocketStore = create<RoomSocketState>()(
       // Connection events
       socket.on('connect', () => {
         set({ socket, isConnected: true, error: null });
+        try { console.debug('[RoomSocket] connected; socket.id=', socket.id); } catch {}
       });
 
       socket.on('disconnect', () => {
@@ -198,15 +220,26 @@ export const useRoomSocketStore = create<RoomSocketState>()(
         console.log('[RoomSocket] Received combatResult:', data);
         // Extract the actual combat result from the wrapper
         let combatResult: CombatResult | null = null;
+        let maybeRoomId: number | undefined = undefined;
         
         if ('result' in data && typeof data.result === 'object' && data.result !== null) {
           combatResult = data.result as CombatResult;
+          try { const d = data as unknown as { roomId?: number }; maybeRoomId = d.roomId; } catch {}
         } else if ('id' in data && 'duration' in data) {
           combatResult = data as CombatResult;
         }
         
         if (combatResult) {
           set({ combatResult: combatResult });
+          try {
+            // Additional debug log to confirm the store was updated
+            console.debug(`[RoomSocket] combatResult stored: id=${combatResult.id} duration=${combatResult.duration}`);
+            try {
+              set({ latestCombatNotification: { roomId: maybeRoomId ?? -1, short: `Trận chiến ${combatResult.result}`, ts: Date.now() } });
+            } catch {}
+          } catch {
+            // ignore logging errors
+          }
         }
       });
 
@@ -319,6 +352,9 @@ export const useRoomSocketStore = create<RoomSocketState>()(
               combatResult: null,
             });
             try { sessionStorage.removeItem(`room:${roomId}:password`); } catch { }
+            try {
+              console.debug(`[RoomSocket] joinRoom success: room=${roomId} socketId=${socket.id} joinedRooms=${Array.from(useRoomSocketStore.getState().joinedRooms).join(',')}`);
+            } catch {}
             resolve();
           } else {
             const errorMsg = response?.error || 'Unknown error';

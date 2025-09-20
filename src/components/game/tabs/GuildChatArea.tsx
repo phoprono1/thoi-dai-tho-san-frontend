@@ -39,13 +39,18 @@ export default function GuildChatArea({ guildId }: { guildId: number }) {
         {messages.length === 0 ? (
           <div className="text-sm text-gray-500">Chưa có tin nhắn nào</div>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} className="text-sm">
-              <div className="font-medium text-gray-800">{m.username || (m.userId === 0 ? 'System' : `User ${m.userId}`)}</div>
-              <div className="text-gray-700">{m.message}</div>
-              <div className="text-xs text-gray-400">{new Date(m.createdAt).toLocaleTimeString()}</div>
-            </div>
-          ))
+          messages.map((m, idx) => {
+            // Use a composite key to ensure uniqueness across guilds and avoid
+            // collisions between optimistic/local IDs and server-assigned IDs.
+            const key = `${guildId}-${m.id ?? 'x'}-${m.createdAt ?? idx}`;
+            return (
+              <div key={key} className="text-sm">
+                <div className="font-medium text-gray-800">{m.username || (m.userId === 0 ? 'System' : `User ${m.userId}`)}</div>
+                <div className="text-gray-700">{m.message}</div>
+                <div className="text-xs text-gray-400">{new Date(m.createdAt).toLocaleTimeString()}</div>
+              </div>
+            );
+          })
         )}
       </div>
       <div className="flex space-x-2">

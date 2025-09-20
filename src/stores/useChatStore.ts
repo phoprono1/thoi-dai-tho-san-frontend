@@ -103,8 +103,12 @@ const useChatStore = create<ChatState>((set, get) => ({
       if (!Array.isArray(history)) {
         const maybe = history as { guildId?: number; messages?: unknown };
         const arr = Array.isArray(maybe?.messages) ? (maybe.messages as ChatMessage[]) : [];
-        console.warn('[ChatSocket] chatHistory received non-array payload, storing into guildMessages or falling back to empty', history);
+        // If this is a guild-specific history (has guildId) it's expected; only warn
+        // when the payload is malformed (no guildId and messages missing/not-array).
         if (typeof maybe.guildId === 'number') {
+          if (!Array.isArray(maybe.messages)) {
+            console.debug('[ChatSocket] chatHistory guild payload missing messages array, falling back to empty', history);
+          }
           const guildId = maybe.guildId;
           set((state) => ({
             guildMessages: {
@@ -113,6 +117,9 @@ const useChatStore = create<ChatState>((set, get) => ({
             },
           }));
         } else {
+          if (!Array.isArray(maybe.messages)) {
+            console.warn('[ChatSocket] chatHistory received non-array payload without guildId, storing into world messages or falling back to empty', history);
+          }
           const world = Array.isArray(arr) ? arr.slice(-50) : [];
           set({ worldMessages: world, messages: world });
         }

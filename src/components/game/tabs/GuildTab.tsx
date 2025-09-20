@@ -1,6 +1,6 @@
- 'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,16 +9,19 @@ import { Users, Crown, Star, MessageCircle, Shield, Coins, Zap } from 'lucide-re
 import { useGuilds, useUserGuild, useCreateGuild, useJoinGuild, useGuild, useAssignRole, useGuildRequests, useApproveMember, useRejectMember, useKickMember, useInviteGuild, useContribute } from '@/hooks/use-api';
 import { useLeaveGuild, useUpgradeGuild } from '@/hooks/use-api';
 import { GuildMemberRole } from '@/types/game';
-import { api } from '@/lib/api-client';
+// api import removed — do not expose debug tokens to players
 import { useAuthStore } from '@/stores';
 import { useChatStore } from '@/stores/useChatStore';
 import { Guild as TGuild } from '@/types/game';
 import { toast } from 'sonner';
+import { api } from '@/lib/api-client';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import GuildChatArea from './GuildChatArea';
 
 export default function GuildTab() {
+  const queryClient = useQueryClient();
   const { data: userGuild, isLoading: loadingUserGuild } = useUserGuild();
   const { data: guilds } = useGuilds();
   const createGuild = useCreateGuild();
@@ -27,7 +30,7 @@ export default function GuildTab() {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
-  const [lastRequestDebug, setLastRequestDebug] = useState<string | null>(null);
+  // debug output removed for production: don't expose tokens or raw request bodies to players
   // in-app confirm modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState('');
@@ -35,8 +38,10 @@ export default function GuildTab() {
   const [confirmAction, setConfirmAction] = useState<(() => Promise<void>) | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
-  // If user has a guild, fetch its details
-  const { data: guildDetail, refetch: refetchMembers } = useGuild(userGuild?.id ?? 0);
+  // Treat disbanded guilds as if the user has no guild on the client
+  const activeUserGuild = userGuild && (userGuild as { status?: string }).status === 'DISBANDED' ? null : userGuild;
+  // If user has an active guild, fetch its details
+  const { data: guildDetail, refetch: refetchMembers } = useGuild(activeUserGuild?.id ?? 0);
 
   const authUser = useAuthStore((s) => s.user);
   const leaveGuild = useLeaveGuild();
@@ -56,15 +61,15 @@ export default function GuildTab() {
   // ensure chat socket connects when viewing a guild so we get realtime updates
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!userGuild) return;
+    if (!activeUserGuild) return;
     try {
       chat.checkAuthAndConnect();
     } catch {}
     // intentionally only run when userGuild id changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userGuild?.id]);
+  }, [activeUserGuild?.id]);
   // Guild requests/hooks must be called unconditionally
-  const guildIdForRequests = userGuild?.id ?? 0;
+  const guildIdForRequests = activeUserGuild?.id ?? 0;
   const { data: requests, refetch: refetchRequests } = useGuildRequests(guildIdForRequests);
   const approveMember = useApproveMember();
   const rejectMember = useRejectMember();
@@ -82,6 +87,37 @@ export default function GuildTab() {
     }
   };
 
+  // Stable socket event handlers: declared at top-level so identities don't change
+  // between renders. These intentionally reference refetchRequests/refetchMembers
+  // which are stable refs returned from react-query hooks in this component.
+  const handleMemberApproved = useCallback(() => {
+    void refetchRequests();
+    void refetchMembers();
+    toast.success('Một thành viên đã được duyệt');
+  }, [refetchRequests, refetchMembers]);
+
+  const handleJoinRequest = useCallback(() => {
+    void refetchRequests();
+    toast('Có yêu cầu tham gia mới');
+  }, [refetchRequests]);
+
+  const handleMemberKicked = useCallback((payload: { userId: number }) => {
+    void refetchMembers();
+    if (authUser?.id === payload.userId) {
+      toast.error('Bạn đã bị đá khỏi công hội');
+    }
+  }, [refetchMembers, authUser?.id]);
+
+  const handleJoinRejected = useCallback(() => {
+    void refetchRequests();
+    toast('Một yêu cầu tham gia đã bị từ chối');
+  }, [refetchRequests]);
+
+  const handleContributed = useCallback(() => {
+    void refetchMembers();
+    toast('Có đóng góp mới vào công quỹ');
+  }, [refetchMembers]);
+
   const handleCreate = async () => {
     if (!authUser) return;
     // Cost 10k gold check (frontend guard)
@@ -91,22 +127,12 @@ export default function GuildTab() {
     }
     setCreating(true);
     setCreateError(null);
-    console.debug('[GuildTab] Creating guild', { name, desc });
-    // show resolved base URL, token(s), and request body for debugging
-    try {
-      const base = api.defaults.baseURL;
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-      const debug = JSON.stringify({ url: `${base}/guild/create`, token: !!token, auth_token: !!authToken, body: { name, description: desc } }, null, 2);
-      console.debug('[GuildTab] request debug', debug);
-      setLastRequestDebug(debug);
-    } catch {
-      // ignore
-    }
     try {
       await createGuild.mutateAsync({ name, description: desc });
-      console.debug('[GuildTab] createGuild.mutateAsync resolved');
+      // guild created successfully — invalidate cached guild queries
+      try { queryClient.invalidateQueries({ queryKey: ['user', 'guild'] }); } catch {}
       // Invalidate handled by hook — refetch will show userGuild
+      return;
     } catch (err: unknown) {
       console.error('[GuildTab] createGuild failed', err);
       let msg = 'Tạo công hội thất bại';
@@ -118,6 +144,38 @@ export default function GuildTab() {
   if (axiosErr.response?.data?.message) msg = axiosErr.response.data.message as string;
       }
       setCreateError(msg);
+
+      // If server says user is already member of another guild, it may be a stale
+      // membership attached to a DISBANDED guild. Attempt to detect and clean up
+      // automatically so the player can create a new guild.
+      if (msg.includes('Bạn đã là thành viên')) {
+        try {
+          const resp = await api.get('/guild/user/current');
+          const serverGuild = resp?.data;
+          if (serverGuild && serverGuild.status === 'DISBANDED') {
+            try {
+              await api.post(`/guild/${serverGuild.id}/leave`);
+              toast.success('Công hội trước đây đã giải tán — đã cập nhật trạng thái. Thử tạo lại.');
+              // refresh cached queries and retry creation once
+              try { queryClient.invalidateQueries({ queryKey: ['user', 'guild'] }); } catch {}
+              try {
+                await createGuild.mutateAsync({ name, description: desc });
+                try { queryClient.invalidateQueries({ queryKey: ['user', 'guild'] }); } catch {}
+                setCreateError(null);
+                toast.success('Công hội đã được tạo thành công');
+                return;
+              } catch (retryErr) {
+                console.error('Retry createGuild failed', retryErr);
+              }
+            } catch (leaveErr) {
+              console.error('Failed to clear disbanded guild membership', leaveErr);
+              toast.error('Không thể xóa trạng thái công hội cũ — liên hệ admin');
+            }
+          }
+        } catch (probeErr) {
+          console.warn('Failed to probe user guild after create failure', probeErr);
+        }
+      }
     } finally {
       setCreating(false);
     }
@@ -139,7 +197,7 @@ export default function GuildTab() {
   if (loadingUserGuild) return <div>Loading...</div>;
 
   // Not in a guild: show list + create (modal)
-  if (!userGuild) {
+  if (!activeUserGuild) {
     return (
       <div className="p-4">
         <div className="mb-4 flex items-center justify-between">
@@ -163,9 +221,6 @@ export default function GuildTab() {
                     <textarea className="w-full px-3 py-2 border rounded" placeholder="Mô tả" value={desc} onChange={(e) => setDesc(e.target.value)} />
                   </label>
                   {createError && <div className="text-sm text-red-600">{createError}</div>}
-                  {lastRequestDebug && (
-                    <pre className="text-xs text-gray-700 bg-gray-100 p-2 rounded mt-2 overflow-auto">{lastRequestDebug}</pre>
-                  )}
                 </div>
                 <DialogFooter>
                   <Button onClick={() => {
@@ -342,11 +397,11 @@ export default function GuildTab() {
           <SocketListeners
             socket={chat.socket}
             guildId={g.id}
-            onMemberApproved={() => { void refetchRequests(); void refetchMembers(); toast.success('Một thành viên đã được duyệt'); }}
-            onJoinRequest={() => { void refetchRequests(); toast('Có yêu cầu tham gia mới'); }}
-            onMemberKicked={(payload: { userId: number }) => { void refetchMembers(); if (authUser?.id === payload.userId) { toast.error('Bạn đã bị đá khỏi công hội'); } }}
-            onJoinRejected={() => { void refetchRequests(); toast('Một yêu cầu tham gia đã bị từ chối'); }}
-            onContributed={() => { void refetchMembers(); toast('Có đóng góp mới vào công quỹ'); }}
+            onMemberApproved={handleMemberApproved}
+            onJoinRequest={handleJoinRequest}
+            onMemberKicked={handleMemberKicked}
+            onJoinRejected={handleJoinRejected}
+            onContributed={handleContributed}
           />
         ) : null}
 
@@ -652,6 +707,7 @@ function SocketListeners({
 
     // join guild room
     try {
+      console.time(`[Socket] attach listeners guild:${guildId}`);
       socket.emit('joinGuild', { guildId });
     } catch {}
 
@@ -676,6 +732,7 @@ function SocketListeners({
       try {
         socket.emit('leaveGuild', { guildId });
       } catch {}
+      console.timeEnd(`[Socket] attach listeners guild:${guildId}`);
     };
   }, [socket, guildId, onMemberApproved, onJoinRequest, onMemberKicked, onJoinRejected, onContributed]);
 

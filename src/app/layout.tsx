@@ -18,6 +18,9 @@ const AuthProvider = dynamic(() => import('@/components/providers/AuthProvider')
 
 const ThemeProviderClient = dynamic(() => import('@/components/providers/ThemeProviderClient'), { ssr: false });
 
+// Persistent guild socket manager (client-only)
+const GuildSocketManager = dynamic(() => import('@/components/chat/GuildSocketManager').then(mod => ({ default: mod.default })), { ssr: false });
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -41,6 +44,8 @@ export default function RootLayout({
         <ThemeProviderClient>
           <QueryProvider>
             <AuthProvider>
+              {/* Persistent guild socket manager keeps guild listeners mounted while user is logged-in */}
+              <GuildSocketManager />
               {/* Top-wide marquee banner (clickable) */}
               <div className="top-marquee-banner">
                 <div className="marquee-inner bg-accent text-accent-foreground rounded-md mx-auto inline-block">

@@ -35,6 +35,8 @@ export function useRoomSocket({
   const combatResult = useRoomSocketStore((state) => state.combatResult);
   const error = useRoomSocketStore((state) => state.error);
   const joinedRooms = useRoomSocketStore((state) => state.joinedRooms);
+  const latestCombatNotification = useRoomSocketStore((state) => state.latestCombatNotification);
+  const clearLatestCombatNotification = useRoomSocketStore((state) => state.clearLatestCombatNotification);
   const joinRoom = useRoomSocketStore((state) => state.joinRoom);
   const leaveRoom = useRoomSocketStore((state) => state.leaveRoom);
   const toggleReady = useRoomSocketStore((state) => state.toggleReady);
@@ -205,5 +207,8 @@ export function useRoomSocket({
         }
       });
     }
+    ,
+    latestCombatNotification,
+    clearLatestCombatNotification,
   };
 }

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import Image from 'next/image';
 import { toast } from 'sonner';
 import { Sword, Shield, Crown, Edit, Trash2, Plus, Package } from 'lucide-react';
 import { UploadCloud, DownloadCloud } from 'lucide-react';
@@ -49,6 +50,8 @@ export default function AdminItems() {
     vitality: 0,
     luck: 0,
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [classRestrictions, setClassRestrictions] = useState<ClassRestrictions>({
     allowedClassTypes: [],
@@ -236,7 +239,22 @@ export default function AdminItems() {
             : undefined,
       };
 
-      await api.post('/items', itemData);
+      const resp = await api.post('/items', itemData);
+      const created: Item = resp.data;
+      // If an image file was selected, upload it and prefer the 256px thumbnail for the stored image
+      if (selectedFile && created?.id) {
+        try {
+          const form = new FormData();
+          form.append('image', selectedFile);
+          const up = await api.post(`/uploads/items/${created.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+          const thumbnails = up?.data?.thumbnails;
+          const prefer = thumbnails?.medium || up?.data?.path;
+          if (prefer) await api.put(`/items/${created.id}`, { image: prefer });
+        } catch (err) {
+          console.warn('Image upload failed for new item', err);
+          // continue — item was created
+        }
+      }
       toast.success('Đã tạo item thành công!');
       setFormData({
         name: '',
@@ -270,6 +288,8 @@ export default function AdminItems() {
         requiredTier: ClassTier.BASIC,
         description: '',
       });
+      setSelectedFile(null);
+      setPreviewUrl(null);
       refetch();
     } catch (error: unknown) {
       toast.error(`Lỗi tạo item: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -323,6 +343,19 @@ export default function AdminItems() {
       };
 
       await api.put(`/items/${editingItem.id}`, itemData);
+      // If a new image is selected, upload and then update the item's image to the 256px thumbnail if available
+      if (selectedFile) {
+        try {
+          const form = new FormData();
+          form.append('image', selectedFile);
+          const up = await api.post(`/uploads/items/${editingItem.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+          const thumbnails = up?.data?.thumbnails;
+          const prefer = thumbnails?.medium || up?.data?.path;
+          if (prefer) await api.put(`/items/${editingItem.id}`, { image: prefer });
+        } catch (err) {
+          console.warn('Image upload failed for item update', err);
+        }
+      }
       toast.success('Đã cập nhật item thành công!');
       setFormData({
         name: '',
@@ -357,6 +390,8 @@ export default function AdminItems() {
         description: '',
       });
       setEditingItem(null);
+      setSelectedFile(null);
+      setPreviewUrl(null);
       refetch();
     } catch (error: unknown) {
       toast.error(`Lỗi cập nhật item: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -698,6 +733,25 @@ export default function AdminItems() {
                     value={formData.price}
                     onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})}
                   />
+                </div>
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <Label>Hình ảnh (tùy chọn)</Label>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      setSelectedFile(f);
+                      if (f) setPreviewUrl(URL.createObjectURL(f));
+                      else setPreviewUrl(null);
+                    }}
+                  />
+                  {previewUrl && (
+                    <Image src={previewUrl} alt="preview" width={96} height={96} className="rounded object-cover" unoptimized />
+                  )}
                 </div>
               </div>
 

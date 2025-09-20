@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
  'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
+import { resolveAssetUrl } from '@/lib/asset';
+import api from '@/lib/api';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useRoomSocketStore } from '@/stores/useRoomSocketStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -104,6 +107,40 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
     player: false,
     enemy: false
   });
+
+  // Local cache for monster metadata (image path) to avoid repeated API requests
+  const monsterMetaCacheRef = useRef<Record<string, { image?: string }>>({});
+  const enemiesKey = JSON.stringify(combatResult?.enemies || []);
+
+  useEffect(() => {
+    // If combatResult has enemies but they don't include image, try to fetch
+    const parsed = JSON.parse(enemiesKey) as any[];
+    const toFetch: Set<number> = new Set();
+    (parsed || []).forEach((e: any) => {
+      if (e && typeof e.id === 'number') {
+        const key = String(e.id);
+        const cached = monsterMetaCacheRef.current[key];
+        if (!cached || !cached.image) toFetch.add(e.id);
+      }
+    });
+
+    if (toFetch.size === 0) return;
+
+    // Fire-and-forget fetches; populate cache when responses arrive
+  toFetch.forEach(async (mid) => {
+      try {
+        const resp = await api.get(`/monsters/${mid}`);
+        const data = resp?.data;
+        if (data) {
+          monsterMetaCacheRef.current[String(mid)] = { image: data.image };
+          // trigger a local state refresh by toggling a dummy piece of state
+          setDamageAnimation((p) => ({ ...p }));
+        }
+      } catch {
+        // ignore network or 404 errors; fallback to asset path
+      }
+    });
+  }, [enemiesKey]);
 
   useEffect(() => {
     if (!combatResult) return;
@@ -349,30 +386,73 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
 
                 {/* Mobile: grid 2 columns x up to 5 rows (vertical scroll). On md+ switch to horizontal scroll for wide screens */}
                 <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(110px,1fr))] max-h-[520px] overflow-y-auto py-1 pr-2">
-                  {combatResult?.enemies && combatResult?.enemies.map((enemy, index) => {
-                    const enemyId = index;
-                    const currentHp = enemyHp[enemyId]?.current || enemy.hp;
-                    const maxHp = enemyHp[enemyId]?.max || enemy.maxHp;
+                  {combatResult?.enemies && (() => {
+                    // Build counts for duplicate enemy ids so we can show a quantity badge
+                    const counts: Record<string, number> = {};
+                    (combatResult.enemies || []).forEach((e) => {
+                      const key = String(e.id ?? e.name ?? Math.random());
+                      counts[key] = (counts[key] || 0) + 1;
+                    });
 
-                    return (
-                      <div key={enemyId} className="bg-gray-900/40 p-1 sm:p-2 rounded text-[12px]">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium truncate max-w-[70%]">{enemy.name} #{index + 1}</div>
-                          <div className="text-[11px] text-gray-300">Lv.{enemy.level}</div>
+                    return combatResult.enemies.map((enemy, index) => {
+                      const enemyId = index;
+                      const currentHp = enemyHp[enemyId]?.current || enemy.hp;
+                      const maxHp = enemyHp[enemyId]?.max || enemy.maxHp;
+                      const key = String(enemy.id ?? enemy.name ?? index);
+                      const qty = counts[key] || 1;
+
+                      // Prefer an absolute URL from resolveAssetUrl. If the enemy record
+                      // includes an `image` field use it. Otherwise prefer the cached
+                      // monster metadata (fetched from /monsters/:id). Do NOT invent
+                      // a /assets/monsters/<id>.png path because images are stored
+                      // with hashed filenames under /assets/monsters/thumbs/...
+                      const cachedImage = monsterMetaCacheRef.current[String(enemy.id || '')]?.image;
+                      const imgSrc = resolveAssetUrl((enemy as any)?.image as string) || resolveAssetUrl(cachedImage as string) || undefined;
+
+                      return (
+                        <div key={enemyId} className="bg-gray-900/40 p-1 sm:p-2 rounded text-[12px] flex items-center gap-2">
+                          {/* Fixed-size thumbnail so it doesn't expand the card */}
+                          <div className="flex-shrink-0 w-16 h-16 bg-gray-800 rounded overflow-hidden relative">
+                            {imgSrc ? (
+                              <Image
+                                src={imgSrc}
+                                alt={enemy.name}
+                                width={64}
+                                height={64}
+                                className="object-cover"
+                                onError={() => { /* ignore */ }}
+                                unoptimized
+                              />
+                            ) : (
+                              // Last-resort inline placeholder
+                              <div className="w-full h-full bg-gray-800" />
+                            )}
+                            {qty > 1 && (
+                              <div className="absolute -top-1 -right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">x{qty}</div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm font-medium truncate">{enemy.name} #{index + 1}</div>
+                              <div className="text-[11px] text-gray-300">Lv.{enemy.level}</div>
+                            </div>
+                            <div className="mt-1">
+                              {/* Shorten the HP bar visually so the thumbnail fits nicely */}
+                              <Progress
+                                value={(currentHp / Math.max(1, maxHp)) * 100}
+                                className={`h-1.5 bg-gray-700 ${damageAnimation.enemy ? 'animate-pulse' : ''}`}
+                                style={{
+                                  '--progress-foreground': 'rgb(239 68 68)'
+                                } as React.CSSProperties}
+                              />
+                              <div className="text-[11px] text-gray-300 text-left mt-1">{currentHp}/{maxHp} HP</div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="mt-1">
-                          <Progress
-                            value={(currentHp / maxHp) * 100}
-                            className={`h-2 bg-gray-700 ${damageAnimation.enemy ? 'animate-pulse' : ''}`}
-                            style={{
-                              '--progress-foreground': 'rgb(239 68 68)'
-                            } as React.CSSProperties}
-                          />
-                          <div className="text-[11px] text-gray-300 text-center mt-1">{currentHp}/{maxHp} HP</div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
                 {/* If no enemies available */}
                 {!combatResult?.enemies && (
