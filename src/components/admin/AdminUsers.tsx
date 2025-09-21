@@ -14,6 +14,7 @@ import { useState } from 'react';
 export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isStatsDialogOpen, setIsStatsDialogOpen] = useState(false);
+  const [isBackfillingAll, setIsBackfillingAll] = useState(false);
 
   // Fetch all users
   const { data: users, isLoading, refetch } = useQuery({
@@ -124,6 +125,29 @@ export default function AdminUsers() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Users Management</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-2">Quản lý người chơi trong hệ thống</p>
+          <div className="mt-4">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={async () => {
+                if (!confirm('Bạn có chắc muốn chạy backfill cho toàn bộ user không?')) return;
+                try {
+                  setIsBackfillingAll(true);
+                  const res = await api.post('/admin/backfill/batch');
+                  const jobId = res?.data?.jobId || 'unknown';
+                  toast.success(`Batch backfill enqueued (job ${jobId})`);
+                  refetch();
+                } catch (err: unknown) {
+                  toast.error(`Backfill batch failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                } finally {
+                  setIsBackfillingAll(false);
+                }
+              }}
+              disabled={isBackfillingAll}
+            >
+              Backfill All Users
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -237,6 +261,23 @@ export default function AdminUsers() {
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         View Stats
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await api.post(`/admin/backfill/user/${user.id}`);
+                            toast.success('Backfill started / completed for user');
+                            refetch();
+                          } catch (err: unknown) {
+                            toast.error(`Backfill failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                          }
+                        }}
+                      >
+                        Backfill Stats
                       </Button>
 
                       {user.isBanned ? (

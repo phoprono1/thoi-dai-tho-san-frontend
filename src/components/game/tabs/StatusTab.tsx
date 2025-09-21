@@ -535,9 +535,12 @@ export function AwakenModal({ open, onOpenChange }: { open: boolean; onOpenChang
             stats.dodgeRate = (stats.dodgeRate || 0) + (changes.dodgeRate || 0);
             stats.accuracy = (stats.accuracy || 0) + (changes.accuracy || 0);
 
-            stats.maxHp = Math.floor((stats.vitality || 0) * 10);
-            stats.attack = Math.floor((stats.strength || 0) * 2);
-            stats.defense = Math.floor((stats.vitality || 0) * 1.5);
+            // Don't recompute derived fields (attack/maxHp/defense) here.
+            // The server is authoritative for derived stats and combat power
+            // (it persists derived values when equipping/awakening). We only
+            // apply the raw attribute deltas (strength/intelligence/...) and
+            // invalidate cache so the next query will fetch the correct,
+            // server-calculated derived fields and combatPower.
 
             setUserStatusData({
               user,
