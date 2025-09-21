@@ -27,6 +27,11 @@ const api = axios.create({
   baseURL: getApiBaseUrl(),
 });
 
+// Debug log API URL
+if (typeof window !== 'undefined' && (process.env.NODE_ENV === 'development' || window.location.search.includes('debug=api'))) {
+  console.log('🌐 API_BASE_URL (api.ts):', getApiBaseUrl());
+}
+
 // Request interceptor để xử lý /api prefix và auth token
 api.interceptors.request.use((config) => {
   // Xử lý /api prefix logic (tương tự api-client.ts)

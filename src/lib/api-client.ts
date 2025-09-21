@@ -28,7 +28,7 @@ const API_BASE_URL = getApiBaseUrl();
 
 // Debug log API URL (chỉ trong development hoặc khi cần debug)
 if (typeof window !== 'undefined' && (process.env.NODE_ENV === 'development' || window.location.search.includes('debug=api'))) {
-  console.log('🌐 API_BASE_URL:', API_BASE_URL);
+  console.log('🌐 API_BASE_URL (api-client):', API_BASE_URL);
 }
 
 // Axios instance với interceptor để xử lý /api prefix tương tự api-service.ts
@@ -88,10 +88,20 @@ export const setupInterceptors = () => {
     (response) => response,
     (error) => {
       if (typeof window !== 'undefined' && error.response?.status === 401) {
+        // Debug log
+        console.warn('🚫 401 Unauthorized detected, current path:', window.location.pathname);
+        
         // Token expired — remove known keys and redirect to login
         localStorage.removeItem('auth_token');
         localStorage.removeItem('token');
-        window.location.href = '/login';
+        
+        // Chỉ redirect nếu KHÔNG phải đang ở trang login/register để tránh loop
+        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+          console.log('🔄 Redirecting to login...');
+          window.location.href = '/login';
+        } else {
+          console.log('⏸️ Already on auth page, skipping redirect to prevent loop');
+        }
       }
       return Promise.reject(error);
     },
