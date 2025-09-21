@@ -1,9 +1,37 @@
 import axios, { AxiosRequestHeaders } from 'axios';
 
 // API Base URL - sẽ được cấu hình từ environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+// Fallback cho production nếu env variable không được set đúng
+const getApiBaseUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  // Development
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return envUrl || 'http://localhost:3005/api';
+  }
+  
+  // Production - prefer environment variable, fallback to same domain
+  if (envUrl) {
+    return envUrl;
+  }
+  
+  // Fallback to same domain with /api path for production
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.host}/api`;
+  }
+  
+  // SSR fallback
+  return 'http://localhost:3005/api';
+};
 
-// Axios instance
+const API_BASE_URL = getApiBaseUrl();
+
+// Debug log API URL (chỉ trong development hoặc khi cần debug)
+if (typeof window !== 'undefined' && (process.env.NODE_ENV === 'development' || window.location.search.includes('debug=api'))) {
+  console.log('🌐 API_BASE_URL:', API_BASE_URL);
+}
+
+// Axios instance với interceptor để xử lý /api prefix tương tự api-service.ts
 export const api = axios.create({
   baseURL: API_BASE_URL,
   // Don't force a Content-Type here. When sending FormData the browser
@@ -12,28 +40,50 @@ export const api = axios.create({
   // application/json which breaks multer on the server (missing file).
 });
 
-// Function to setup interceptors (call this in client component)
-let interceptorsInstalled = false;
-
-export const setupInterceptors = () => {
-  if (interceptorsInstalled) return;
-  interceptorsInstalled = true;
-
-  // Request interceptor to add auth token
-  api.interceptors.request.use((config) => {
-    if (typeof window !== 'undefined') {
-      // The app stores token under 'token' (legacy code also used 'auth_token')
-      const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
-      if (token) {
-        // Ensure headers object exists
-  if (!config.headers) config.headers = {} as AxiosRequestHeaders;
-  (config.headers as AxiosRequestHeaders).Authorization = `Bearer ${token}`;
+// Request interceptor để xử lý /api prefix và auth token
+api.interceptors.request.use((config) => {
+  // Xử lý /api prefix logic (tương tự api-service.ts)
+  if (config.url && config.baseURL) {
+    const base = config.baseURL.replace(/\/$/, '');
+    const baseHasApi = /\/api(?:$|\/)/.test(base);
+    
+    let path = config.url.startsWith('/') ? config.url : `/${config.url}`;
+    
+    if (baseHasApi) {
+      // strip leading '/api' from path if present to avoid /api/api
+      if (path.startsWith('/api/')) {
+        path = path.replace(/^\/api/, '');
+      }
+    } else {
+      // ensure path starts with '/api/'
+      if (!path.startsWith('/api/')) {
+        path = `/api${path}`;
       }
     }
-    return config;
-  });
+    
+    config.url = path;
+  }
+  
+  // Add auth token
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+    if (token) {
+      if (!config.headers) config.headers = {} as AxiosRequestHeaders;
+      (config.headers as AxiosRequestHeaders).Authorization = `Bearer ${token}`;
+    }
+  }
+  
+  return config;
+});
 
-  // Response interceptor to handle errors
+// Function to setup additional interceptors (call this in client component)
+let additionalInterceptorsInstalled = false;
+
+export const setupInterceptors = () => {
+  if (additionalInterceptorsInstalled) return;
+  additionalInterceptorsInstalled = true;
+
+  // Response interceptor to handle errors (auth token đã được handle ở request interceptor trên)
   api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -54,7 +104,6 @@ if (typeof window !== 'undefined') {
     setupInterceptors();
   } catch (e) {
     // ignore setup failures on SSR environments
-    // eslint-disable-next-line no-console
     console.warn('setupInterceptors failed', e);
   }
 }

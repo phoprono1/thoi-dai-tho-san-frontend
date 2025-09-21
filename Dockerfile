@@ -15,7 +15,8 @@ RUN npm run build
 FROM node:22
 WORKDIR /app
 
-# Copy runtime environment variables
+# Add build-time argument for environment variables (needed for production stage)
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 COPY --from=builder /app/.next ./.next
