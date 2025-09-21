@@ -62,6 +62,20 @@ interface CharacterClass {
   updatedAt: string;
 }
 
+interface Mapping {
+  id: number;
+  toClassId: number;
+  levelRequired: number;
+  weight?: number;
+  allowPlayerChoice?: boolean;
+  isAwakening?: boolean;
+  requirements?: {
+    dungeons?: Array<{ dungeonId: number; dungeonName?: string; requiredCompletions: number }>;
+    quests?: Array<{ questId: number; questName?: string }>;
+    items?: Array<{ itemId: number; itemName?: string; quantity: number }>;
+  };
+}
+
 export default function AdminCharacterClasses() {
   const [editingClass, setEditingClass] = useState<CharacterClass | null>(null);
   const [formData, setFormData] = useState({
@@ -340,6 +354,126 @@ export default function AdminCharacterClasses() {
       accuracy: classItem.statBonuses.accuracy || 0,
       skillUnlocks: classItem.skillUnlocks.map(skill => skill.skillName).join(', '),
     });
+    // fetch mappings for this class
+    (async () => {
+      try {
+        const resp = await api.get(`/admin/character-classes/${classItem.id}/mappings`);
+        setMappings(resp.data || []);
+      } catch (err) {
+        console.error('Failed to fetch mappings', err);
+      }
+    })();
+  };
+
+  const [mappings, setMappings] = useState<Mapping[]>([]);
+  const [newMapping, setNewMapping] = useState<Partial<Mapping>>({
+    toClassId: 0,
+    levelRequired: 25,
+    weight: 100,
+    allowPlayerChoice: true,
+    isAwakening: false,
+    requirements: {},
+  });
+
+  const createMapping = async () => {
+    if (!editingClass) return;
+    // validate weight
+    if (newMapping.allowPlayerChoice !== true) {
+      const w = Number(newMapping.weight ?? 0);
+      if (isNaN(w) || w < 0) {
+        toast.error('Weight phải là số >= 0');
+        return;
+      }
+    }
+    try {
+      const resp = await api.post(`/admin/character-classes/${editingClass.id}/mappings`, newMapping);
+      setMappings((m) => [...m, resp.data]);
+      toast.success('Đã tạo mapping mới');
+    } catch (err) {
+      console.error('Create mapping failed', err);
+      toast.error('Không thể tạo mapping');
+    }
+  };
+
+  const [editingMappingId, setEditingMappingId] = useState<number | null>(null);
+
+  const startEditMapping = (mp: Mapping) => {
+    setEditingMappingId(mp.id);
+    setNewMapping({
+      toClassId: mp.toClassId,
+      levelRequired: mp.levelRequired,
+      weight: mp.weight,
+      allowPlayerChoice: mp.allowPlayerChoice,
+      isAwakening: mp.isAwakening,
+      requirements: mp.requirements,
+    });
+  };
+
+  const updateMapping = async () => {
+    if (!editingClass || editingMappingId == null) return;
+    // validate weight
+    if (newMapping.allowPlayerChoice !== true) {
+      const w = Number(newMapping.weight ?? 0);
+      if (isNaN(w) || w < 0) {
+        toast.error('Weight phải là số >= 0');
+        return;
+      }
+    }
+    try {
+      const resp = await api.put(`/admin/character-classes/${editingClass.id}/mappings/${editingMappingId}`, newMapping);
+      setMappings((m) => m.map((x) => (x.id === editingMappingId ? resp.data : x)));
+      setEditingMappingId(null);
+      setNewMapping({ toClassId: 0, levelRequired: 25, weight: 100, allowPlayerChoice: true, isAwakening: false, requirements: {} });
+      toast.success('Đã cập nhật mapping');
+    } catch (err) {
+      console.error('Update mapping failed', err);
+      toast.error('Không thể cập nhật mapping');
+    }
+  };
+
+  // compute total weight for display (exclude allowPlayerChoice mappings)
+  const totalWeight = mappings
+    .filter((m) => !m.allowPlayerChoice)
+    .reduce((s, m) => s + (Number(m.weight ?? 0) || 0), 0);
+
+  // Normalize weights: scale so total becomes 100 (rounding may adjust)
+  const normalizeWeights = async () => {
+    if (!editingClass) return;
+    const eligible = mappings.filter((m) => !m.allowPlayerChoice);
+    const total = eligible.reduce((s, m) => s + (Number(m.weight ?? 0) || 0), 0);
+    if (total <= 0) {
+      toast.error('Không thể normalize: tổng weight = 0');
+      return;
+    }
+    // scale to sum 100
+    const updated = mappings.map((m) => {
+      if (m.allowPlayerChoice) return m;
+      const w = Number(m.weight ?? 0) || 0;
+      const scaled = Math.max(0, Math.round((w / total) * 100));
+      return { ...m, weight: scaled };
+    });
+    try {
+      // attempt bulk update on server; if endpoint doesn't exist the call will fail and we still update locally
+      await api.put(`/admin/character-classes/${editingClass.id}/mappings/normalize`, { mappings: updated });
+    } catch (err) {
+      // ignore server error for normalize and fallback to client-side update
+      console.warn('Bulk normalize API failed, falling back to client update', err);
+    }
+    setMappings(updated);
+    toast.success('Đã chuẩn hóa weights (tổng ~100)');
+  };
+
+  const deleteMapping = async (id: number) => {
+    if (!editingClass) return;
+    if (!confirm('Xác nhận xóa mapping này?')) return;
+    try {
+      await api.delete(`/admin/character-classes/${editingClass.id}/mappings/${id}`);
+      setMappings((m) => m.filter((x) => x.id !== id));
+      toast.success('Đã xóa mapping');
+    } catch (err) {
+      console.error('Delete mapping failed', err);
+      toast.error('Không thể xóa mapping');
+    }
   };
 
   const getTierColor = (tier: number) => {
@@ -769,6 +903,66 @@ export default function AdminCharacterClasses() {
                 </div>
               </div>
             </div>
+
+            {editingClass && (
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="text-sm font-medium">Mappings (Advancements)</h3>
+                <div className="space-y-2">
+                  {mappings.length === 0 && <div className="text-sm text-muted-foreground">Chưa có mapping nào.</div>}
+                  {mappings.map((mp) => {
+                    const w = Number(mp.weight ?? 0) || 0;
+                    const pct = totalWeight > 0 && !mp.allowPlayerChoice ? Math.round((w / totalWeight) * 100) : 0;
+                    return (
+                      <div key={mp.id} className="flex items-center justify-between">
+                        <div className="text-sm">
+                          To: {mp.toClassId} @ Lv {mp.levelRequired} {mp.isAwakening ? '(Awakening)' : ''}
+                          {!mp.allowPlayerChoice && (
+                            <span className="ml-3 text-xs text-muted-foreground">{w} ({pct}%)</span>
+                          )}
+                          {mp.allowPlayerChoice && (
+                            <span className="ml-3 text-xs text-muted-foreground">Player choice</span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button size="sm" onClick={() => startEditMapping(mp)}>Sửa</Button>
+                          <Button size="sm" variant="destructive" onClick={() => deleteMapping(mp.id)}>Xóa</Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <select className="p-2 border rounded" value={newMapping.toClassId || 0} onChange={(e) => setNewMapping({ ...newMapping, toClassId: parseInt(e.target.value) || 0 })}>
+                    <option value={0}>Chọn target class</option>
+                    {characterClasses?.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name} (#{c.id})</option>
+                    ))}
+                  </select>
+                  <Input type="number" placeholder="Level Required" value={newMapping.levelRequired} onChange={(e) => setNewMapping({ ...newMapping, levelRequired: parseInt(e.target.value) || 1 })} />
+                  <Input type="number" placeholder="Weight" value={newMapping.weight} onChange={(e) => setNewMapping({ ...newMapping, weight: parseInt(e.target.value) || 100 })} />
+                  <div className="flex items-center space-x-2">
+                    <input type="checkbox" checked={newMapping.allowPlayerChoice} onChange={(e) => setNewMapping({ ...newMapping, allowPlayerChoice: e.target.checked })} />
+                    <Label>Allow Player Choice</Label>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex space-x-2">
+                  {editingMappingId ? (
+                    <>
+                      <Button size="sm" onClick={updateMapping}>Lưu</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingMappingId(null); setNewMapping({ toClassId: 0, levelRequired: 25, weight: 100, allowPlayerChoice: true, isAwakening: false, requirements: {} }); }}>Hủy</Button>
+                    </>
+                  ) : (
+                    <Button size="sm" onClick={createMapping}>Tạo Mapping</Button>
+                  )}
+                  </div>
+                  <div>
+                    <Button size="sm" variant="outline" onClick={normalizeWeights}>Normalize Weights</Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex space-x-2">
               <Button

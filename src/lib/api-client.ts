@@ -281,12 +281,30 @@ export const characterClassesApi = {
     const response = await api.get(`/character-classes/${classId}`);
     return response.data;
   },
-
   advanceClass: async (userId: number, newClassId: number) => {
     const response = await api.post('/character-classes/advance', {
       userId,
       newClassId,
     });
+    return response.data;
+  },
+
+  // New: perform advancement (server validates requirements and consumes items)
+  performAdvancement: async (userId: number, targetClassId: number) => {
+    const response = await api.post('/character-classes/advancement/perform', {
+      userId,
+      targetClassId,
+    });
+    return response.data;
+  },
+  // Server-authoritative awaken: pick a Tier 1 class for the authenticated user
+  awaken: async () => {
+    const response = await api.post('/character-classes/advancement/awaken');
+    return response.data;
+  },
+  // Get available advancements for current authenticated user
+  getAvailableAdvancements: async () => {
+    const response = await api.get('/character-classes/advancement/available');
     return response.data;
   },
 };

@@ -28,6 +28,11 @@ type ComputeOptions = {
 import { useUserStatus } from '@/hooks/use-user-status';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Spinner } from '@/components/ui/spinner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { characterClassesApi } from '@/lib/api-client';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Port of backend computeCombatPowerFromStats to provide a deterministic
 // client-side fallback when server doesn't return a precomputed combatPower.
@@ -125,6 +130,9 @@ const StatusTab: React.FC = () => {
     error,
   } = useUserStatusStore();
 
+  // Awaken modal state
+  const [showAwakenModal, setShowAwakenModal] = React.useState(false);
+
   // Use TanStack Query only when userId is available
   const { isLoading: queryLoading, error: queryError } = useUserStatus(userId!);
 
@@ -209,8 +217,13 @@ const StatusTab: React.FC = () => {
             <div className="flex items-center gap-2">
               <User className="h-5 w-5" />
               <div className="flex flex-col">
-                <span className="font-semibold text-sm">{user.username}</span>
-                <span className="text-[10px] text-[var(--muted-foreground)]">{characterClass?.name || 'Chưa chọn lớp'}</span>
+                <div className="font-semibold text-sm">{user.username}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--muted-foreground)]">{characterClass?.name || 'Chưa chọn lớp'}</span>
+                  {!characterClass && currentLevel.level >= 10 ? (
+                    <Button size="sm" variant="ghost" onClick={() => setShowAwakenModal(true)}>Thức tỉnh</Button>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -456,8 +469,124 @@ const StatusTab: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+  <AwakenModal open={showAwakenModal} onOpenChange={(v) => setShowAwakenModal(Boolean(v))} />
     </div>
   );
 };
+
+export function AwakenModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const queryClient = useQueryClient();
+  const { setUserStatusData } = useUserStatusStore();
+  const handleAwaken = async () => {
+    setIsProcessing(true);
+    try {
+      // Call server-authoritative awaken endpoint which will pick a Tier-1 class
+      const res = await characterClassesApi.awaken();
+
+      // server returns AdvancementResultDto: { success, newClass, statChanges, unlockedSkills, message }
+      const name = res?.newClass?.name || 'Lớp mới';
+
+      // Update client cache and zustand store so UI reflects new class and stat bonuses immediately
+      try {
+  // Invalidate/fetch user-status and related queries for fresh data
+  // We don't have the userId from the awaken response, rely on existing store state
+  const currentSnapshot = useUserStatusStore.getState();
+  const uid = currentSnapshot?.user?.id;
+  queryClient.invalidateQueries({ queryKey: ['user-status', uid] });
+  queryClient.invalidateQueries({ queryKey: ['user-stats', uid] });
+  queryClient.invalidateQueries({ queryKey: ['user', uid] });
+
+        // If the API returned statChanges and newClass, apply them locally to the store for instant UX
+        if (res && res.newClass) {
+          // Read current store snapshot and build a new payload for setUserStatusData
+          const current = useUserStatusStore.getState();
+          if (current && current.user && current.stats && current.stamina && current.currentLevel) {
+            const user = { ...current.user, characterClass: res.newClass };
+            // Copy current stats and apply only known stat deltas.
+            const stats = { ...current.stats } as typeof current.stats;
+            const changes = (res.statChanges || {}) as Partial<{
+              strength: number;
+              intelligence: number;
+              dexterity: number;
+              vitality: number;
+              luck: number;
+              critRate: number;
+              critDamage: number;
+              comboRate: number;
+              counterRate: number;
+              lifesteal: number;
+              armorPen: number;
+              dodgeRate: number;
+              accuracy: number;
+            }>;
+
+            stats.strength = (stats.strength || 0) + (changes.strength || 0);
+            stats.intelligence = (stats.intelligence || 0) + (changes.intelligence || 0);
+            stats.dexterity = (stats.dexterity || 0) + (changes.dexterity || 0);
+            stats.vitality = (stats.vitality || 0) + (changes.vitality || 0);
+            stats.luck = (stats.luck || 0) + (changes.luck || 0);
+            stats.critRate = (stats.critRate || 0) + (changes.critRate || 0);
+            stats.critDamage = (stats.critDamage || 0) + (changes.critDamage || 0);
+            stats.comboRate = (stats.comboRate || 0) + (changes.comboRate || 0);
+            stats.counterRate = (stats.counterRate || 0) + (changes.counterRate || 0);
+            stats.lifesteal = (stats.lifesteal || 0) + (changes.lifesteal || 0);
+            stats.armorPen = (stats.armorPen || 0) + (changes.armorPen || 0);
+            stats.dodgeRate = (stats.dodgeRate || 0) + (changes.dodgeRate || 0);
+            stats.accuracy = (stats.accuracy || 0) + (changes.accuracy || 0);
+
+            stats.maxHp = Math.floor((stats.vitality || 0) * 10);
+            stats.attack = Math.floor((stats.strength || 0) * 2);
+            stats.defense = Math.floor((stats.vitality || 0) * 1.5);
+
+            setUserStatusData({
+              user,
+              stats,
+              stamina: current.stamina,
+              currentLevel: current.currentLevel,
+              nextLevel: current.nextLevel,
+              characterClass: res.newClass,
+              equippedItems: current.equippedItems || [],
+            });
+          }
+        }
+      } catch (e) {
+        // Non-fatal: keep going
+        console.debug('Post-awaken cache update failed', e);
+      }
+
+      toast.success(`Thức tỉnh thành công: ${name}`);
+      onOpenChange(false);
+    } catch (err: unknown) {
+      console.error('Awaken failed', err);
+      let msg = 'Thức tỉnh thất bại';
+      try {
+        const maybe = err as { response?: { data?: { message?: string } }; message?: string };
+        if (maybe?.response?.data?.message) msg = maybe.response.data.message;
+        else if (typeof maybe?.message === 'string') msg = maybe.message;
+      } catch {}
+      toast.error(msg);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Thức tỉnh</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <p>Hành động này sẽ chọn ngẫu nhiên một lớp bậc 1 (Tier 1) cho nhân vật của bạn. Sau khi đã có lớp bậc 1, các lần nâng cấp tiếp theo (Tier 1 → Tier 2+) sẽ kiểm tra yêu cầu.</p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+          <Button onClick={handleAwaken} disabled={isProcessing}>{isProcessing ? 'Đang xử lý...' : 'Thức tỉnh'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default StatusTab;
