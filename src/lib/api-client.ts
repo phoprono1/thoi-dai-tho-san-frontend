@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestHeaders } from 'axios';
 
 // API Base URL - sẽ được cấu hình từ environment
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
@@ -13,25 +13,32 @@ export const api = axios.create({
 });
 
 // Function to setup interceptors (call this in client component)
+let interceptorsInstalled = false;
+
 export const setupInterceptors = () => {
-  // Request interceptor để thêm auth token
+  if (interceptorsInstalled) return;
+  interceptorsInstalled = true;
+
+  // Request interceptor to add auth token
   api.interceptors.request.use((config) => {
     if (typeof window !== 'undefined') {
-      // Support both legacy 'token' key and newer 'auth_token'
+      // The app stores token under 'token' (legacy code also used 'auth_token')
       const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        // Ensure headers object exists
+  if (!config.headers) config.headers = {} as AxiosRequestHeaders;
+  (config.headers as AxiosRequestHeaders).Authorization = `Bearer ${token}`;
       }
     }
     return config;
   });
 
-  // Response interceptor để handle errors
+  // Response interceptor to handle errors
   api.interceptors.response.use(
     (response) => response,
     (error) => {
       if (typeof window !== 'undefined' && error.response?.status === 401) {
-        // Token expired, remove both keys (support legacy storage) and redirect to login
+        // Token expired — remove known keys and redirect to login
         localStorage.removeItem('auth_token');
         localStorage.removeItem('token');
         window.location.href = '/login';
@@ -40,6 +47,17 @@ export const setupInterceptors = () => {
     },
   );
 };
+
+// Install immediately on the client so early requests include Authorization header
+if (typeof window !== 'undefined') {
+  try {
+    setupInterceptors();
+  } catch (e) {
+    // ignore setup failures on SSR environments
+    // eslint-disable-next-line no-console
+    console.warn('setupInterceptors failed', e);
+  }
+}
 
 // Auth API
 export const authApi = {
