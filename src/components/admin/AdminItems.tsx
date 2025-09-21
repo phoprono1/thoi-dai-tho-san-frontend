@@ -49,6 +49,7 @@ export default function AdminItems() {
     dexterity: 0,
     vitality: 0,
     luck: 0,
+    tradable: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -229,6 +230,7 @@ export default function AdminItems() {
         duration: formData.type === ItemType.CONSUMABLE && formData.consumableType === ConsumableType.STAT_BOOST ? formData.duration : undefined,
         // Set and class restrictions
         setId: formData.setId || undefined,
+  tradable: typeof formData.tradable === 'boolean' ? formData.tradable : true,
         classRestrictions:
           classRestrictions.allowedClassTypes?.length ||
           classRestrictions.restrictedClassTypes?.length ||
@@ -281,6 +283,7 @@ export default function AdminItems() {
         dexterity: 0,
         vitality: 0,
         luck: 0,
+        tradable: true,
       });
       setClassRestrictions({
         allowedClassTypes: [],
@@ -332,6 +335,7 @@ export default function AdminItems() {
         duration: formData.type === ItemType.CONSUMABLE && formData.consumableType === ConsumableType.STAT_BOOST ? formData.duration : undefined,
         // Set and class restrictions
         setId: formData.setId || undefined,
+  tradable: typeof formData.tradable === 'boolean' ? formData.tradable : true,
         classRestrictions:
           classRestrictions.allowedClassTypes?.length ||
           classRestrictions.restrictedClassTypes?.length ||
@@ -382,6 +386,7 @@ export default function AdminItems() {
         dexterity: 0,
         vitality: 0,
         luck: 0,
+        tradable: true,
       });
       setClassRestrictions({
         allowedClassTypes: [],
@@ -440,6 +445,7 @@ export default function AdminItems() {
       dexterity: item.stats.dexterity || 0,
       vitality: item.stats.vitality || 0,
       luck: item.stats.luck || 0,
+      tradable: typeof item.tradable === 'boolean' ? item.tradable : true,
     });
     setClassRestrictions(item.classRestrictions || {
       allowedClassTypes: [],
@@ -1100,6 +1106,19 @@ export default function AdminItems() {
                 </div>
               </div>
 
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="tradable">Tradable between players</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="tradable"
+                    type="checkbox"
+                    checked={formData.tradable}
+                    onChange={(e) => setFormData({ ...formData, tradable: e.target.checked })}
+                  />
+                  <Label htmlFor="tradable" className="text-sm">Allow player-to-player trading</Label>
+                </div>
+              </div>
+
               <div className="flex space-x-2">
                 <Button
                   onClick={editingItem ? handleUpdateItem : handleCreateItem}
@@ -1135,6 +1154,7 @@ export default function AdminItems() {
                       dexterity: 0,
                       vitality: 0,
                       luck: 0,
+                      tradable: true,
                     });
                     setClassRestrictions({
                       allowedClassTypes: [],

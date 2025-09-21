@@ -162,6 +162,7 @@ export interface Item {
   rarity: number;
   stats: ItemStats;
   price: number;
+  tradable?: boolean;
   consumableValue?: number; // For consumables: HP restore amount, EXP amount, etc.
   duration?: number; // For stat boost duration in minutes
   setId?: number; // Reference to ItemSet
