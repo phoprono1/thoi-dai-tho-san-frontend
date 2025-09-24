@@ -24,7 +24,7 @@ interface AdminProviderProps {
   children: React.ReactNode;
 }
 
-const ADMIN_SECRET_KEY = process.env.NEXT_PUBLIC_ADMIN_SECRET_KEY || 'thoidaiadmin2024';
+const ADMIN_SECRET_KEY = process.env.NEXT_PUBLIC_ADMIN_SECRET_KEY || 'e0b4e1d2c00f3f265d3cd9c451835200b472821063cbaf0b41538e06d9a8be06';
 // REMOVED: ADMIN_BYPASS_KEY for security reasons
 
 export function AdminProvider({ children }: AdminProviderProps) {
