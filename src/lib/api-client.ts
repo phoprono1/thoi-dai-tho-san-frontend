@@ -385,3 +385,54 @@ export const characterClassesApi = {
     return response.data;
   },
 };
+
+// Skills API
+export const skillsApi = {
+  getPlayerSkills: async () => {
+    const response = await api.get('/skills');
+    return response.data;
+  },
+
+  getAvailableSkills: async () => {
+    const response = await api.get('/skills/available');
+    return response.data;
+  },
+
+  unlockSkill: async (skillId: string) => {
+    const response = await api.post(`/skills/unlock/${skillId}`);
+    return response.data;
+  },
+
+  levelUpSkill: async (skillId: string) => {
+    const response = await api.post(`/skills/level-up/${skillId}`);
+    return response.data;
+  },
+
+  getSkillEffects: async () => {
+    const response = await api.get('/skills/effects');
+    return response.data;
+  },
+};
+
+// User Attributes API
+export const userAttributesApi = {
+  getUserAttributes: async () => {
+    const response = await api.get('/user-attributes');
+    return response.data;
+  },
+
+  allocateAttributePoint: async (attribute: 'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK') => {
+    const response = await api.post('/user-attributes/allocate', { attribute });
+    return response.data;
+  },
+
+  resetAttributePoints: async () => {
+    const response = await api.post('/user-attributes/reset');
+    return response.data;
+  },
+
+  allocateMultipleAttributePoints: async (allocations: Record<'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK', number>) => {
+    const response = await api.post('/user-attributes/allocate-multiple', { allocations });
+    return response.data;
+  },
+};

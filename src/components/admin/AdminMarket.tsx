@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { adminApiEndpoints } from '@/lib/admin-api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +45,7 @@ export default function AdminMarket() {
   const { data: shopItems, refetch } = useQuery({
     queryKey: ['adminShopItems'],
     queryFn: async () => {
-      const res = await api.get('/market/shop');
+      const res = await adminApiEndpoints.getShopItems();
       return res.data || [];
     },
   });
@@ -142,7 +143,7 @@ export default function AdminMarket() {
       return;
     }
     try {
-      await api.post('/market/shop', { itemId, price, quantity });
+      await adminApiEndpoints.addShopItem({ itemId, price, quantity });
       toast.success('Đã thêm vào shop');
       setItemId(0);
       setPrice(0);
@@ -158,7 +159,7 @@ export default function AdminMarket() {
   const handleRemove = async (id: number) => {
     if (!confirm('Bạn có chắc muốn gỡ shop item này?')) return;
     try {
-      await api.delete(`/market/shop/${id}`);
+      await adminApiEndpoints.removeShopItem(id);
       toast.success('Đã gỡ shop item');
       refetch();
       refetchListings();
@@ -294,7 +295,7 @@ export default function AdminMarket() {
                           const newPrice = Number(prompt('New price (leave empty to keep)', String(s.price)) || s.price);
                           const newQty = Number((prompt('New quantity (leave empty to keep)', String(s.quantity ?? 1)) || String(s.quantity ?? 1)));
                           try {
-                            await api.patch(`/market/shop/${s.id}`, { price: newPrice, quantity: newQty });
+                            await adminApiEndpoints.updateShopItem(s.id, { price: newPrice, quantity: newQty });
                             toast.success('Updated');
                             refetch();
                           } catch {

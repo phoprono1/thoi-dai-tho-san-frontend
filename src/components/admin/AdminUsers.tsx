@@ -4,24 +4,28 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { adminApiEndpoints } from '@/lib/admin-api';
 import { toast } from 'sonner';
-import { Users, UserPlus, UserMinus, Crown, Eye, Shield, Heart } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Crown, Eye, Shield, Heart, Search, Filter } from 'lucide-react';
 import { User, UserStats } from '@/types/game';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isStatsDialogOpen, setIsStatsDialogOpen] = useState(false);
   const [isBackfillingAll, setIsBackfillingAll] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'admin' | 'donor' | 'banned' | 'active'>('all');
 
   // Fetch all users
   const { data: users, isLoading, refetch } = useQuery({
     queryKey: ['adminUsers'],
     queryFn: async (): Promise<User[]> => {
       try {
-        const response = await api.get('/users');
+        const response = await adminApiEndpoints.getUsers();
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch users:', error);
@@ -36,8 +40,8 @@ export default function AdminUsers() {
     queryFn: async (): Promise<UserStats | null> => {
       if (!selectedUser?.id) return null;
       try {
-        const response = await api.get(`/user-stats/user/${selectedUser.id}`);
-        return response.data;
+        const response = await adminApiEndpoints.getUser(selectedUser.id);
+        return response.data?.stats || null;
       } catch (error) {
         console.error('Failed to fetch user stats:', error);
         return null;
@@ -46,6 +50,38 @@ export default function AdminUsers() {
     enabled: !!selectedUser?.id && isStatsDialogOpen,
   });
 
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    
+    return users.filter(user => {
+      // Search filter
+      const matchesSearch = searchTerm === '' || 
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.id.toString().includes(searchTerm);
+      
+      // Status filter
+      let matchesStatus = true;
+      switch (statusFilter) {
+        case 'admin':
+          matchesStatus = user.isAdmin === true;
+          break;
+        case 'donor':
+          matchesStatus = user.isDonor === true;
+          break;
+        case 'banned':
+          matchesStatus = user.isBanned === true;
+          break;
+        case 'active':
+          matchesStatus = !user.isBanned && user.level > 1;
+          break;
+        default:
+          matchesStatus = true;
+      }
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [users, searchTerm, statusFilter]);
+
   const handleViewStats = (user: User) => {
     setSelectedUser(user);
     setIsStatsDialogOpen(true);
@@ -53,7 +89,7 @@ export default function AdminUsers() {
 
   const handleBanUser = async (userId: number) => {
     try {
-      await api.post(`/users/${userId}/ban`);
+      await adminApiEndpoints.banUser(userId);
       toast.success('Đã ban user thành công!');
       refetch();
     } catch (error: unknown) {
@@ -63,7 +99,7 @@ export default function AdminUsers() {
 
   const handleUnbanUser = async (userId: number) => {
     try {
-      await api.post(`/users/${userId}/unban`);
+      await adminApiEndpoints.unbanUser(userId);
       toast.success('Đã unban user thành công!');
       refetch();
     } catch (error: unknown) {
@@ -73,7 +109,7 @@ export default function AdminUsers() {
 
   const handlePromoteToAdmin = async (userId: number) => {
     try {
-      await api.post(`/users/${userId}/promote`, { type: 'admin' });
+      await adminApiEndpoints.promoteToAdmin(userId);
       toast.success('Đã promote user thành admin!');
       refetch();
     } catch (error: unknown) {
@@ -83,7 +119,7 @@ export default function AdminUsers() {
 
   const handleDemoteFromAdmin = async (userId: number) => {
     try {
-      await api.post(`/users/${userId}/demote`, { type: 'admin' });
+      await adminApiEndpoints.demoteFromAdmin(userId);
       toast.success('Đã demote user từ admin!');
       refetch();
     } catch (error: unknown) {
@@ -93,7 +129,7 @@ export default function AdminUsers() {
 
   const handlePromoteToDonor = async (userId: number) => {
     try {
-      await api.post(`/users/${userId}/promote`, { type: 'donor' });
+      await adminApiEndpoints.promoteToDonor(userId);
       toast.success('Đã đánh dấu user là donor!');
       refetch();
     } catch (error: unknown) {
@@ -103,7 +139,7 @@ export default function AdminUsers() {
 
   const handleDemoteFromDonor = async (userId: number) => {
     try {
-      await api.post(`/users/${userId}/demote`, { type: 'donor' });
+      await adminApiEndpoints.demoteFromDonor(userId);
       toast.success('Đã bỏ đánh dấu donor!');
       refetch();
     } catch (error: unknown) {
@@ -133,7 +169,7 @@ export default function AdminUsers() {
                 if (!confirm('Bạn có chắc muốn chạy backfill cho toàn bộ user không?')) return;
                 try {
                   setIsBackfillingAll(true);
-                  const res = await api.post('/admin/backfill/batch');
+                  const res = await adminApiEndpoints.backfillBatch();
                   const jobId = res?.data?.jobId || 'unknown';
                   toast.success(`Batch backfill enqueued (job ${jobId})`);
                   refetch();
@@ -150,7 +186,47 @@ export default function AdminUsers() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Search and Filter */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="w-5 h-5" />
+              Search & Filter
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search by username or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Select value={statusFilter} onValueChange={(value: 'all' | 'admin' | 'donor' | 'banned' | 'active') => setStatusFilter(value)}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  <SelectItem value="active">Active Users</SelectItem>
+                  <SelectItem value="admin">Admins</SelectItem>
+                  <SelectItem value="donor">Donors</SelectItem>
+                  <SelectItem value="banned">Banned</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Showing {filteredUsers.length} of {users?.length || 0} users
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -200,7 +276,7 @@ export default function AdminUsers() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {users?.map((user) => (
+              {filteredUsers.map((user) => (
                 <div
                   key={user.id}
                   className="flex items-center justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer"
@@ -269,7 +345,7 @@ export default function AdminUsers() {
                         onClick={async (e) => {
                           e.stopPropagation();
                           try {
-                            await api.post(`/admin/backfill/user/${user.id}`);
+                            await adminApiEndpoints.backfillUser(user.id);
                             toast.success('Backfill started / completed for user');
                             refetch();
                           } catch (err: unknown) {
@@ -362,10 +438,15 @@ export default function AdminUsers() {
                 </div>
               ))}
 
-              {(!users || users.length === 0) && (
+              {(!filteredUsers || filteredUsers.length === 0) && (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-300">
                   <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Chưa có user nào trong hệ thống</p>
+                  <p>
+                    {users && users.length > 0 && (searchTerm || statusFilter !== 'all')
+                      ? 'Không tìm thấy user nào phù hợp với bộ lọc'
+                      : 'Chưa có user nào trong hệ thống'
+                    }
+                  </p>
                 </div>
               )}
             </div>

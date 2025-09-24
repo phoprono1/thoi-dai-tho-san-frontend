@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi, userApi, gameApi, guildApi, chatApi, itemsApi, characterClassesApi } from '@/lib/api-client';
+import { authApi, userApi, gameApi, guildApi, chatApi, itemsApi, characterClassesApi, skillsApi } from '@/lib/api-client';
 
 // Auth hooks
 export const useLogin = () => {
@@ -439,5 +439,54 @@ export const useAdvanceClass = () => {
   queryClient.invalidateQueries({ queryKey: ['userStats'] });
   queryClient.invalidateQueries({ queryKey: ['user-stats'] });
     },
+  });
+};
+
+// Skills hooks
+export const usePlayerSkills = () => {
+  return useQuery({
+    queryKey: ['playerSkills'],
+    queryFn: skillsApi.getPlayerSkills,
+  });
+};
+
+export const useAvailableSkills = () => {
+  return useQuery({
+    queryKey: ['availableSkills'],
+    queryFn: skillsApi.getAvailableSkills,
+  });
+};
+
+export const useUnlockSkill = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (skillId: string) => skillsApi.unlockSkill(skillId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playerSkills'] });
+      queryClient.invalidateQueries({ queryKey: ['availableSkills'] });
+      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+    },
+  });
+};
+
+export const useLevelUpSkill = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (skillId: string) => skillsApi.levelUpSkill(skillId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playerSkills'] });
+      queryClient.invalidateQueries({ queryKey: ['userStats'] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+    },
+  });
+};
+
+export const useSkillEffects = () => {
+  return useQuery({
+    queryKey: ['skillEffects'],
+    queryFn: skillsApi.getSkillEffects,
   });
 };

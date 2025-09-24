@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, setupInterceptors } from '@/lib/api-client';
+import { adminApiEndpoints } from '@/lib/admin-api';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { Swords, UploadCloud, DownloadCloud } from 'lucide-react';
@@ -43,7 +44,7 @@ export default function AdminMonsters() {
     queryKey: ['adminMonsters'],
     queryFn: async (): Promise<Monster[]> => {
       try {
-        const response = await api.get('/monsters');
+        const response = await adminApiEndpoints.getMonsters();
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch monsters:', error);
@@ -69,7 +70,7 @@ export default function AdminMonsters() {
   // Create monster mutation
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Monster>) => {
-      return await api.post('/monsters', data);
+      return await adminApiEndpoints.createMonster(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminMonsters'] });
@@ -84,7 +85,7 @@ export default function AdminMonsters() {
   // Update monster mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<Monster> }) => {
-      return await api.put(`/monsters/${id}`, data);
+      return await adminApiEndpoints.updateMonster(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminMonsters'] });
@@ -99,7 +100,7 @@ export default function AdminMonsters() {
   // Delete monster mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await api.delete(`/monsters/${id}`);
+      return await adminApiEndpoints.deleteMonster(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminMonsters'] });
@@ -149,7 +150,7 @@ export default function AdminMonsters() {
             const up = await api.post(`/uploads/monsters/${created.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
             const thumbnails = up?.data?.thumbnails;
             const prefer = thumbnails?.medium || up?.data?.path;
-            if (prefer) await api.put(`/monsters/${created.id}`, { image: prefer });
+            if (prefer) await adminApiEndpoints.updateMonster(created.id, { image: prefer });
           } catch (err) {
             console.warn('Image upload failed for new monster', err);
           }
@@ -178,7 +179,7 @@ export default function AdminMonsters() {
             const up = await api.post(`/uploads/monsters/${editingMonster.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
             const thumbnails = up?.data?.thumbnails;
             const prefer = thumbnails?.medium || up?.data?.path;
-            if (prefer) await api.put(`/monsters/${editingMonster.id}`, { image: prefer });
+            if (prefer) await adminApiEndpoints.updateMonster(editingMonster.id, { image: prefer });
           } catch (err) {
             console.warn('Image upload failed for monster update', err);
           }
@@ -388,7 +389,7 @@ export default function AdminMonsters() {
       <div className="flex space-x-2 mt-4">
         <Button size="sm" variant="outline" onClick={async () => {
           try {
-            const res = await api.get('/admin/export/template/monsters', { responseType: 'blob' });
+            const res = await adminApiEndpoints.exportMonstersTemplate();
             const blob = new Blob([res.data]);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -414,7 +415,7 @@ export default function AdminMonsters() {
             try {
               console.info('Uploading monsters CSV', file.name, file.size);
               toast('Uploading file...');
-              const resp = await api.post('/admin/import/monsters', form);
+              const resp = await adminApiEndpoints.importMonsters(form);
               const data = resp.data;
               console.info('Import response', data);
               if (data?.result) {
@@ -449,7 +450,7 @@ export default function AdminMonsters() {
 
         <Button size="sm" variant="outline" onClick={async () => {
           try {
-            const res = await api.get('/admin/export/monsters', { responseType: 'blob' });
+            const res = await adminApiEndpoints.exportMonsters();
             const blob = new Blob([res.data]);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');

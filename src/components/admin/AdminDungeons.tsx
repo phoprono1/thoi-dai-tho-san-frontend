@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { adminApiEndpoints } from '@/lib/admin-api';
 import { toast } from 'sonner';
 import { Shield } from 'lucide-react';
 import Image from 'next/image';
@@ -50,7 +51,7 @@ export default function AdminDungeons() {
     queryKey: ['adminDungeons'],
     queryFn: async (): Promise<Dungeon[]> => {
       try {
-        const response = await api.get('/dungeons');
+        const response = await adminApiEndpoints.getDungeons();
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch dungeons:', error);
@@ -98,7 +99,7 @@ export default function AdminDungeons() {
       monsterCounts: { monsterId: number; count: number }[];
       dropItems: { itemId: number; dropRate: number }[] | null;
     }) => {
-      return await api.post('/dungeons', data);
+      return await adminApiEndpoints.createDungeon(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminDungeons'] });
@@ -124,7 +125,7 @@ export default function AdminDungeons() {
         dropItems: { itemId: number; dropRate: number }[] | null;
       };
     }) => {
-      return await api.put(`/dungeons/${id}`, data);
+      return await adminApiEndpoints.updateDungeon(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminDungeons'] });
@@ -139,7 +140,7 @@ export default function AdminDungeons() {
   // Delete dungeon mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await api.delete(`/dungeons/${id}`);
+      return await adminApiEndpoints.deleteDungeon(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminDungeons'] });
@@ -424,7 +425,7 @@ export default function AdminDungeons() {
         <div className="flex space-x-2 mt-4 lg:col-span-3">
           <Button size="sm" variant="outline" onClick={async () => {
             try {
-              const res = await api.get('/admin/export/template/dungeons', { responseType: 'blob' });
+              const res = await adminApiEndpoints.exportDungeonsTemplate();
               const blob = new Blob([res.data]);
               const url = window.URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -442,7 +443,7 @@ export default function AdminDungeons() {
           </Button>
           <Button size="sm" variant="ghost" onClick={async () => {
             try {
-              const res = await api.get('/admin/export/dungeons', { responseType: 'blob' });
+              const res = await adminApiEndpoints.exportDungeons();
               const blob = new Blob([res.data]);
               const url = window.URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -468,7 +469,7 @@ export default function AdminDungeons() {
             try {
               console.info('Uploading dungeons CSV', file.name, file.size);
               toast('Uploading file...');
-              const resp = await api.post('/admin/import/dungeons', form);
+              const resp = await adminApiEndpoints.importDungeons(form);
               const data = resp.data;
               console.info('Import response', data);
               if (data?.result) {

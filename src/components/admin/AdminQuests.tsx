@@ -33,6 +33,7 @@ import {
 import { UploadCloud, DownloadCloud } from 'lucide-react';
 import api from '@/lib/api';
 // NOTE: We intentionally do not set Content-Type for multipart/form-data here. Let axios set the boundary header.
+import { adminApiEndpoints } from '@/lib/admin-api';
 
 // Types
 interface Quest {
@@ -145,7 +146,7 @@ export default function AdminQuests() {
   const { data: quests, isLoading } = useQuery({
     queryKey: ['adminQuests'],
     queryFn: async () => {
-      const response = await api.get('/quests');
+      const response = await adminApiEndpoints.getQuests();
       return response.data;
     },
   });
@@ -180,7 +181,7 @@ export default function AdminQuests() {
   // Create quest mutation
   const createQuestMutation = useMutation({
     mutationFn: async (data: QuestFormData) => {
-      const response = await api.post('/quests', data);
+      const response = await adminApiEndpoints.createQuest(data);
       return response.data;
     },
     onSuccess: () => {
@@ -197,7 +198,7 @@ export default function AdminQuests() {
   // Update quest mutation
   const updateQuestMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<QuestFormData> }) => {
-      const response = await api.put(`/quests/${id}`, data);
+      const response = await adminApiEndpoints.updateQuest(id, data);
       return response.data;
     },
     onSuccess: () => {
@@ -242,7 +243,7 @@ export default function AdminQuests() {
     if (!confirm(`Bạn có chắc muốn xóa quest "${quest.name}"?`)) return;
 
     try {
-      await api.delete(`/quests/${quest.id}`);
+      await adminApiEndpoints.deleteQuest(quest.id);
       toast.success('Quest đã được xóa thành công!');
       queryClient.invalidateQueries({ queryKey: ['adminQuests'] });
       return;
@@ -258,7 +259,7 @@ export default function AdminQuests() {
       }
       if (confirm(`${msg}\nQuest có thể có dữ liệu phụ thuộc. Bạn có muốn ép xóa (force delete) không?`)) {
         try {
-          await api.delete(`/quests/${quest.id}?force=true`);
+          await adminApiEndpoints.deleteQuest(quest.id, { force: true });
           toast.success('Quest đã bị ép xóa thành công');
           queryClient.invalidateQueries({ queryKey: ['adminQuests'] });
         } catch (forceErr: unknown) {
@@ -451,7 +452,7 @@ export default function AdminQuests() {
           <div className="flex items-center space-x-2">
             <Button size="sm" variant="outline" onClick={async () => {
               try {
-                const res = await api.get('/admin/export/template/quests', { responseType: 'blob' });
+                const res = await adminApiEndpoints.exportQuestsTemplate();
                 const blob = new Blob([res.data]);
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -479,7 +480,7 @@ export default function AdminQuests() {
                   console.info('Starting upload for quests CSV', file.name, file.size);
                   toast('Uploading file...');
                   // Do NOT set Content-Type here; axios/multipart will set boundary automatically
-                  const resp = await api.post('/admin/import/quests', form);
+                  const resp = await adminApiEndpoints.importQuests(form);
                   const data = resp.data;
                   console.info('Import response', data);
                   if (data?.result) {
@@ -514,7 +515,7 @@ export default function AdminQuests() {
 
             <Button size="sm" variant="outline" onClick={async () => {
               try {
-                const res = await api.get('/admin/export/quests', { responseType: 'blob' });
+                const res = await adminApiEndpoints.exportQuests();
                 const blob = new Blob([res.data]);
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');

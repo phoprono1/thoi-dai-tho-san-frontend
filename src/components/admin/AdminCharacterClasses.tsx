@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { adminApiEndpoints, adminApi } from '@/lib/admin-api';
 import { toast } from 'sonner';
 import { UserCheck } from 'lucide-react';
 import { DataTable } from '@/components/admin/DataTable';
@@ -90,15 +90,6 @@ export default function AdminCharacterClasses() {
     dexterity: 0,
     vitality: 0,
     luck: 0,
-    // Advanced stats
-    critRate: 0,
-    critDamage: 150,
-    comboRate: 0,
-    counterRate: 0,
-    lifesteal: 0,
-    armorPen: 0,
-    dodgeRate: 0,
-    accuracy: 0,
     skillUnlocks: '',
   });
 
@@ -109,7 +100,7 @@ export default function AdminCharacterClasses() {
     queryKey: ['adminCharacterClasses'],
     queryFn: async (): Promise<CharacterClass[]> => {
       try {
-        const response = await api.get('/character-classes');
+        const response = await adminApiEndpoints.getCharacterClasses();
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch character classes:', error);
@@ -133,15 +124,6 @@ export default function AdminCharacterClasses() {
         dexterity?: number;
         vitality?: number;
         luck?: number;
-        // Advanced stats
-        critRate?: number;
-        critDamage?: number;
-        comboRate?: number;
-        counterRate?: number;
-        lifesteal?: number;
-        armorPen?: number;
-        dodgeRate?: number;
-        accuracy?: number;
       };
       skillUnlocks: Array<{
         skillId: number;
@@ -149,7 +131,7 @@ export default function AdminCharacterClasses() {
         description: string;
       }>;
     }) => {
-      return await api.post('/character-classes', data);
+      return await adminApiEndpoints.createCharacterClass(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminCharacterClasses'] });
@@ -178,15 +160,6 @@ export default function AdminCharacterClasses() {
           dexterity?: number;
           vitality?: number;
           luck?: number;
-          // Advanced stats
-          critRate?: number;
-          critDamage?: number;
-          comboRate?: number;
-          counterRate?: number;
-          lifesteal?: number;
-          armorPen?: number;
-          dodgeRate?: number;
-          accuracy?: number;
         };
         skillUnlocks: Array<{
           skillId: number;
@@ -195,7 +168,7 @@ export default function AdminCharacterClasses() {
         }>;
       };
     }) => {
-      return await api.put(`/character-classes/${id}`, data);
+      return await adminApiEndpoints.updateCharacterClass(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminCharacterClasses'] });
@@ -210,7 +183,7 @@ export default function AdminCharacterClasses() {
   // Delete character class mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await api.delete(`/character-classes/${id}`);
+      return await adminApiEndpoints.deleteCharacterClass(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminCharacterClasses'] });
@@ -234,15 +207,6 @@ export default function AdminCharacterClasses() {
       dexterity: 0,
       vitality: 0,
       luck: 0,
-      // Advanced stats
-      critRate: 0,
-      critDamage: 150,
-      comboRate: 0,
-      counterRate: 0,
-      lifesteal: 0,
-      armorPen: 0,
-      dodgeRate: 0,
-      accuracy: 0,
       skillUnlocks: '',
     });
     setEditingClass(null);
@@ -266,15 +230,6 @@ export default function AdminCharacterClasses() {
         dexterity: formData.dexterity || undefined,
         vitality: formData.vitality || undefined,
         luck: formData.luck || undefined,
-        // Advanced stats
-        critRate: formData.critRate || undefined,
-        critDamage: formData.critDamage || undefined,
-        comboRate: formData.comboRate || undefined,
-        counterRate: formData.counterRate || undefined,
-        lifesteal: formData.lifesteal || undefined,
-        armorPen: formData.armorPen || undefined,
-        dodgeRate: formData.dodgeRate || undefined,
-        accuracy: formData.accuracy || undefined,
       },
       skillUnlocks: formData.skillUnlocks.split(',').map((skill, index) => ({
         skillId: index + 1,
@@ -304,15 +259,6 @@ export default function AdminCharacterClasses() {
         dexterity: formData.dexterity || undefined,
         vitality: formData.vitality || undefined,
         luck: formData.luck || undefined,
-        // Advanced stats
-        critRate: formData.critRate || undefined,
-        critDamage: formData.critDamage || undefined,
-        comboRate: formData.comboRate || undefined,
-        counterRate: formData.counterRate || undefined,
-        lifesteal: formData.lifesteal || undefined,
-        armorPen: formData.armorPen || undefined,
-        dodgeRate: formData.dodgeRate || undefined,
-        accuracy: formData.accuracy || undefined,
       },
       skillUnlocks: formData.skillUnlocks.split(',').map((skill, index) => ({
         skillId: index + 1,
@@ -343,21 +289,12 @@ export default function AdminCharacterClasses() {
       dexterity: classItem.statBonuses.dexterity || 0,
       vitality: classItem.statBonuses.vitality || 0,
       luck: classItem.statBonuses.luck || 0,
-      // Advanced stats
-      critRate: classItem.statBonuses.critRate || 0,
-      critDamage: classItem.statBonuses.critDamage || 150,
-      comboRate: classItem.statBonuses.comboRate || 0,
-      counterRate: classItem.statBonuses.counterRate || 0,
-      lifesteal: classItem.statBonuses.lifesteal || 0,
-      armorPen: classItem.statBonuses.armorPen || 0,
-      dodgeRate: classItem.statBonuses.dodgeRate || 0,
-      accuracy: classItem.statBonuses.accuracy || 0,
       skillUnlocks: classItem.skillUnlocks.map(skill => skill.skillName).join(', '),
     });
     // fetch mappings for this class
     (async () => {
       try {
-        const resp = await api.get(`/admin/character-classes/${classItem.id}/mappings`);
+        const resp = await adminApi.get(`/admin/character-classes/${classItem.id}/mappings`);
         setMappings(resp.data || []);
       } catch (err) {
         console.error('Failed to fetch mappings', err);
@@ -386,7 +323,7 @@ export default function AdminCharacterClasses() {
       }
     }
     try {
-      const resp = await api.post(`/admin/character-classes/${editingClass.id}/mappings`, newMapping);
+      const resp = await adminApi.post(`/admin/character-classes/${editingClass.id}/mappings`, newMapping);
       setMappings((m) => [...m, resp.data]);
       toast.success('Đã tạo mapping mới');
     } catch (err) {
@@ -420,7 +357,7 @@ export default function AdminCharacterClasses() {
       }
     }
     try {
-      const resp = await api.put(`/admin/character-classes/${editingClass.id}/mappings/${editingMappingId}`, newMapping);
+      const resp = await adminApi.put(`/admin/character-classes/${editingClass.id}/mappings/${editingMappingId}`, newMapping);
       setMappings((m) => m.map((x) => (x.id === editingMappingId ? resp.data : x)));
       setEditingMappingId(null);
       setNewMapping({ toClassId: 0, levelRequired: 25, weight: 100, allowPlayerChoice: true, isAwakening: false, requirements: {} });
@@ -454,7 +391,7 @@ export default function AdminCharacterClasses() {
     });
     try {
       // attempt bulk update on server; if endpoint doesn't exist the call will fail and we still update locally
-      await api.put(`/admin/character-classes/${editingClass.id}/mappings/normalize`, { mappings: updated });
+      await adminApi.put(`/admin/character-classes/${editingClass.id}/mappings/normalize`, { mappings: updated });
     } catch (err) {
       // ignore server error for normalize and fallback to client-side update
       console.warn('Bulk normalize API failed, falling back to client update', err);
@@ -467,7 +404,7 @@ export default function AdminCharacterClasses() {
     if (!editingClass) return;
     if (!confirm('Xác nhận xóa mapping này?')) return;
     try {
-      await api.delete(`/admin/character-classes/${editingClass.id}/mappings/${id}`);
+      await adminApi.delete(`/admin/character-classes/${editingClass.id}/mappings/${id}`);
       setMappings((m) => m.filter((x) => x.id !== id));
       toast.success('Đã xóa mapping');
     } catch (err) {
@@ -535,18 +472,10 @@ export default function AdminCharacterClasses() {
         const bonuses = value as CharacterClass['statBonuses'];
         return (
           <div className="text-sm dark:text-gray-300">
-            <div className="font-semibold">Basic:</div>
+            <div className="font-semibold">Core Stats:</div>
             <div>STR: {bonuses.strength || 0}, INT: {bonuses.intelligence || 0}</div>
             <div>DEX: {bonuses.dexterity || 0}, VIT: {bonuses.vitality || 0}</div>
             <div>LUK: {bonuses.luck || 0}</div>
-            {(bonuses.critRate || bonuses.comboRate || bonuses.lifesteal) && (
-              <>
-                <div className="font-semibold mt-1">Advanced:</div>
-                {bonuses.critRate && <div>Crit: {bonuses.critRate}%</div>}
-                {bonuses.comboRate && <div>Combo: {bonuses.comboRate}%</div>}
-                {bonuses.lifesteal && <div>Lifesteal: {bonuses.lifesteal}%</div>}
-              </>
-            )}
           </div>
         );
       },
@@ -624,7 +553,7 @@ export default function AdminCharacterClasses() {
             <div className="flex space-x-2 mt-4 lg:col-span-3">
                 <Button size="sm" variant="outline" onClick={async () => {
                   try {
-                    const res = await api.get('/admin/export/template/character-classes', { responseType: 'blob' });
+                    const res = await adminApiEndpoints.exportCharacterClassesTemplate();
                     const blob = new Blob([res.data]);
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -642,7 +571,7 @@ export default function AdminCharacterClasses() {
                 </Button>
                 <Button size="sm" variant="ghost" onClick={async () => {
                   try {
-                    const res = await api.get('/admin/export/character-classes', { responseType: 'blob' });
+                    const res = await adminApiEndpoints.exportCharacterClasses();
                     const blob = new Blob([res.data]);
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -668,7 +597,7 @@ export default function AdminCharacterClasses() {
                 try {
                   console.info('Uploading character-classes CSV', file.name, file.size);
                   toast('Uploading file...');
-                  const resp = await api.post('/admin/import/character-classes', form);
+                  const resp = await adminApiEndpoints.importCharacterClasses(form);
                   const data = resp.data;
                   console.info('Import response', data);
                   if (data?.result) {
@@ -821,84 +750,6 @@ export default function AdminCharacterClasses() {
                     type="number"
                     value={formData.luck}
                     onChange={(e) => setFormData({ ...formData, luck: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Advanced Stat Bonuses</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="critRate" className="text-sm">Crit Rate (%)</Label>
-                  <Input
-                    id="critRate"
-                    type="number"
-                    value={formData.critRate}
-                    onChange={(e) => setFormData({ ...formData, critRate: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="critDamage" className="text-sm">Crit Damage (%)</Label>
-                  <Input
-                    id="critDamage"
-                    type="number"
-                    value={formData.critDamage}
-                    onChange={(e) => setFormData({ ...formData, critDamage: parseInt(e.target.value) || 150 })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="comboRate" className="text-sm">Combo Rate (%)</Label>
-                  <Input
-                    id="comboRate"
-                    type="number"
-                    value={formData.comboRate}
-                    onChange={(e) => setFormData({ ...formData, comboRate: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="counterRate" className="text-sm">Counter Rate (%)</Label>
-                  <Input
-                    id="counterRate"
-                    type="number"
-                    value={formData.counterRate}
-                    onChange={(e) => setFormData({ ...formData, counterRate: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lifesteal" className="text-sm">Lifesteal (%)</Label>
-                  <Input
-                    id="lifesteal"
-                    type="number"
-                    value={formData.lifesteal}
-                    onChange={(e) => setFormData({ ...formData, lifesteal: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="armorPen" className="text-sm">Armor Pen (%)</Label>
-                  <Input
-                    id="armorPen"
-                    type="number"
-                    value={formData.armorPen}
-                    onChange={(e) => setFormData({ ...formData, armorPen: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="dodgeRate" className="text-sm">Dodge Rate (%)</Label>
-                  <Input
-                    id="dodgeRate"
-                    type="number"
-                    value={formData.dodgeRate}
-                    onChange={(e) => setFormData({ ...formData, dodgeRate: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="accuracy" className="text-sm">Accuracy (%)</Label>
-                  <Input
-                    id="accuracy"
-                    type="number"
-                    value={formData.accuracy}
-                    onChange={(e) => setFormData({ ...formData, accuracy: parseInt(e.target.value) || 0 })}
                   />
                 </div>
               </div>

@@ -1,4 +1,6 @@
 // Forward declarations to avoid circular dependencies
+import { UserStats } from './user-stats';
+
 export interface User {
   id: number;
   username: string;
@@ -16,29 +18,12 @@ export interface User {
   isDonor: boolean;
 }
 
-export interface UserStats {
-  id: number;
-  user: User;
-  userId: number;
-  maxHp: number;
-  currentHp: number;
-  attack: number;
-  defense: number;
-  strength: number;
-  intelligence: number;
-  dexterity: number;
-  vitality: number;
-  luck: number;
-  critRate: number;
-  critDamage: number;
-  comboRate: number;
-  counterRate: number;
-  lifesteal: number;
-  armorPen: number;
-  dodgeRate: number;
-  accuracy: number;
-  createdAt: Date;
-  updatedAt: Date;
+export interface UserTotalCoreAttributes {
+  str: number;
+  int: number;
+  dex: number;
+  vit: number;
+  luk: number;
 }
 
 export interface UserStamina {
@@ -303,4 +288,12 @@ export interface RoomPlayer {
   user: User;
   joinedAt: string;
   isReady: boolean;
+}
+
+export interface UserTotalCoreAttributes {
+  str: number;
+  int: number;
+  dex: number;
+  vit: number;
+  luk: number;
 }

@@ -24,3 +24,11 @@ export interface UserStats {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface UserTotalCoreAttributes {
+  str: number;
+  int: number;
+  dex: number;
+  vit: number;
+  luk: number;
+}

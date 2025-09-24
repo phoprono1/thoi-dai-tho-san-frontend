@@ -34,6 +34,8 @@ export interface UserStats {
   armorPen: number;
   dodgeRate: number;
   accuracy: number;
+  currentMana: number;
+  maxMana: number;
 }
 
 export interface CharacterClass {
@@ -306,11 +308,25 @@ export interface CombatLogDetails {
   actor: 'player' | 'enemy';
   actorName: string;
   targetName: string;
-  damage: number;
+  targetIndex?: number;
+  damage?: number;
+  healing?: number;
+  skillId?: string;
+  skillName?: string;
+  isCritical?: boolean;
+  isMiss?: boolean;
   hpBefore: number;
   hpAfter: number;
   description: string;
   effects?: string[];
+  flags?: {
+    crit?: boolean;
+    lifesteal?: number;
+    armorPen?: number;
+    dodge?: boolean;
+    counter?: boolean;
+    comboIndex?: number;
+  };
 }
 
 export interface WorldBoss {
@@ -424,4 +440,79 @@ export interface SendMessageForm {
   message: string;
   type: ChatType;
   guildId?: number;
+}
+
+// Skill Types
+export type SkillId = string;
+
+export interface SkillEffect {
+  statBonuses?: {
+    attack?: number;
+    defense?: number;
+    maxHp?: number;
+    critRate?: number;
+    critDamage?: number;
+    dodgeRate?: number;
+    accuracy?: number;
+    lifesteal?: number;
+    armorPen?: number;
+    comboRate?: number;
+  };
+  specialEffects?: string[];
+  // For active skills
+  damage?: number;
+  healing?: number;
+  buffDuration?: number;
+  debuffDuration?: number;
+}
+
+export interface SkillDefinition {
+  id: SkillId;
+  name: string;
+  description: string;
+  maxLevel: number;
+  requiredAttribute: 'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK';
+  requiredAttributeValue: number;
+  requiredLevel: number;
+  skillPointCost: number;
+  effects: {
+    [level: number]: SkillEffect;
+  };
+  isActive: boolean;
+  sortOrder: number;
+  category?: string;
+  skillType: 'passive' | 'active' | 'toggle';
+  manaCost?: number;
+  cooldown?: number;
+  targetType?: 'self' | 'enemy' | 'ally' | 'aoe_enemies' | 'aoe_allies';
+  damageType?: 'physical' | 'magical';
+  damageFormula?: string;
+  healingFormula?: string;
+}
+
+export interface PlayerSkill {
+  id: number;
+  userId: number;
+  skillDefinitionId: number;
+  skillDefinition: SkillDefinition;
+  level: number;
+  unlockedAt: string;
+  updatedAt: string;
+}
+
+export interface SkillEffectSummary {
+  userId: number;
+  skillEffects: Record<string, SkillEffect>;
+  totalStatBonuses: {
+    attack?: number;
+    defense?: number;
+    maxHp?: number;
+    critRate?: number;
+    critDamage?: number;
+    dodgeRate?: number;
+    accuracy?: number;
+    lifesteal?: number;
+    armorPen?: number;
+    comboRate?: number;
+  };
 }

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { adminApiEndpoints } from '@/lib/admin-api';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { Sword, Shield, Crown, Edit, Trash2, Plus, Package } from 'lucide-react';
@@ -30,20 +30,7 @@ export default function AdminItems() {
     consumableValue: 0,
     duration: 0,
     setId: 0,
-    // Base stats
-    attack: 0,
-    defense: 0,
-    hp: 0,
-    // Advanced stats
-    critRate: 0,
-    critDamage: 0,
-    comboRate: 0,
-    counterRate: 0,
-    lifesteal: 0,
-    armorPen: 0,
-    dodgeRate: 0,
-    accuracy: 0,
-    // Stat boost stats
+    // Core attributes only (matching user stats)
     strength: 0,
     intelligence: 0,
     dexterity: 0,
@@ -66,7 +53,7 @@ export default function AdminItems() {
     queryKey: ['adminItemSets'],
     queryFn: async (): Promise<ItemSet[]> => {
       try {
-        const response = await api.get('/item-sets');
+        const response = await adminApiEndpoints.getItemSets();
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch item sets:', error);
@@ -88,7 +75,7 @@ export default function AdminItems() {
     queryKey: ['adminItems'],
     queryFn: async (): Promise<Item[]> => {
       try {
-        const response = await api.get('/items');
+        const response = await adminApiEndpoints.getItems();
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch items:', error);
@@ -115,7 +102,7 @@ export default function AdminItems() {
     }
 
     try {
-      await api.post('/item-sets', itemSetFormData);
+      await adminApiEndpoints.createItemSet(itemSetFormData);
       toast.success('Đã tạo item set thành công!');
       resetItemSetForm();
       refetchSets();
@@ -131,7 +118,7 @@ export default function AdminItems() {
     }
 
     try {
-      await api.put(`/item-sets/${editingSet.id}`, itemSetFormData);
+      await adminApiEndpoints.updateItemSet(editingSet.id, itemSetFormData);
       toast.success('Đã cập nhật item set thành công!');
       resetItemSetForm();
       refetchSets();
@@ -144,7 +131,7 @@ export default function AdminItems() {
     if (!confirm('Bạn có chắc muốn xóa item set này?')) return;
 
     try {
-      await api.delete(`/item-sets/${setId}`);
+      await adminApiEndpoints.deleteItemSet(setId);
       toast.success('Đã xóa item set thành công!');
       refetchSets();
     } catch (error: unknown) {
@@ -204,20 +191,7 @@ export default function AdminItems() {
       const itemData = {
         ...formData,
         stats: {
-          // Base stats
-          attack: formData.attack || undefined,
-          defense: formData.defense || undefined,
-          hp: formData.hp || undefined,
-          // Advanced stats
-          critRate: formData.critRate || undefined,
-          critDamage: formData.critDamage || undefined,
-          comboRate: formData.comboRate || undefined,
-          counterRate: formData.counterRate || undefined,
-          lifesteal: formData.lifesteal || undefined,
-          armorPen: formData.armorPen || undefined,
-          dodgeRate: formData.dodgeRate || undefined,
-          accuracy: formData.accuracy || undefined,
-          // Stat boost stats
+          // Core attributes only (matching user stats)
           strength: formData.strength || undefined,
           intelligence: formData.intelligence || undefined,
           dexterity: formData.dexterity || undefined,
@@ -241,17 +215,17 @@ export default function AdminItems() {
             : undefined,
       };
 
-      const resp = await api.post('/items', itemData);
+      const resp = await adminApiEndpoints.createItem(itemData);
       const created: Item = resp.data;
       // If an image file was selected, upload it and prefer the 256px thumbnail for the stored image
       if (selectedFile && created?.id) {
         try {
           const form = new FormData();
           form.append('image', selectedFile);
-          const up = await api.post(`/uploads/items/${created.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+          const up = await adminApiEndpoints.uploadItemImage(created.id, form);
           const thumbnails = up?.data?.thumbnails;
           const prefer = thumbnails?.medium || up?.data?.path;
-          if (prefer) await api.put(`/items/${created.id}`, { image: prefer });
+          if (prefer) await adminApiEndpoints.updateItem(created.id, { image: prefer });
         } catch (err) {
           console.warn('Image upload failed for new item', err);
           // continue — item was created
@@ -267,17 +241,6 @@ export default function AdminItems() {
         consumableValue: 0,
         duration: 0,
         setId: 0,
-        attack: 0,
-        defense: 0,
-        hp: 0,
-        critRate: 0,
-        critDamage: 0,
-        comboRate: 0,
-        counterRate: 0,
-        lifesteal: 0,
-        armorPen: 0,
-        dodgeRate: 0,
-        accuracy: 0,
         strength: 0,
         intelligence: 0,
         dexterity: 0,
@@ -309,20 +272,7 @@ export default function AdminItems() {
       const itemData = {
         ...formData,
         stats: {
-          // Base stats
-          attack: formData.attack || undefined,
-          defense: formData.defense || undefined,
-          hp: formData.hp || undefined,
-          // Advanced stats
-          critRate: formData.critRate || undefined,
-          critDamage: formData.critDamage || undefined,
-          comboRate: formData.comboRate || undefined,
-          counterRate: formData.counterRate || undefined,
-          lifesteal: formData.lifesteal || undefined,
-          armorPen: formData.armorPen || undefined,
-          dodgeRate: formData.dodgeRate || undefined,
-          accuracy: formData.accuracy || undefined,
-          // Stat boost stats
+          // Core attributes only (matching user stats)
           strength: formData.strength || undefined,
           intelligence: formData.intelligence || undefined,
           dexterity: formData.dexterity || undefined,
@@ -346,16 +296,16 @@ export default function AdminItems() {
             : undefined,
       };
 
-      await api.put(`/items/${editingItem.id}`, itemData);
+      await adminApiEndpoints.updateItem(editingItem.id, itemData);
       // If a new image is selected, upload and then update the item's image to the 256px thumbnail if available
       if (selectedFile) {
         try {
           const form = new FormData();
           form.append('image', selectedFile);
-          const up = await api.post(`/uploads/items/${editingItem.id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+          const up = await adminApiEndpoints.uploadItemImage(editingItem.id, form);
           const thumbnails = up?.data?.thumbnails;
           const prefer = thumbnails?.medium || up?.data?.path;
-          if (prefer) await api.put(`/items/${editingItem.id}`, { image: prefer });
+          if (prefer) await adminApiEndpoints.updateItem(editingItem.id, { image: prefer });
         } catch (err) {
           console.warn('Image upload failed for item update', err);
         }
@@ -370,17 +320,6 @@ export default function AdminItems() {
         consumableValue: 0,
         duration: 0,
         setId: 0,
-        attack: 0,
-        defense: 0,
-        hp: 0,
-        critRate: 0,
-        critDamage: 0,
-        comboRate: 0,
-        counterRate: 0,
-        lifesteal: 0,
-        armorPen: 0,
-        dodgeRate: 0,
-        accuracy: 0,
         strength: 0,
         intelligence: 0,
         dexterity: 0,
@@ -407,7 +346,7 @@ export default function AdminItems() {
     if (!confirm('Bạn có chắc muốn xóa item này?')) return;
 
     try {
-      await api.delete(`/items/${itemId}`);
+      await adminApiEndpoints.deleteItem(itemId);
       toast.success('Đã xóa item thành công!');
       refetch();
     } catch (error: unknown) {
@@ -426,20 +365,7 @@ export default function AdminItems() {
       consumableValue: item.consumableValue || 0,
       duration: item.duration || 0,
       setId: item.setId || 0,
-      // Base stats
-      attack: item.stats.attack || 0,
-      defense: item.stats.defense || 0,
-      hp: item.stats.hp || 0,
-      // Advanced stats
-      critRate: item.stats.critRate || 0,
-      critDamage: item.stats.critDamage || 0,
-      comboRate: item.stats.comboRate || 0,
-      counterRate: item.stats.counterRate || 0,
-      lifesteal: item.stats.lifesteal || 0,
-      armorPen: item.stats.armorPen || 0,
-      dodgeRate: item.stats.dodgeRate || 0,
-      accuracy: item.stats.accuracy || 0,
-      // Stat boost stats
+      // Only core attributes (matching user stats)
       strength: item.stats.strength || 0,
       intelligence: item.stats.intelligence || 0,
       dexterity: item.stats.dexterity || 0,
@@ -507,7 +433,7 @@ export default function AdminItems() {
                   onClick={async () => {
                     // download template from backend
                     try {
-                      const res = await api.get('/admin/export/template/items', { responseType: 'blob' });
+                      const res = await adminApiEndpoints.exportItemsTemplate();
                       const blob = new Blob([res.data]);
                       const url = window.URL.createObjectURL(blob);
                       const a = document.createElement('a');
@@ -536,7 +462,7 @@ export default function AdminItems() {
                       try {
                         console.info('Uploading items CSV', file.name, file.size);
                         toast('Uploading file...');
-                        const resp = await api.post('/admin/import/items', form);
+                        const resp = await adminApiEndpoints.importItems(form);
                         const data = resp.data;
                         console.info('Import response', data);
                         // server may return { jobId } for background or { jobId, result } for sync
@@ -580,7 +506,7 @@ export default function AdminItems() {
                   variant="outline"
                   onClick={async () => {
                     try {
-                      const res = await api.get('/admin/export/items', { responseType: 'blob' });
+                      const res = await adminApiEndpoints.exportItems();
                       const blob = new Blob([res.data]);
                       const url = window.URL.createObjectURL(blob);
                       const a = document.createElement('a');
@@ -660,7 +586,7 @@ export default function AdminItems() {
                   <Button
                     onClick={async () => {
                       try {
-                        await api.post('/items/create-sample');
+                        await adminApiEndpoints.createSampleItems();
                         toast.success('Sample items created!');
                         refetch();
                       } catch {
@@ -973,134 +899,51 @@ export default function AdminItems() {
               )}
 
               <div className="space-y-2">
-                <Label>Base Stats</Label>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="attack" className="text-sm">Attack</Label>
-                    <Input
-                      id="attack"
-                      type="number"
-                      value={formData.attack}
-                      onChange={(e) => setFormData({...formData, attack: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="defense" className="text-sm">Defense</Label>
-                    <Input
-                      id="defense"
-                      type="number"
-                      value={formData.defense}
-                      onChange={(e) => setFormData({...formData, defense: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="hp" className="text-sm">HP</Label>
-                    <Input
-                      id="hp"
-                      type="number"
-                      value={formData.hp}
-                      onChange={(e) => setFormData({...formData, hp: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Advanced Stats (%)</Label>
+                <Label>Core Stats</Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="critRate" className="text-sm">Crit Rate (%)</Label>
+                    <Label htmlFor="strength" className="text-sm">Strength</Label>
                     <Input
-                      id="critRate"
+                      id="strength"
                       type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={formData.critRate}
-                      onChange={(e) => setFormData({...formData, critRate: parseFloat(e.target.value) || 0})}
+                      value={formData.strength}
+                      onChange={(e) => setFormData({...formData, strength: parseInt(e.target.value) || 0})}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="critDamage" className="text-sm">Crit Damage (%)</Label>
+                    <Label htmlFor="intelligence" className="text-sm">Intelligence</Label>
                     <Input
-                      id="critDamage"
+                      id="intelligence"
                       type="number"
-                      step="0.1"
-                      min="0"
-                      value={formData.critDamage}
-                      onChange={(e) => setFormData({...formData, critDamage: parseFloat(e.target.value) || 0})}
+                      value={formData.intelligence}
+                      onChange={(e) => setFormData({...formData, intelligence: parseInt(e.target.value) || 0})}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="comboRate" className="text-sm">Combo Rate (%)</Label>
+                    <Label htmlFor="dexterity" className="text-sm">Dexterity</Label>
                     <Input
-                      id="comboRate"
+                      id="dexterity"
                       type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={formData.comboRate}
-                      onChange={(e) => setFormData({...formData, comboRate: parseFloat(e.target.value) || 0})}
+                      value={formData.dexterity}
+                      onChange={(e) => setFormData({...formData, dexterity: parseInt(e.target.value) || 0})}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="counterRate" className="text-sm">Counter Rate (%)</Label>
+                    <Label htmlFor="vitality" className="text-sm">Vitality</Label>
                     <Input
-                      id="counterRate"
+                      id="vitality"
                       type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={formData.counterRate}
-                      onChange={(e) => setFormData({...formData, counterRate: parseFloat(e.target.value) || 0})}
+                      value={formData.vitality}
+                      onChange={(e) => setFormData({...formData, vitality: parseInt(e.target.value) || 0})}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lifesteal" className="text-sm">Lifesteal (%)</Label>
+                    <Label htmlFor="luck" className="text-sm">Luck</Label>
                     <Input
-                      id="lifesteal"
+                      id="luck"
                       type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={formData.lifesteal}
-                      onChange={(e) => setFormData({...formData, lifesteal: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="armorPen" className="text-sm">Armor Pen (%)</Label>
-                    <Input
-                      id="armorPen"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={formData.armorPen}
-                      onChange={(e) => setFormData({...formData, armorPen: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="dodgeRate" className="text-sm">Dodge Rate (%)</Label>
-                    <Input
-                      id="dodgeRate"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={formData.dodgeRate}
-                      onChange={(e) => setFormData({...formData, dodgeRate: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="accuracy" className="text-sm">Accuracy (%)</Label>
-                    <Input
-                      id="accuracy"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      value={formData.accuracy}
-                      onChange={(e) => setFormData({...formData, accuracy: parseFloat(e.target.value) || 0})}
+                      value={formData.luck}
+                      onChange={(e) => setFormData({...formData, luck: parseInt(e.target.value) || 0})}
                     />
                   </div>
                 </div>
@@ -1138,17 +981,6 @@ export default function AdminItems() {
                       consumableValue: 0,
                       duration: 0,
                       setId: 0,
-                      attack: 0,
-                      defense: 0,
-                      hp: 0,
-                      critRate: 0,
-                      critDamage: 0,
-                      comboRate: 0,
-                      counterRate: 0,
-                      lifesteal: 0,
-                      armorPen: 0,
-                      dodgeRate: 0,
-                      accuracy: 0,
                       strength: 0,
                       intelligence: 0,
                       dexterity: 0,
@@ -1201,22 +1033,12 @@ export default function AdminItems() {
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-300 mt-1">
-                          {item.stats.attack && `ATK: ${item.stats.attack} `}
-                          {item.stats.defense && `DEF: ${item.stats.defense} `}
-                          {item.stats.hp && `HP: ${item.stats.hp} `}
-                          {item.stats.critRate && `CRIT: ${item.stats.critRate}% `}
-                          {item.stats.critDamage && `CDMG: ${item.stats.critDamage}% `}
-                          {item.stats.lifesteal && `LS: ${item.stats.lifesteal}% `}
+                          {item.stats.strength && `STR: ${item.stats.strength} `}
+                          {item.stats.intelligence && `INT: ${item.stats.intelligence} `}
+                          {item.stats.dexterity && `DEX: ${item.stats.dexterity} `}
+                          {item.stats.vitality && `VIT: ${item.stats.vitality} `}
+                          {item.stats.luck && `LCK: ${item.stats.luck} `}
                         </div>
-                        {(item.stats.comboRate || item.stats.counterRate || item.stats.armorPen || item.stats.dodgeRate || item.stats.accuracy) && (
-                          <div className="text-xs text-gray-500 dark:text-gray-300">
-                            {item.stats.comboRate && `COMBO: ${item.stats.comboRate}% `}
-                            {item.stats.counterRate && `CTR: ${item.stats.counterRate}% `}
-                            {item.stats.armorPen && `PEN: ${item.stats.armorPen}% `}
-                            {item.stats.dodgeRate && `DODGE: ${item.stats.dodgeRate}% `}
-                            {item.stats.accuracy && `ACC: ${item.stats.accuracy}% `}
-                          </div>
-                        )}
                         {item.type === ItemType.CONSUMABLE && (
                           <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                             {item.consumableType === ConsumableType.HP_POTION && `Restores ${item.consumableValue} HP`}
@@ -1295,7 +1117,7 @@ export default function AdminItems() {
                   <Button
                     onClick={async () => {
                       try {
-                        await api.post('/item-sets/create-sample');
+                        await adminApiEndpoints.createSampleItemSets();
                         toast.success('Sample item sets created!');
                         refetchSets();
                       } catch {

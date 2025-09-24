@@ -121,3 +121,6 @@ export const useUIStore = create<UIState>((set) => ({
     modalData: null,
   }),
 }));
+
+export { useCombatStore } from './useCombatStore';
+export { useSkillStore } from './useSkillStore';

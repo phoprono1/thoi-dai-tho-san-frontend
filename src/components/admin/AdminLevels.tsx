@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { adminApiEndpoints } from '@/lib/admin-api';
 import { toast } from 'sonner';
 import { BarChart3 } from 'lucide-react';
 import { DataTable } from '@/components/admin/DataTable';
@@ -15,11 +15,19 @@ interface Level {
   id: number;
   level: number;
   experienceRequired: number;
-  maxHp: number;
-  maxMp: number;
-  attack: number;
-  defense: number;
-  speed: number;
+  name?: string;
+  rewards?: {
+    gold?: number;
+    items?: { itemId: number; quantity: number }[];
+  };
+  // Core attribute bonuses
+  strength: number;
+  intelligence: number;
+  dexterity: number;
+  vitality: number;
+  luck: number;
+  // Free attribute points rewarded
+  attributePointsReward: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,11 +37,12 @@ export default function AdminLevels() {
   const [formData, setFormData] = useState({
     level: 1,
     experienceRequired: 100,
-    maxHp: 100,
-    maxMp: 50,
-    attack: 10,
-    defense: 5,
-    speed: 8,
+    strength: 0,
+    intelligence: 0,
+    dexterity: 0,
+    vitality: 0,
+    luck: 0,
+    attributePointsReward: 5,
   });
 
   const queryClient = useQueryClient();
@@ -43,7 +52,7 @@ export default function AdminLevels() {
     queryKey: ['adminLevels'],
     queryFn: async (): Promise<Level[]> => {
       try {
-        const response = await api.get('/levels');
+        const response = await adminApiEndpoints.getLevels();
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch levels:', error);
@@ -57,13 +66,14 @@ export default function AdminLevels() {
     mutationFn: async (data: {
       level: number;
       experienceRequired: number;
-      maxHp: number;
-      maxMp: number;
-      attack: number;
-      defense: number;
-      speed: number;
+      strength: number;
+      intelligence: number;
+      dexterity: number;
+      vitality: number;
+      luck: number;
+      attributePointsReward: number;
     }) => {
-      return await api.post('/levels', data);
+      return await adminApiEndpoints.createLevel(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminLevels'] });
@@ -82,14 +92,15 @@ export default function AdminLevels() {
       data: {
         level: number;
         experienceRequired: number;
-        maxHp: number;
-        maxMp: number;
-        attack: number;
-        defense: number;
-        speed: number;
+        strength: number;
+        intelligence: number;
+        dexterity: number;
+        vitality: number;
+        luck: number;
+        attributePointsReward: number;
       };
     }) => {
-      return await api.put(`/levels/${id}`, data);
+      return await adminApiEndpoints.updateLevel(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminLevels'] });
@@ -104,7 +115,7 @@ export default function AdminLevels() {
   // Delete level mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await api.delete(`/levels/${id}`);
+      return await adminApiEndpoints.deleteLevel(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminLevels'] });
@@ -119,11 +130,12 @@ export default function AdminLevels() {
     setFormData({
       level: 1,
       experienceRequired: 100,
-      maxHp: 100,
-      maxMp: 50,
-      attack: 10,
-      defense: 5,
-      speed: 8,
+      strength: 0,
+      intelligence: 0,
+      dexterity: 0,
+      vitality: 0,
+      luck: 0,
+      attributePointsReward: 5,
     });
     setEditingLevel(null);
   };
@@ -156,11 +168,12 @@ export default function AdminLevels() {
     setFormData({
       level: level.level,
       experienceRequired: level.experienceRequired,
-      maxHp: level.maxHp,
-      maxMp: level.maxMp,
-      attack: level.attack,
-      defense: level.defense,
-      speed: level.speed,
+      strength: level.strength,
+      intelligence: level.intelligence,
+      dexterity: level.dexterity,
+      vitality: level.vitality,
+      luck: level.luck,
+      attributePointsReward: level.attributePointsReward,
     });
   };
 
@@ -176,28 +189,33 @@ export default function AdminLevels() {
       sortable: true,
     },
     {
-      key: 'maxHp' as keyof Level,
-      label: 'Max HP',
+      key: 'strength' as keyof Level,
+      label: 'Strength',
       sortable: true,
     },
     {
-      key: 'maxMp' as keyof Level,
-      label: 'Max MP',
+      key: 'intelligence' as keyof Level,
+      label: 'Intelligence',
       sortable: true,
     },
     {
-      key: 'attack' as keyof Level,
-      label: 'Attack',
+      key: 'dexterity' as keyof Level,
+      label: 'Dexterity',
       sortable: true,
     },
     {
-      key: 'defense' as keyof Level,
-      label: 'Defense',
+      key: 'vitality' as keyof Level,
+      label: 'Vitality',
       sortable: true,
     },
     {
-      key: 'speed' as keyof Level,
-      label: 'Speed',
+      key: 'luck' as keyof Level,
+      label: 'Luck',
+      sortable: true,
+    },
+    {
+      key: 'attributePointsReward' as keyof Level,
+      label: 'Attribute Points',
       sortable: true,
     },
   ];
@@ -250,9 +268,9 @@ export default function AdminLevels() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {levels?.length ? Math.max(...levels.map(l => l.maxHp)) : 0}
+              {levels?.length ? Math.max(...levels.map(l => l.strength + l.intelligence + l.dexterity + l.vitality + l.luck)) : 0}
             </div>
-            <p className="text-xs text-muted-foreground">Max HP tại level cao nhất</p>
+            <p className="text-xs text-muted-foreground">Tổng core attributes tại level cao nhất</p>
           </CardContent>
         </Card>
       </div>
@@ -261,7 +279,7 @@ export default function AdminLevels() {
         <div className="flex space-x-2 mt-4 lg:col-span-3">
           <Button size="sm" variant="outline" onClick={async () => {
             try {
-              const res = await api.get('/admin/export/template/levels', { responseType: 'blob' });
+              const res = await adminApiEndpoints.exportLevelsTemplate();
               const blob = new Blob([res.data]);
               const url = window.URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -279,7 +297,7 @@ export default function AdminLevels() {
           </Button>
             <Button size="sm" variant="ghost" onClick={async () => {
               try {
-                const res = await api.get('/admin/export/levels', { responseType: 'blob' });
+                const res = await adminApiEndpoints.exportLevels();
                 const blob = new Blob([res.data]);
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -305,7 +323,7 @@ export default function AdminLevels() {
             try {
               console.info('Uploading levels CSV', file.name, file.size);
               toast('Uploading file...');
-              const resp = await api.post('/admin/import/levels', form);
+              const resp = await adminApiEndpoints.importLevels(form);
               const data = resp.data;
               console.info('Import response', data);
               if (data?.result) {
@@ -372,56 +390,66 @@ export default function AdminLevels() {
             </div>
 
             <div className="space-y-2">
-              <Label>Stats</Label>
+              <Label>Core Attributes (bonuses for this level)</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="maxHp" className="text-sm">Max HP</Label>
+                  <Label htmlFor="strength" className="text-sm">Strength</Label>
                   <Input
-                    id="maxHp"
+                    id="strength"
                     type="number"
-                    min="1"
-                    value={formData.maxHp}
-                    onChange={(e) => setFormData({...formData, maxHp: parseInt(e.target.value) || 1})}
+                    min="0"
+                    value={formData.strength}
+                    onChange={(e) => setFormData({...formData, strength: parseInt(e.target.value) || 0})}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="maxMp" className="text-sm">Max MP</Label>
+                  <Label htmlFor="intelligence" className="text-sm">Intelligence</Label>
                   <Input
-                    id="maxMp"
+                    id="intelligence"
                     type="number"
                     min="0"
-                    value={formData.maxMp}
-                    onChange={(e) => setFormData({...formData, maxMp: parseInt(e.target.value) || 0})}
+                    value={formData.intelligence}
+                    onChange={(e) => setFormData({...formData, intelligence: parseInt(e.target.value) || 0})}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="attack" className="text-sm">Attack</Label>
+                  <Label htmlFor="dexterity" className="text-sm">Dexterity</Label>
                   <Input
-                    id="attack"
+                    id="dexterity"
                     type="number"
                     min="0"
-                    value={formData.attack}
-                    onChange={(e) => setFormData({...formData, attack: parseInt(e.target.value) || 0})}
+                    value={formData.dexterity}
+                    onChange={(e) => setFormData({...formData, dexterity: parseInt(e.target.value) || 0})}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="defense" className="text-sm">Defense</Label>
+                  <Label htmlFor="vitality" className="text-sm">Vitality</Label>
                   <Input
-                    id="defense"
+                    id="vitality"
                     type="number"
                     min="0"
-                    value={formData.defense}
-                    onChange={(e) => setFormData({...formData, defense: parseInt(e.target.value) || 0})}
+                    value={formData.vitality}
+                    onChange={(e) => setFormData({...formData, vitality: parseInt(e.target.value) || 0})}
                   />
                 </div>
-                <div className="col-span-2">
-                  <Label htmlFor="speed" className="text-sm">Speed</Label>
+                <div>
+                  <Label htmlFor="luck" className="text-sm">Luck</Label>
                   <Input
-                    id="speed"
+                    id="luck"
                     type="number"
                     min="0"
-                    value={formData.speed}
-                    onChange={(e) => setFormData({...formData, speed: parseInt(e.target.value) || 0})}
+                    value={formData.luck}
+                    onChange={(e) => setFormData({...formData, luck: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="attributePointsReward" className="text-sm">Attribute Points Reward</Label>
+                  <Input
+                    id="attributePointsReward"
+                    type="number"
+                    min="0"
+                    value={formData.attributePointsReward}
+                    onChange={(e) => setFormData({...formData, attributePointsReward: parseInt(e.target.value) || 5})}
                   />
                 </div>
               </div>

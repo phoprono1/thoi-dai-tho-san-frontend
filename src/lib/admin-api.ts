@@ -50,6 +50,10 @@ export const adminApiEndpoints = {
   deleteUser: (id: number) => adminApi.delete(`/users/${id}`),
   banUser: (id: number) => adminApi.post(`/users/${id}/ban`),
   unbanUser: (id: number) => adminApi.post(`/users/${id}/unban`),
+  promoteToAdmin: (id: number) => adminApi.post(`/users/${id}/promote`, { type: 'admin' }),
+  demoteFromAdmin: (id: number) => adminApi.post(`/users/${id}/demote`, { type: 'admin' }),
+  promoteToDonor: (id: number) => adminApi.post(`/users/${id}/promote`, { type: 'donor' }),
+  demoteFromDonor: (id: number) => adminApi.post(`/users/${id}/demote`, { type: 'donor' }),
 
   // Items
   getItems: () => adminApi.get('/items'),
@@ -57,42 +61,71 @@ export const adminApiEndpoints = {
   createItem: (data: any) => adminApi.post('/items', data),
   updateItem: (id: number, data: any) => adminApi.put(`/items/${id}`, data),
   deleteItem: (id: number) => adminApi.delete(`/items/${id}`),
+  uploadItemImage: (id: number, formData: FormData) => adminApi.post(`/uploads/items/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  exportItemsTemplate: () => adminApi.get('/admin/export/template/items', { responseType: 'blob' }),
+  importItems: (formData: FormData) => adminApi.post('/admin/import/items', formData),
+  exportItems: () => adminApi.get('/admin/export/items', { responseType: 'blob' }),
+  createSampleItems: () => adminApi.post('/items/create-sample'),
+  createSampleItemSets: () => adminApi.post('/item-sets/create-sample'),
+  getItemSets: () => adminApi.get('/item-sets'),
+  createItemSet: (data: any) => adminApi.post('/item-sets', data),
+  updateItemSet: (id: number, data: any) => adminApi.put(`/item-sets/${id}`, data),
+  deleteItemSet: (id: number) => adminApi.delete(`/item-sets/${id}`),
 
   // Dungeons
   getDungeons: () => adminApi.get('/dungeons'),
   getDungeon: (id: number) => adminApi.get(`/dungeons/${id}`),
-  createDungeon: (data: any) => adminApi.post('/dungeons', data),
-  updateDungeon: (id: number, data: any) => adminApi.put(`/dungeons/${id}`, data),
-  deleteDungeon: (id: number) => adminApi.delete(`/dungeons/${id}`),
+  createDungeon: (data: any) => adminApi.post('/dungeons/admin', data),
+  updateDungeon: (id: number, data: any) => adminApi.put(`/dungeons/admin/${id}`, data),
+  deleteDungeon: (id: number) => adminApi.delete(`/dungeons/admin/${id}`),
+  exportDungeonsTemplate: () => adminApi.get('/admin/export/template/dungeons', { responseType: 'blob' }),
+  importDungeons: (formData: FormData) => adminApi.post('/admin/import/dungeons', formData),
+  exportDungeons: () => adminApi.get('/admin/export/dungeons', { responseType: 'blob' }),
 
   // Guilds
   getGuilds: () => adminApi.get('/guild'),
   getGuild: (id: number) => adminApi.get(`/guild/${id}`),
 
   // Monsters
-  getMonsters: () => adminApi.get('/monsters'),
-  getMonster: (id: number) => adminApi.get(`/monsters/${id}`),
-  createMonster: (data: any) => adminApi.post('/monsters', data),
-  updateMonster: (id: number, data: any) => adminApi.put(`/monsters/${id}`, data),
-  deleteMonster: (id: number) => adminApi.delete(`/monsters/${id}`),
+  getMonsters: () => adminApi.get('/monsters/admin'),
+  getMonster: (id: number) => adminApi.get(`/monsters/admin/${id}`),
+  createMonster: (data: any) => adminApi.post('/monsters/admin', data),
+  updateMonster: (id: number, data: any) => adminApi.put(`/monsters/admin/${id}`, data),
+  deleteMonster: (id: number) => adminApi.delete(`/monsters/admin/${id}`),
+  exportMonstersTemplate: () => adminApi.get('/admin/export/template/monsters', { responseType: 'blob' }),
+  exportMonsters: () => adminApi.get('/admin/export/monsters', { responseType: 'blob' }),
+  importMonsters: (formData: FormData) => adminApi.post('/admin/import/monsters', formData),
 
   // Combat Results
   getCombatResults: () => adminApi.get('/combat'),
   getCombatResult: (id: number) => adminApi.get(`/combat/${id}`),
 
   // Quests
-  getQuests: () => adminApi.get('/quests'),
-  getQuest: (id: number) => adminApi.get(`/quests/${id}`),
-  createQuest: (data: any) => adminApi.post('/quests', data),
-  updateQuest: (id: number, data: any) => adminApi.put(`/quests/${id}`, data),
-  deleteQuest: (id: number) => adminApi.delete(`/quests/${id}`),
+  getQuests: () => adminApi.get('/quests/admin'),
+  getQuest: (id: number) => adminApi.get(`/quests/admin/${id}`),
+  createQuest: (data: any) => adminApi.post('/quests/admin', data),
+  updateQuest: (id: number, data: any) => adminApi.put(`/quests/admin/${id}`, data),
+  deleteQuest: (id: number, options?: { force?: boolean }) => adminApi.delete(`/quests/admin/${id}`, { params: options }),
+  exportQuestsTemplate: () => adminApi.get('/admin/export/template/quests', { responseType: 'blob' }),
+  importQuests: (formData: FormData) => adminApi.post('/admin/import/quests', formData),
+  exportQuests: () => adminApi.get('/admin/export/quests', { responseType: 'blob' }),
 
   // Character Classes
-  getCharacterClasses: () => adminApi.get('/character-classes'),
-  getCharacterClass: (id: number) => adminApi.get(`/character-classes/${id}`),
-  createCharacterClass: (data: any) => adminApi.post('/character-classes', data),
-  updateCharacterClass: (id: number, data: any) => adminApi.put(`/character-classes/${id}`, data),
-  deleteCharacterClass: (id: number) => adminApi.delete(`/character-classes/${id}`),
+  getCharacterClasses: () => adminApi.get('/admin/character-classes'),
+  getCharacterClass: (id: number) => adminApi.get(`/admin/character-classes/${id}`),
+  createCharacterClass: (data: any) => adminApi.post('/admin/character-classes', data),
+  updateCharacterClass: (id: number, data: any) => adminApi.put(`/admin/character-classes/${id}`, data),
+  deleteCharacterClass: (id: number) => adminApi.delete(`/admin/character-classes/${id}`),
+  exportCharacterClassesTemplate: () => adminApi.get('/admin/export/template/character-classes', { responseType: 'blob' }),
+  exportCharacterClasses: () => adminApi.get('/admin/export/character-classes', { responseType: 'blob' }),
+  importCharacterClasses: (formData: FormData) => adminApi.post('/admin/import/character-classes', formData),
+
+  // Skills
+  getSkills: () => adminApi.get('/admin/skill-definitions'),
+  getSkill: (skillId: string) => adminApi.get(`/admin/skill-definitions/${skillId}`),
+  createSkill: (data: any) => adminApi.post('/admin/skill-definitions', data),
+  updateSkill: (skillId: string, data: any) => adminApi.put(`/admin/skill-definitions/${skillId}`, data),
+  deleteSkill: (skillId: string) => adminApi.delete(`/admin/skill-definitions/${skillId}`),
 
   // World Boss
   getWorldBoss: () => adminApi.get('/world-boss/current'),
@@ -109,6 +142,9 @@ export const adminApiEndpoints = {
   createLevel: (data: any) => adminApi.post('/levels', data),
   updateLevel: (id: number, data: any) => adminApi.put(`/levels/${id}`, data),
   deleteLevel: (id: number) => adminApi.delete(`/levels/${id}`),
+  exportLevelsTemplate: () => adminApi.get('/admin/export/template/levels', { responseType: 'blob' }),
+  exportLevels: () => adminApi.get('/admin/export/levels', { responseType: 'blob' }),
+  importLevels: (formData: FormData) => adminApi.post('/admin/import/levels', formData),
 
   // Donors
   getDonors: () => adminApi.get('/donors'),
@@ -153,10 +189,20 @@ export const adminApiEndpoints = {
       };
     }
   },
+  // Market admin actions
+  getShopItems: () => adminApi.get('/market/shop'),
+  addShopItem: (data: { itemId: number; price: number; quantity?: number }) => adminApi.post('/market/shop', data),
+  updateShopItem: (id: number, data: { price?: number; quantity?: number; active?: boolean }) => adminApi.patch(`/market/shop/${id}`, data),
+  removeShopItem: (id: number) => adminApi.delete(`/market/shop/${id}`),
+
   // Room admin actions
   getRooms: () => adminApi.get('/room-lobby'),
   adminCancelRoom: (roomId: number) => adminApi.post(`/room-lobby/${roomId}/admin-cancel`),
   adminBulkCancelEmpty: () => adminApi.post('/room-lobby/admin/bulk-cancel-empty'),
+
+  // Backfill actions
+  backfillUser: (userId: number) => adminApi.post(`/admin/backfill/user/${userId}`),
+  backfillBatch: () => adminApi.post('/admin/backfill/batch'),
 };
 
 export default adminApi;

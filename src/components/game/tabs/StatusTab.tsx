@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 // Progress removed for compact layout
-import { User, Heart, Zap, Shield, Sword, Coins, Star, TrendingUp } from 'lucide-react';
+import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useUserStatusStore } from '@/stores/user-status.store';
 import { useUserStatus } from '@/hooks/use-user-status';
@@ -12,9 +12,9 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { characterClassesApi } from '@/lib/api-client';
+import { characterClassesApi, userAttributesApi } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 const StatusTab: React.FC = () => {
   // Get authenticated user
@@ -27,6 +27,7 @@ const StatusTab: React.FC = () => {
   const {
     user,
     stats,
+    totalCoreAttributes,
     stamina,
     currentLevel,
     nextLevel,
@@ -38,6 +39,94 @@ const StatusTab: React.FC = () => {
 
   // Awaken modal state
   const [showAwakenModal, setShowAwakenModal] = React.useState(false);
+
+  // Attribute allocation state
+  const [pendingAllocations, setPendingAllocations] = React.useState<Record<'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK', number>>({
+    STR: 0,
+    INT: 0,
+    DEX: 0,
+    VIT: 0,
+    LUK: 0,
+  });
+  const [isAllocating, setIsAllocating] = React.useState(false);
+
+  const queryClient = useQueryClient();
+
+  // Handle attribute allocation changes
+  const handleAllocationChange = (attribute: 'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK', delta: number) => {
+    setPendingAllocations(prev => {
+      const newAllocations = { ...prev };
+      const current = newAllocations[attribute] + delta;
+
+      // Prevent negative allocations
+      if (current < 0) return prev;
+
+      // Prevent exceeding available points
+      const totalPending = Object.values(newAllocations).reduce((sum, val) => sum + val, 0) + delta;
+      if (totalPending > (userAttributes?.unspentAttributePoints || 0)) return prev;
+
+      newAllocations[attribute] = current;
+      return newAllocations;
+    });
+  };
+
+  // Save allocations to server
+  const handleSaveAllocations = async () => {
+    const totalPending = Object.values(pendingAllocations).reduce((sum, val) => sum + val, 0);
+    if (totalPending === 0) {
+      toast.info('Không có thay đổi nào để lưu');
+      return;
+    }
+
+    setIsAllocating(true);
+    try {
+      const result = await userAttributesApi.allocateMultipleAttributePoints(pendingAllocations);
+      if (result.success) {
+        toast.success(result.message);
+        // Reset pending allocations
+        setPendingAllocations({
+          STR: 0,
+          INT: 0,
+          DEX: 0,
+          VIT: 0,
+          LUK: 0,
+        });
+        // Refresh data
+        queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user-attributes'] });
+      } else {
+        toast.error(result.message || 'Lưu thất bại');
+      }
+    } catch (error) {
+      console.error('Save allocations error:', error);
+      toast.error('Có lỗi xảy ra khi lưu');
+    } finally {
+      setIsAllocating(false);
+    }
+  };
+
+  // Cancel allocations
+  const handleCancelAllocations = () => {
+    setPendingAllocations({
+      STR: 0,
+      INT: 0,
+      DEX: 0,
+      VIT: 0,
+      LUK: 0,
+    });
+  };
+
+  // Fetch user attributes for attribute allocation
+  const { data: userAttributes } = useQuery({
+    queryKey: ['user-attributes'],
+    queryFn: userAttributesApi.getUserAttributes,
+    enabled: !!userId,
+  });
+
+  // Calculate remaining points after pending allocations
+  const remainingPoints = (userAttributes?.unspentAttributePoints || 0) - Object.values(pendingAllocations).reduce((sum, val) => sum + val, 0);
+  const hasPendingChanges = Object.values(pendingAllocations).some(val => val > 0);
 
   // Use TanStack Query only when userId is available
   const { isLoading: queryLoading, error: queryError } = useUserStatus(userId!);
@@ -73,7 +162,7 @@ const StatusTab: React.FC = () => {
     );
   }
 
-  if (!user || !stats || !stamina || !currentLevel) {
+  if (!user || !stats || !totalCoreAttributes || !stamina || !currentLevel) {
     return (
       <div className="p-4 text-center text-[var(--muted-foreground)]">
         <p>Không có dữ liệu nhân vật</p>
@@ -81,15 +170,24 @@ const StatusTab: React.FC = () => {
     );
   }
 
-  // Use server-provided stats directly. Server persists derived stats when equipping,
-  // so avoid adding item bonuses again on the client which causes double-counting.
-  const displayedStats = { ...stats } as typeof stats;
-  const displayedMaxHp = displayedStats.maxHp || 0;
-  const displayedCurrentHp = Math.min(displayedStats.currentHp || 0, displayedMaxHp);
+  // Use server-provided total core attributes that include all bonuses
+  const displayedStats = totalCoreAttributes;
 
-  const displayedHealthPercent = displayedMaxHp > 0 ? (displayedCurrentHp / displayedMaxHp) * 100 : 0;
-  const expPercent = nextLevel ? (user.experience / (nextLevel.experienceRequired || 1)) * 100 : 100;
+  // Calculate percentages for bars
+  const expPercent = nextLevel?.experienceRequired ? (user.experience / nextLevel.experienceRequired) * 100 : 100;
   const staminaPercent = stamina.maxStamina > 0 ? (stamina.currentStamina / stamina.maxStamina) * 100 : 0;
+
+  // Calculate max HP from VIT (same formula as backend)
+  const calculateMaxHp = (vit: number): number => {
+    const baseMaxHp = 100;
+    const hpFromVit = 12;
+    const effective = Math.pow(Math.max(0, vit || 0), 0.94);
+    return Math.floor(baseMaxHp + hpFromVit * effective);
+  };
+
+  const maxHp = calculateMaxHp(displayedStats.vit);
+  const currentHp = stats.currentHp;
+  const hpPercent = maxHp > 0 ? (currentHp / maxHp) * 100 : 0;
 
   // Use server-authoritative combatPower only. Server calculates this when stats change
   // (level up, equip/unequip items, class advancement) and persists it to avoid race conditions.
@@ -100,16 +198,66 @@ const StatusTab: React.FC = () => {
   // No client-side fallback calculation to avoid double-counting or stale equippedItems
   combatPower = combatPower ?? 0;
 
-  // Small inline Stat cell to avoid extra file
-  const StatCell: React.FC<{ icon: React.ReactNode; label: string; value: React.ReactNode }> = ({ icon, label, value }) => (
-    <div className="flex items-center gap-2 p-1.5 border border-[var(--border)] rounded-md bg-[var(--card)] text-sm">
-      <div className="w-5 h-5 flex items-center justify-center">{icon}</div>
-      <div className="flex-1">
-        <div className="text-[11px] text-[var(--muted-foreground)]">{label}</div>
-        <div className="text-sm font-semibold leading-tight">{value}</div>
+  // Attribute allocation cell with + and - buttons for local state management
+  const AttributeAllocationCell: React.FC<{
+    icon: React.ReactNode;
+    label: string;
+    allocatedValue: number;
+    totalValue: number;
+    attribute: 'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK';
+    pendingAllocation: number;
+    onAllocationChange: (attribute: 'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK', delta: number) => void;
+    canIncrease: boolean;
+  }> = ({
+    icon,
+    label,
+    allocatedValue,
+    totalValue,
+    attribute,
+    pendingAllocation,
+    onAllocationChange,
+    canIncrease,
+  }) => {
+    const currentAllocated = allocatedValue + pendingAllocation;
+    const canDecrease = currentAllocated > 0;
+
+    return (
+      <div className="flex items-center gap-2 p-1.5 border border-[var(--border)] rounded-md bg-[var(--card)] text-sm">
+        <div className="w-5 h-5 flex items-center justify-center">{icon}</div>
+        <div className="flex-1">
+          <div className="text-[11px] text-[var(--muted-foreground)]">{label}</div>
+          <div className="text-sm font-semibold leading-tight">
+            {totalValue + pendingAllocation}
+            {(allocatedValue > 0 || pendingAllocation > 0) && (
+              <span className="text-green-500 text-xs ml-1">
+                (+{allocatedValue + pendingAllocation})
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={() => onAllocationChange(attribute, -1)}
+            disabled={!canDecrease}
+          >
+            -
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+            onClick={() => onAllocationChange(attribute, 1)}
+            disabled={!canIncrease}
+          >
+            +
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-3 p-3">
@@ -146,20 +294,6 @@ const StatusTab: React.FC = () => {
             <span className="text-xs font-medium">{characterClass?.name || 'Chưa chọn lớp'}</span>
           </div>
 
-          {/* Thanh máu */}
-          <div className="space-y-0.5">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1">
-                <Heart className="h-3 w-3 text-[var(--destructive)]" />
-                <span className="text-[var(--destructive)] font-medium text-xs">Máu</span>
-              </div>
-              <span className="text-[var(--destructive)] font-bold text-sm">{displayedCurrentHp}/{displayedMaxHp}</span>
-            </div>
-            <div className="h-2 bg-[rgba(255,255,255,0.06)] rounded overflow-hidden">
-              <div className="h-full bg-[var(--destructive)]" style={{ width: `${displayedHealthPercent}%` }} />
-            </div>
-          </div>
-
           {/* Thanh kinh nghiệm */}
           <div className="space-y-0.5">
             <div className="flex items-center justify-between text-xs">
@@ -188,6 +322,20 @@ const StatusTab: React.FC = () => {
             </div>
           </div>
 
+          {/* Thanh máu */}
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1">
+                <Heart className="h-3 w-3 text-red-500" />
+                <span className="text-red-500 font-medium text-xs">Máu</span>
+              </div>
+              <span className="text-red-500 font-bold text-sm">{currentHp}/{maxHp}</span>
+            </div>
+            <div className="h-2 bg-[rgba(255,255,255,0.06)] rounded overflow-hidden">
+              <div className="h-full bg-red-500" style={{ width: `${hpPercent}%` }} />
+            </div>
+          </div>
+
           {/* Vàng */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
@@ -201,25 +349,117 @@ const StatusTab: React.FC = () => {
 
       {/* Thuộc tính (gộp chung) */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm">Thuộc tính</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--muted-foreground)]">Điểm tự do:</span>
+            <Badge variant="secondary" className="text-xs">
+              {remainingPoints}
+            </Badge>
+            {hasPendingChanges && (
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-6 px-2"
+                  onClick={handleCancelAllocations}
+                  disabled={isAllocating}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-xs h-6 px-2"
+                  onClick={handleSaveAllocations}
+                  disabled={isAllocating}
+                >
+                  {isAllocating ? 'Đang lưu...' : 'Lưu'}
+                </Button>
+              </div>
+            )}
+            {userAttributes && (userAttributes.allocatedPoints.strength +
+                               userAttributes.allocatedPoints.intelligence +
+                               userAttributes.allocatedPoints.dexterity +
+                               userAttributes.allocatedPoints.vitality +
+                               userAttributes.allocatedPoints.luck) > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-6 px-2"
+                onClick={async () => {
+                  try {
+                    const result = await userAttributesApi.resetAttributePoints();
+                    if (result.success) {
+                      toast.success(result.message);
+                      queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+                      queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
+                      queryClient.invalidateQueries({ queryKey: ['user-attributes'] });
+                    } else {
+                      toast.error(result.message || 'Reset thất bại');
+                    }
+                  } catch (error) {
+                    console.error('Reset attributes error:', error);
+                    toast.error('Có lỗi xảy ra khi reset điểm');
+                  }
+                }}
+              >
+                Reset
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Tấn công" value={displayedStats.attack} />
-            <StatCell icon={<Shield className="h-4 w-4 text-[var(--chart-4)]" />} label="Phòng thủ" value={displayedStats.defense} />
-            <StatCell icon={<Heart className="h-4 w-4 text-[var(--chart-5)]" />} label="Máu" value={displayedStats.vitality} />
-            <StatCell icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} label="Trí tuệ" value={displayedStats.intelligence} />
-
-            <StatCell icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />} label="Sức mạnh" value={displayedStats.strength} />
-            <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-4)]" />} label="Nhanh nhẹn" value={displayedStats.dexterity} />
-            <StatCell icon={<Star className="h-4 w-4 text-[var(--muted-foreground)]" />} label="May mắn" value={displayedStats.luck} />
-            <StatCell icon={<Star className="h-4 w-4 text-[var(--chart-5)]" />} label="Chính xác" value={`${displayedStats.accuracy}%`} />
-
-            <StatCell icon={<TrendingUp className="h-4 w-4 text-[var(--chart-2)]" />} label="Chí mạng" value={`${displayedStats.critRate}%`} />
-            <StatCell icon={<Zap className="h-4 w-4 text-[var(--chart-1)]" />} label="Crit DMG" value={`${displayedStats.critDamage}%`} />
-            <StatCell icon={<Star className="h-4 w-4 text-[var(--accent)]" />} label="Combo" value={`${displayedStats.comboRate}%`} />
-            <StatCell icon={<Star className="h-4 w-4 text-[var(--destructive)]" />} label="Phản công" value={`${displayedStats.counterRate}%`} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <AttributeAllocationCell
+              icon={<Sword className="h-4 w-4 text-[var(--chart-3)]" />}
+              label="Sức mạnh"
+              allocatedValue={userAttributes?.allocatedPoints.strength || 0}
+              totalValue={displayedStats.str}
+              attribute="STR"
+              pendingAllocation={pendingAllocations.STR}
+              onAllocationChange={handleAllocationChange}
+              canIncrease={remainingPoints > 0}
+            />
+            <AttributeAllocationCell
+              icon={<Zap className="h-4 w-4 text-[var(--accent)]" />}
+              label="Trí tuệ"
+              allocatedValue={userAttributes?.allocatedPoints.intelligence || 0}
+              totalValue={displayedStats.int}
+              attribute="INT"
+              pendingAllocation={pendingAllocations.INT}
+              onAllocationChange={handleAllocationChange}
+              canIncrease={remainingPoints > 0}
+            />
+            <AttributeAllocationCell
+              icon={<Zap className="h-4 w-4 text-[var(--chart-4)]" />}
+              label="Nhanh nhẹn"
+              allocatedValue={userAttributes?.allocatedPoints.dexterity || 0}
+              totalValue={displayedStats.dex}
+              attribute="DEX"
+              pendingAllocation={pendingAllocations.DEX}
+              onAllocationChange={handleAllocationChange}
+              canIncrease={remainingPoints > 0}
+            />
+            <AttributeAllocationCell
+              icon={<Shield className="h-4 w-4 text-[var(--chart-5)]" />}
+              label="Sinh lực"
+              allocatedValue={userAttributes?.allocatedPoints.vitality || 0}
+              totalValue={displayedStats.vit}
+              attribute="VIT"
+              pendingAllocation={pendingAllocations.VIT}
+              onAllocationChange={handleAllocationChange}
+              canIncrease={remainingPoints > 0}
+            />
+            <AttributeAllocationCell
+              icon={<Star className="h-4 w-4 text-[var(--muted-foreground)]" />}
+              label="May mắn"
+              allocatedValue={userAttributes?.allocatedPoints.luck || 0}
+              totalValue={displayedStats.luk}
+              attribute="LUK"
+              pendingAllocation={pendingAllocations.LUK}
+              onAllocationChange={handleAllocationChange}
+              canIncrease={remainingPoints > 0}
+            />
           </div>
         </CardContent>
       </Card>
@@ -380,7 +620,6 @@ const StatusTab: React.FC = () => {
 export function AwakenModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [isProcessing, setIsProcessing] = React.useState(false);
   const queryClient = useQueryClient();
-  const { setUserStatusData } = useUserStatusStore();
   const handleAwaken = async () => {
     setIsProcessing(true);
     try {
@@ -392,70 +631,13 @@ export function AwakenModal({ open, onOpenChange }: { open: boolean; onOpenChang
 
       // Update client cache and zustand store so UI reflects new class and stat bonuses immediately
       try {
-  // Invalidate/fetch user-status and related queries for fresh data
-  // We don't have the userId from the awaken response, rely on existing store state
-  const currentSnapshot = useUserStatusStore.getState();
-  const uid = currentSnapshot?.user?.id;
-  queryClient.invalidateQueries({ queryKey: ['user-status', uid] });
-  queryClient.invalidateQueries({ queryKey: ['user-stats', uid] });
-  queryClient.invalidateQueries({ queryKey: ['user', uid] });
-
-        // If the API returned statChanges and newClass, apply them locally to the store for instant UX
-        if (res && res.newClass) {
-          // Read current store snapshot and build a new payload for setUserStatusData
-          const current = useUserStatusStore.getState();
-          if (current && current.user && current.stats && current.stamina && current.currentLevel) {
-            const user = { ...current.user, characterClass: res.newClass };
-            // Copy current stats and apply only known stat deltas.
-            const stats = { ...current.stats } as typeof current.stats;
-            const changes = (res.statChanges || {}) as Partial<{
-              strength: number;
-              intelligence: number;
-              dexterity: number;
-              vitality: number;
-              luck: number;
-              critRate: number;
-              critDamage: number;
-              comboRate: number;
-              counterRate: number;
-              lifesteal: number;
-              armorPen: number;
-              dodgeRate: number;
-              accuracy: number;
-            }>;
-
-            stats.strength = (stats.strength || 0) + (changes.strength || 0);
-            stats.intelligence = (stats.intelligence || 0) + (changes.intelligence || 0);
-            stats.dexterity = (stats.dexterity || 0) + (changes.dexterity || 0);
-            stats.vitality = (stats.vitality || 0) + (changes.vitality || 0);
-            stats.luck = (stats.luck || 0) + (changes.luck || 0);
-            stats.critRate = (stats.critRate || 0) + (changes.critRate || 0);
-            stats.critDamage = (stats.critDamage || 0) + (changes.critDamage || 0);
-            stats.comboRate = (stats.comboRate || 0) + (changes.comboRate || 0);
-            stats.counterRate = (stats.counterRate || 0) + (changes.counterRate || 0);
-            stats.lifesteal = (stats.lifesteal || 0) + (changes.lifesteal || 0);
-            stats.armorPen = (stats.armorPen || 0) + (changes.armorPen || 0);
-            stats.dodgeRate = (stats.dodgeRate || 0) + (changes.dodgeRate || 0);
-            stats.accuracy = (stats.accuracy || 0) + (changes.accuracy || 0);
-
-            // Don't recompute derived fields (attack/maxHp/defense) here.
-            // The server is authoritative for derived stats and combat power
-            // (it persists derived values when equipping/awakening). We only
-            // apply the raw attribute deltas (strength/intelligence/...) and
-            // invalidate cache so the next query will fetch the correct,
-            // server-calculated derived fields and combatPower.
-
-            setUserStatusData({
-              user,
-              stats,
-              stamina: current.stamina,
-              currentLevel: current.currentLevel,
-              nextLevel: current.nextLevel,
-              characterClass: res.newClass,
-              equippedItems: current.equippedItems || [],
-            });
-          }
-        }
+        // Invalidate/fetch user-status and related queries for fresh data
+        // We don't have the userId from the awaken response, rely on existing store state
+        const currentSnapshot = useUserStatusStore.getState();
+        const uid = currentSnapshot?.user?.id;
+        queryClient.invalidateQueries({ queryKey: ['user-status', uid] });
+        queryClient.invalidateQueries({ queryKey: ['user-stats', uid] });
+        queryClient.invalidateQueries({ queryKey: ['user', uid] });
       } catch (e) {
         // Non-fatal: keep going
         console.debug('Post-awaken cache update failed', e);

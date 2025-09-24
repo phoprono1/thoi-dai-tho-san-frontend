@@ -1,6 +1,6 @@
 import {
   User,
-  UserStats,
+  UserTotalCoreAttributes,
   UserStamina,
   Level,
   CharacterClass,
@@ -12,6 +12,7 @@ import {
   // Item type for fetching catalog
   Item,
 } from '@/types';
+import { UserStats } from '@/types/user-stats';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
 
@@ -102,15 +103,17 @@ class ApiService {
   async getUserStatusData(userId: number): Promise<{
     user: User;
     stats: UserStats;
+    totalCoreAttributes: UserTotalCoreAttributes;
     stamina: UserStamina;
     currentLevel: Level;
     nextLevel: Level | null;
     characterClass: CharacterClass | null;
     equippedItems: UserItem[];
   }> {
-    const [user, stats, stamina, equippedItems] = await Promise.all([
+    const [user, stats, totalCoreAttributes, stamina, equippedItems] = await Promise.all([
       this.getUser(userId),
       this.getUserStats(userId),
+      this.getUserTotalCoreAttributes(userId),
       this.getUserStamina(userId),
       this.getEquippedItems(userId),
     ]);
@@ -126,6 +129,7 @@ class ApiService {
     const result = {
       user,
       stats,
+      totalCoreAttributes,
       stamina,
       currentLevel,
       nextLevel,
@@ -157,6 +161,10 @@ class ApiService {
   // User Stats APIs
   async getUserStats(userId: number): Promise<UserStats> {
     return this.request<UserStats>(`/user-stats/user/${userId}`);
+  }
+
+  async getUserTotalCoreAttributes(userId: number): Promise<UserTotalCoreAttributes> {
+    return this.request<UserTotalCoreAttributes>(`/user-stats/user/${userId}/total-stats`);
   }
 
   async updateUserStats(userId: number, data: Partial<UserStats>): Promise<UserStats> {
