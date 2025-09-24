@@ -1292,44 +1292,8 @@ export default function AdminItems() {
 
                             {bonus.type === 'flat' && (
                               <div className="space-y-4 border-t pt-4">
-                                <h5 className="font-medium">Flat Stats</h5>
+                                <h5 className="font-medium">Core Stats (Flat Bonus)</h5>
                                 <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label htmlFor={`flat-attack-${index}`} className="text-sm">Attack</Label>
-                                    <Input
-                                      id={`flat-attack-${index}`}
-                                      type="number"
-                                      value={bonus.stats?.attack || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, attack: parseInt(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-defense-${index}`} className="text-sm">Defense</Label>
-                                    <Input
-                                      id={`flat-defense-${index}`}
-                                      type="number"
-                                      value={bonus.stats?.defense || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, defense: parseInt(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-hp-${index}`} className="text-sm">HP</Label>
-                                    <Input
-                                      id={`flat-hp-${index}`}
-                                      type="number"
-                                      value={bonus.stats?.hp || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, hp: parseInt(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
                                   <div>
                                     <Label htmlFor={`flat-strength-${index}`} className="text-sm">Strength</Label>
                                     <Input
@@ -1391,180 +1355,17 @@ export default function AdminItems() {
                                     />
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label htmlFor={`flat-critRate-${index}`} className="text-sm">Crit Rate (%)</Label>
-                                    <Input
-                                      id={`flat-critRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.critRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, critRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-critDamage-${index}`} className="text-sm">Crit Damage (%)</Label>
-                                    <Input
-                                      id={`flat-critDamage-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      value={bonus.stats?.critDamage || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, critDamage: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-comboRate-${index}`} className="text-sm">Combo Rate (%)</Label>
-                                    <Input
-                                      id={`flat-comboRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.comboRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, comboRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-counterRate-${index}`} className="text-sm">Counter Rate (%)</Label>
-                                    <Input
-                                      id={`flat-counterRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.counterRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, counterRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-lifesteal-${index}`} className="text-sm">Lifesteal (%)</Label>
-                                    <Input
-                                      id={`flat-lifesteal-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.lifesteal || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, lifesteal: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-armorPen-${index}`} className="text-sm">Armor Pen (%)</Label>
-                                    <Input
-                                      id={`flat-armorPen-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.armorPen || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, armorPen: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-dodgeRate-${index}`} className="text-sm">Dodge Rate (%)</Label>
-                                    <Input
-                                      id={`flat-dodgeRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.dodgeRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, dodgeRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`flat-accuracy-${index}`} className="text-sm">Accuracy (%)</Label>
-                                    <Input
-                                      id={`flat-accuracy-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.accuracy || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, accuracy: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                </div>
                               </div>
                             )}
 
                             {bonus.type === 'percentage' && (
                               <div className="space-y-4 border-t pt-4">
-                                <h5 className="font-medium">Percentage Stats</h5>
+                                <h5 className="font-medium">Core Stats (Percentage Bonus)</h5>
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
-                                    <Label htmlFor={`perc-attack-${index}`} className="text-sm">Attack (%)</Label>
+                                    <Label htmlFor={`percentage-strength-${index}`} className="text-sm">Strength (%)</Label>
                                     <Input
-                                      id={`perc-attack-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      value={bonus.stats?.attack || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, attack: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-defense-${index}`} className="text-sm">Defense (%)</Label>
-                                    <Input
-                                      id={`perc-defense-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      value={bonus.stats?.defense || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, defense: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-hp-${index}`} className="text-sm">HP (%)</Label>
-                                    <Input
-                                      id={`perc-hp-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      value={bonus.stats?.hp || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, hp: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-strength-${index}`} className="text-sm">Strength (%)</Label>
-                                    <Input
-                                      id={`perc-strength-${index}`}
+                                      id={`percentage-strength-${index}`}
                                       type="number"
                                       step="0.1"
                                       min="0"
@@ -1576,9 +1377,9 @@ export default function AdminItems() {
                                     />
                                   </div>
                                   <div>
-                                    <Label htmlFor={`perc-intelligence-${index}`} className="text-sm">Intelligence (%)</Label>
+                                    <Label htmlFor={`percentage-intelligence-${index}`} className="text-sm">Intelligence (%)</Label>
                                     <Input
-                                      id={`perc-intelligence-${index}`}
+                                      id={`percentage-intelligence-${index}`}
                                       type="number"
                                       step="0.1"
                                       min="0"
@@ -1590,9 +1391,9 @@ export default function AdminItems() {
                                     />
                                   </div>
                                   <div>
-                                    <Label htmlFor={`perc-dexterity-${index}`} className="text-sm">Dexterity (%)</Label>
+                                    <Label htmlFor={`percentage-dexterity-${index}`} className="text-sm">Dexterity (%)</Label>
                                     <Input
-                                      id={`perc-dexterity-${index}`}
+                                      id={`percentage-dexterity-${index}`}
                                       type="number"
                                       step="0.1"
                                       min="0"
@@ -1604,9 +1405,9 @@ export default function AdminItems() {
                                     />
                                   </div>
                                   <div>
-                                    <Label htmlFor={`perc-vitality-${index}`} className="text-sm">Vitality (%)</Label>
+                                    <Label htmlFor={`percentage-vitality-${index}`} className="text-sm">Vitality (%)</Label>
                                     <Input
-                                      id={`perc-vitality-${index}`}
+                                      id={`percentage-vitality-${index}`}
                                       type="number"
                                       step="0.1"
                                       min="0"
@@ -1618,9 +1419,9 @@ export default function AdminItems() {
                                     />
                                   </div>
                                   <div>
-                                    <Label htmlFor={`perc-luck-${index}`} className="text-sm">Luck (%)</Label>
+                                    <Label htmlFor={`percentage-luck-${index}`} className="text-sm">Luck (%)</Label>
                                     <Input
-                                      id={`perc-luck-${index}`}
+                                      id={`percentage-luck-${index}`}
                                       type="number"
                                       step="0.1"
                                       min="0"
@@ -1628,125 +1429,6 @@ export default function AdminItems() {
                                       onChange={(e) => updateSetBonus(index, {
                                         ...bonus,
                                         stats: { ...bonus.stats, luck: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-critRate-${index}`} className="text-sm">Crit Rate (%)</Label>
-                                    <Input
-                                      id={`perc-critRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.critRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, critRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-critDamage-${index}`} className="text-sm">Crit Damage (%)</Label>
-                                    <Input
-                                      id={`perc-critDamage-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      value={bonus.stats?.critDamage || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, critDamage: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-comboRate-${index}`} className="text-sm">Combo Rate (%)</Label>
-                                    <Input
-                                      id={`perc-comboRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.comboRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, comboRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-counterRate-${index}`} className="text-sm">Counter Rate (%)</Label>
-                                    <Input
-                                      id={`perc-counterRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.counterRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, counterRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-lifesteal-${index}`} className="text-sm">Lifesteal (%)</Label>
-                                    <Input
-                                      id={`perc-lifesteal-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.lifesteal || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, lifesteal: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-armorPen-${index}`} className="text-sm">Armor Pen (%)</Label>
-                                    <Input
-                                      id={`perc-armorPen-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.armorPen || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, armorPen: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-dodgeRate-${index}`} className="text-sm">Dodge Rate (%)</Label>
-                                    <Input
-                                      id={`perc-dodgeRate-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.dodgeRate || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, dodgeRate: parseFloat(e.target.value) || 0 }
-                                      })}
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label htmlFor={`perc-accuracy-${index}`} className="text-sm">Accuracy (%)</Label>
-                                    <Input
-                                      id={`perc-accuracy-${index}`}
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="100"
-                                      value={bonus.stats?.accuracy || 0}
-                                      onChange={(e) => updateSetBonus(index, {
-                                        ...bonus,
-                                        stats: { ...bonus.stats, accuracy: parseFloat(e.target.value) || 0 }
                                       })}
                                     />
                                   </div>
