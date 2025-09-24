@@ -38,6 +38,9 @@ export default function AdminLogin() {
           <CardDescription className="text-center">
             Nhập secret key để truy cập Admin Panel
           </CardDescription>
+          <div className="text-xs text-amber-600 dark:text-amber-400 text-center mt-2">
+            🔒 Bảo mật: Chỉ 5 lần thử mỗi phút. Session tự động hết hạn sau 24 giờ.
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
