@@ -255,7 +255,7 @@ import DailyLoginModal from '@/components/ui/DailyLoginModal';
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 lg:pb-0" style={{ paddingBottom: 'calc(56px + var(--safe-bottom))' }}>
+          <main className="flex-1 lg:pb-0" style={{ paddingBottom: 'calc(80px + var(--safe-bottom))' }}>
             <div className="w-full max-w-full mx-auto lg:max-w-none px-4 sm:px-6 lg:px-6 xl:px-8 py-6">
               {children}
             </div>
@@ -323,6 +323,35 @@ import DailyLoginModal from '@/components/ui/DailyLoginModal';
             <GlobalChat />
           </div>
         </div>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--card)] border-t border-[var(--border)] shadow-lg z-50">
+          <div className="flex justify-around items-center py-2 px-2">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = computedActiveTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+                    isActive
+                      ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+                      : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 mb-1 ${isActive ? 'text-[var(--primary-foreground)]' : ''}`} />
+                  <span className={`text-xs font-medium truncate ${
+                    isActive ? 'text-[var(--primary-foreground)]' : ''
+                  }`}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
       {/* Embedded Global Chat - Desktop only */}
     <aside className="hidden lg:block lg:fixed lg:top-0 lg:right-0 lg:h-screen lg:w-96 lg:border-l lg:bg-[var(--card)] lg:shadow-sm lg:z-30">
