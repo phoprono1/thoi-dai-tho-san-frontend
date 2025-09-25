@@ -71,6 +71,8 @@ const navigation = [
   { name: 'PVP', href: '/admin/pvp', icon: Trophy },
   { name: 'World Boss', href: '/admin/world-boss', icon: Zap },
   { name: 'Chat', href: '/admin/chat', icon: MessageSquare },
+  { name: 'Giftcodes', href: '/admin/giftcodes', icon: Sparkles },
+  { name: 'Daily Login', href: '/admin/daily-login', icon: Crown },
   { name: 'Mailbox', href: '/admin/mailbox', icon: Mail },
   { name: 'Levels', href: '/admin/levels', icon: BarChart3 },
   { name: 'Donors', href: '/admin/donors', icon: Crown },

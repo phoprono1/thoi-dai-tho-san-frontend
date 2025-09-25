@@ -436,3 +436,44 @@ export const userAttributesApi = {
     return response.data;
   },
 };
+
+// Giftcode API
+export const giftcodeApi = {
+  create: async (payload: { code: string; rewards: { gold?: number; items?: Array<{ itemId: number; quantity: number }> }; usesAllowed?: number; expiresAt?: string | null }) => {
+    const response = await api.post('/giftcode/create', payload);
+    return response.data;
+  },
+
+  list: async () => {
+    const response = await api.get('/giftcode/list');
+    return response.data;
+  },
+
+  redeem: async (code: string) => {
+    const response = await api.post('/giftcode/redeem', { code });
+    return response.data;
+  },
+};
+
+// Daily Login API
+export const dailyLoginApi = {
+  getStatus: async () => {
+    const response = await api.get('/daily-login/status');
+    return response.data;
+  },
+
+  claim: async () => {
+    const response = await api.post('/daily-login/claim');
+    return response.data;
+  },
+
+  getHistory: async () => {
+    const response = await api.get('/daily-login/history');
+    return response.data;
+  },
+
+  getConfig: async () => {
+    const response = await api.get('/daily-login/config');
+    return response.data;
+  },
+};

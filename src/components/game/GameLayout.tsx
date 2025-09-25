@@ -1,8 +1,8 @@
-  'use client';
+'use client';
 
-  import Image from 'next/image';
-  import { useEffect } from 'react';
-  import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
   import { useAuth } from '@/components/providers/AuthProvider';
   import { useUIStore } from '@/stores';
   import { Button } from '@/components/ui/button';
@@ -23,13 +23,17 @@
     Scroll,
     Heart
   } from 'lucide-react';
-  import { Menu, Mail, Settings } from 'lucide-react';
+  import { Menu, Mail, Settings, Calendar } from 'lucide-react';
   import MailboxModal from '@/components/ui/MailboxModal';
   import { useMailboxStore } from '@/stores/useMailboxStore';
   import { Spinner } from '../ui/spinner';
   import ThemeToggle from '@/components/ui/ThemeToggle';
+import { giftcodeApi } from '@/lib/api-client';
+import { toast } from 'sonner';
   import { GlobalChat } from '@/components/global-chat/global-chat';
   import DonateModal from '@/components/ui/DonateModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import DailyLoginModal from '@/components/ui/DailyLoginModal';
 
   interface GameLayoutProps {
     children: React.ReactNode;
@@ -43,6 +47,9 @@
     const unreadCount = useMailboxStore((s) => s.unreadCount);
     const router = useRouter();
     const pathname = usePathname();
+  const [showGiftcodeModal, setShowGiftcodeModal] = useState(false);
+  const [giftcodeInput, setGiftcodeInput] = useState('');
+  const [showDailyLoginModal, setShowDailyLoginModal] = useState(false);
 
     // Handle redirect in useEffect to avoid setState during render
     useEffect(() => {
@@ -153,9 +160,9 @@
               </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => openModal('mailbox')}>Mailbox</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push('/settings') }>
-                      <div className="flex items-center gap-2">Cài đặt</div>
-                    </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowGiftcodeModal(true)}>
+                  <div className="flex items-center gap-2">Cài đặt</div>
+                </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openModal('donate') }>
                       Donate
                     </DropdownMenuItem>
@@ -186,6 +193,12 @@
                 <div className="flex items-center space-x-3">
                   <span className="text-sm text-[var(--muted-foreground)]">Chào mừng, {user.username}</span>
                   <ThemeToggle />
+                  <div className="ml-2">
+                    <Button variant="ghost" size="sm" onClick={() => setShowDailyLoginModal(true)}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Daily
+                    </Button>
+                  </div>
                   <div className="ml-2">
                     <Button variant="ghost" size="sm" onClick={() => openModal('mailbox')}>
                       <Mail className="h-4 w-4 mr-2" />
@@ -220,10 +233,13 @@
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setShowDailyLoginModal(true)}>
+                        <Calendar className="h-4 w-4 mr-2" /> Daily Login
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openModal('mailbox')}>
                         <Mail className="h-4 w-4 mr-2" /> Mailbox
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push('/settings')}>
+                      <DropdownMenuItem onClick={() => setShowGiftcodeModal(true)}>
                         <Settings className="h-4 w-4 mr-2" /> Cài đặt
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openModal('donate')}>
@@ -247,33 +263,61 @@
 
           {/* Global Modals */}
           <MailboxModal />
-    <DonateModal />
+          <DonateModal />
+          <DailyLoginModal open={showDailyLoginModal} onOpenChange={setShowDailyLoginModal} />
 
-          {/* Bottom Navigation - Mobile Only */}
-          <nav className="fixed bottom-0 left-0 right-0 bg-[var(--card)] border-t border-[var(--border)] shadow-lg z-50 lg:hidden">
-            <div className="flex justify-around items-center py-2 px-4">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = computedActiveTab === tab.id;
-
-                return (
+          {/* Giftcode Modal (opened from Cài đặt menu item) */}
+          <Dialog open={showGiftcodeModal} onOpenChange={(v) => setShowGiftcodeModal(v)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nhập Giftcode</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="flex-1 p-2 border rounded"
+                    placeholder="Nhập mã giftcode"
+                    value={giftcodeInput}
+                    onChange={(e) => setGiftcodeInput(e.target.value)}
+                  />
                   <button
-                    key={tab.id}
-                    onClick={() => handleTabChange(tab.id)}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${isActive
-                        ? 'bg-[var(--sidebar-accent)] text-[var(--sidebar-primary)]'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)]'
-                      }`}
+                    className="px-3 py-2 bg-blue-600 text-white rounded"
+                    onClick={async () => {
+                      try {
+                        await giftcodeApi.redeem(giftcodeInput.trim());
+                        toast.success('Đổi mã thành công! Kiểm tra mailbox để nhận quà.');
+                        setGiftcodeInput('');
+                        setShowGiftcodeModal(false);
+                                } catch (err) {
+                                  console.error('Redeem failed', err);
+                                  // Try to read server-provided message (AxiosResponse.data.message),
+                                  // fall back to generic error.message, and map known messages to VN text.
+                                  const e = err as unknown as {
+                                    response?: { data?: { message?: string } };
+                                    message?: string;
+                                  };
+                                  const serverMsg = e.response?.data?.message ?? e.message ?? '';
+                                  // Map common backend messages to user-friendly Vietnamese strings
+                                  const mapped = serverMsg === 'Already redeemed'
+                                    ? 'Giftcode đã được sử dụng'
+                                    : serverMsg || 'Đổi mã thất bại';
+                                  toast.error(mapped);
+                                }
+                    }}
                   >
-                    <Icon className={`h-6 w-6 mb-1 ${isActive ? 'text-[var(--sidebar-primary)]' : 'text-[var(--muted-foreground)]'}`} />
-                    <span className={`text-xs font-medium ${isActive ? 'text-[var(--sidebar-primary)]' : ''}`}>
-                      {tab.label}
-                    </span>
+                    Đổi mã
                   </button>
-                );
-              })}
-            </div>
-          </nav>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <button className="px-3 py-2 border rounded" onClick={() => router.push('/settings')}>Cài đặt tài khoản</button>
+                  </div>
+                  <button className="text-sm text-gray-500" onClick={() => setShowGiftcodeModal(false)}>Đóng</button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
           {/* Mobile-only: render floating/bottom-sheet GlobalChat */}
           <div className="lg:hidden">
             <GlobalChat />

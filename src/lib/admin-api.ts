@@ -153,6 +153,11 @@ export const adminApiEndpoints = {
   updateDonor: (id: number, data: any) => adminApi.put(`/donors/${id}`, data),
   deleteDonor: (id: number) => adminApi.delete(`/donors/${id}`),
 
+  // Daily Login
+  getDailyLoginConfigs: () => adminApi.get('/daily-login/admin/configs'),
+  getDailyLoginConfig: (year: number, month: number) => adminApi.get(`/daily-login/admin/config/${year}/${month}`),
+  createOrUpdateDailyLoginConfig: (data: any) => adminApi.post('/daily-login/admin/config', data),
+
   // System stats
   getSystemStats: async () => {
     try {
