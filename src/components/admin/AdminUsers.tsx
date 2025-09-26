@@ -161,7 +161,27 @@ export default function AdminUsers() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Users Management</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-2">Quản lý người chơi trong hệ thống</p>
-          <div className="mt-4">
+          <div className="mt-4 flex gap-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={async () => {
+                if (!confirm('Bạn có chắc muốn reset toàn bộ người chơi về level 1 và chỉ số mặc định không?')) return;
+                try {
+                  setIsBackfillingAll(true);
+                  const res = await adminApiEndpoints.resetAllUsers();
+                  toast.success(`Đã reset ${res?.data?.count || 0} người chơi!`);
+                  refetch();
+                } catch (err: unknown) {
+                  toast.error(`Reset all users failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                } finally {
+                  setIsBackfillingAll(false);
+                }
+              }}
+              disabled={isBackfillingAll}
+            >
+              Reset All Users
+            </Button>
             <Button
               size="sm"
               variant="destructive"

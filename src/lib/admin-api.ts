@@ -54,6 +54,7 @@ export const adminApiEndpoints = {
   demoteFromAdmin: (id: number) => adminApi.post(`/users/${id}/demote`, { type: 'admin' }),
   promoteToDonor: (id: number) => adminApi.post(`/users/${id}/promote`, { type: 'donor' }),
   demoteFromDonor: (id: number) => adminApi.post(`/users/${id}/demote`, { type: 'donor' }),
+  resetAllUsers: () => adminApi.post('/admin/reset-all-users'),
 
   // Items
   getItems: () => adminApi.get('/items'),
