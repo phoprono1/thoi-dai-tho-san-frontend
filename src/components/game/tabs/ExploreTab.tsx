@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf } from 'lucide-react';
+import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf, Hammer } from 'lucide-react';
 // queries/mutations moved to specific pages
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -113,6 +113,26 @@ export default function ExploreTab() {
           <span className="font-medium">Cửa hàng</span>
         </Button>
 
+        {/* Chế tạo (Crafting) */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-orange-50 hover:border-orange-300"
+          onClick={() => router.push('/game/explore/crafting')}
+        >
+          <Hammer className="h-8 w-8 text-orange-600" />
+          <span className="font-medium">Chế tạo</span>
+        </Button>
+
+        {/* World Boss */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-purple-50 hover:border-purple-300"
+          onClick={() => router.push('/game/explore/world-boss')}
+        >
+          <Crown className="h-8 w-8 text-purple-600" />
+          <span className="font-medium">Boss Thế Giới</span>
+        </Button>
+
         {/* Leaderboard Button */}
         <Button
           variant="outline"
@@ -219,73 +239,6 @@ export default function ExploreTab() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* World Boss Button */}
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-purple-50 hover:border-purple-300"
-            >
-              <Crown className="h-8 w-8 text-purple-600" />
-              <span className="font-medium">Boss Thế Giới</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center space-x-2">
-                <Crown className="h-5 w-5 text-purple-600" />
-                <span>Chế Độ World Boss</span>
-              </DialogTitle>
-              <DialogDescription>
-                Đây là trang World Boss - nơi bạn có thể tham gia đánh boss thế giới cùng với cộng đồng
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Dragon Lord</CardTitle>
-                  <CardDescription>Level 50 - Boss thế giới hiện tại</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>HP:</span>
-                      <span className="font-medium">2,500,000 / 3,000,000</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-red-600 h-2 rounded-full" style={{ width: '83%' }}></div>
-                    </div>
-                  </div>
-                  <Button className="w-full mt-4">
-                    <Zap className="h-4 w-4 mr-2" />
-                    Tấn Công Boss
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Người tham gia</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">1,247</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Thời gian còn lại</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">2h 15m</div>
-                  </CardContent>
-                </Card>
-              </div>
             </div>
           </DialogContent>
         </Dialog>
