@@ -19,7 +19,9 @@ export function useWorldBossSocket(events: Partial<WorldBossSocketEvents>) {
     if (!user) return;
 
     // Create socket connection
-    const socket = io('http://localhost:3005/world-boss', {
+    const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+    const base = rawBase.replace(/\/api\/?$/, '');
+    const socket = io(`${base}/world-boss`, {
       query: {
         userId: user.id.toString(),
       },

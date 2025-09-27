@@ -117,12 +117,23 @@ export default function CraftingInterface() {
     queryFn: async (): Promise<UserItem[]> => {
       try {
         const response = await api.get('/user-items');
-        return response.data || [];
+        const items = response.data || [];
+        
+        // Debug log
+        console.log('📦 User Items API Response:', {
+          total: items.length,
+          items: items.slice(0, 5), // Show first 5 items
+          slimeEssence: items.find((item: any) => item.itemId === 81)
+        });
+        
+        return items;
       } catch (error) {
         console.error('Failed to fetch user items:', error);
         return [];
       }
     },
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true, // Refetch when component mounts
   });
 
   // Fetch all items for material names
@@ -205,7 +216,19 @@ export default function CraftingInterface() {
 
   const getUserItemQuantity = (itemId: number): number => {
     const userItem = userItems?.find(ui => ui.itemId === itemId);
-    return userItem?.quantity || 0;
+    const quantity = userItem?.quantity || 0;
+    
+    // Debug log
+    if (itemId === 81) { // Tinh Chất Slime ID
+      console.log('🔍 Debug getUserItemQuantity:', {
+        itemId,
+        userItem,
+        quantity,
+        allUserItems: userItems?.map(ui => ({ itemId: ui.itemId, quantity: ui.quantity }))
+      });
+    }
+    
+    return quantity;
   };
 
   const canCraft = (recipe: CraftingRecipe, quantity: number = 1): boolean => {

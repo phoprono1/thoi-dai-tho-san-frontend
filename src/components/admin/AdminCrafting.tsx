@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -150,7 +150,7 @@ export default function AdminCrafting() {
 
   // Update recipe mutation
   const updateRecipeMutation = useMutation({
-    mutationFn: async ({ id, recipe }: { id: number; recipe: Partial<CreateRecipeForm> }) => {
+    mutationFn: async ({ id, recipe }: { id: number; recipe: CreateRecipeForm }) => {
       const response = await api.put(`/crafting/admin/recipes/${id}`, recipe);
       return response.data;
     },
@@ -193,6 +193,36 @@ export default function AdminCrafting() {
     });
   };
 
+  // Edit form state
+  const [editForm, setEditForm] = useState<CreateRecipeForm>({
+    name: '',
+    description: '',
+    resultItemId: 0,
+    resultQuantity: 1,
+    materials: [],
+    craftingLevel: 1,
+    goldCost: 0,
+    craftingTime: 60,
+    category: 0,
+  });
+
+  // Populate edit form when editingRecipe changes
+  useEffect(() => {
+    if (editingRecipe) {
+      setEditForm({
+        name: editingRecipe.name || '',
+        description: editingRecipe.description || '',
+        resultItemId: editingRecipe.resultItemId || 0,
+        resultQuantity: editingRecipe.resultQuantity || 1,
+        materials: editingRecipe.materials || [],
+        craftingLevel: editingRecipe.craftingLevel || 1,
+        goldCost: editingRecipe.goldCost || 0,
+        craftingTime: editingRecipe.craftingTime || 60,
+        category: editingRecipe.category || 0,
+      });
+    }
+  }, [editingRecipe]);
+
   const addMaterial = () => {
     setCreateForm(prev => ({
       ...prev,
@@ -209,6 +239,30 @@ export default function AdminCrafting() {
 
   const updateMaterial = (index: number, field: keyof CraftingMaterial, value: number) => {
     setCreateForm(prev => ({
+      ...prev,
+      materials: prev.materials.map((material, i) => 
+        i === index ? { ...material, [field]: value } : material
+      )
+    }));
+  };
+
+  // Edit form helpers
+  const addEditMaterial = () => {
+    setEditForm(prev => ({
+      ...prev,
+      materials: [...prev.materials, { itemId: 0, quantity: 1 }]
+    }));
+  };
+
+  const removeEditMaterial = (index: number) => {
+    setEditForm(prev => ({
+      ...prev,
+      materials: prev.materials.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateEditMaterial = (index: number, field: keyof CraftingMaterial, value: number) => {
+    setEditForm(prev => ({
       ...prev,
       materials: prev.materials.map((material, i) => 
         i === index ? { ...material, [field]: value } : material
@@ -596,6 +650,223 @@ export default function AdminCrafting() {
                 >
                   <Save className="h-4 w-4 mr-2" />
                   Tạo công thức
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Recipe Modal */}
+      {editingRecipe && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Edit className="h-5 w-5" />
+                Chỉnh sửa công thức: {editingRecipe.name}
+              </CardTitle>
+              <CardDescription>
+                Cập nhật thông tin công thức chế tạo
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-name">Tên công thức</Label>
+                  <Input
+                    id="edit-name"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Nhập tên công thức..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-category">Loại</Label>
+                  <Select
+                    value={editForm.category.toString()}
+                    onValueChange={(value) => setEditForm(prev => ({ ...prev, category: parseInt(value) }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn loại" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((category) => (
+                        <SelectItem key={category.value} value={category.value.toString()}>
+                          <div className="flex items-center gap-2">
+                            <category.icon className="h-4 w-4" />
+                            {category.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-description">Mô tả</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Nhập mô tả công thức..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Result Item */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Vật phẩm kết quả</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start">
+                        {editForm.resultItemId ? 
+                          items?.find(item => item.id === editForm.resultItemId)?.name || 'Chọn vật phẩm...' 
+                          : 'Chọn vật phẩm...'
+                        }
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0">
+                      <Command>
+                        <CommandInput placeholder="Tìm vật phẩm..." />
+                        <CommandEmpty>Không tìm thấy vật phẩm.</CommandEmpty>
+                        <CommandGroup className="max-h-64 overflow-y-auto">
+                          {items?.map((item) => (
+                            <CommandItem
+                              key={item.id}
+                              onSelect={() => setEditForm(prev => ({ ...prev, resultItemId: item.id }))}
+                            >
+                              {item.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="edit-resultQuantity">Số lượng kết quả</Label>
+                  <Input
+                    id="edit-resultQuantity"
+                    type="number"
+                    min="1"
+                    value={editForm.resultQuantity}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, resultQuantity: parseInt(e.target.value) || 1 }))}
+                  />
+                </div>
+              </div>
+
+              {/* Materials */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <Label>Nguyên liệu cần thiết</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addEditMaterial}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Thêm nguyên liệu
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {editForm.materials.map((material, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start">
+                              {material.itemId ? 
+                                items?.find(item => item.id === material.itemId)?.name || 'Chọn vật phẩm...' 
+                                : 'Chọn vật phẩm...'
+                              }
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-0">
+                            <Command>
+                              <CommandInput placeholder="Tìm vật phẩm..." />
+                              <CommandEmpty>Không tìm thấy vật phẩm.</CommandEmpty>
+                              <CommandGroup className="max-h-64 overflow-y-auto">
+                                {items?.map((item) => (
+                                  <CommandItem
+                                    key={item.id}
+                                    onSelect={() => updateEditMaterial(index, 'itemId', item.id)}
+                                  >
+                                    {item.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="w-24">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={material.quantity}
+                          onChange={(e) => updateEditMaterial(index, 'quantity', parseInt(e.target.value) || 1)}
+                          placeholder="Số lượng"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeEditMaterial(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Additional Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="edit-craftingLevel">Level yêu cầu</Label>
+                  <Input
+                    id="edit-craftingLevel"
+                    type="number"
+                    min="1"
+                    value={editForm.craftingLevel}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, craftingLevel: parseInt(e.target.value) || 1 }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-goldCost">Chi phí vàng</Label>
+                  <Input
+                    id="edit-goldCost"
+                    type="number"
+                    min="0"
+                    value={editForm.goldCost}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, goldCost: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-craftingTime">Thời gian (giây)</Label>
+                  <Input
+                    id="edit-craftingTime"
+                    type="number"
+                    min="1"
+                    value={editForm.craftingTime}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, craftingTime: parseInt(e.target.value) || 60 }))}
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setEditingRecipe(null)}>
+                  <X className="h-4 w-4 mr-2" />
+                  Hủy
+                </Button>
+                <Button 
+                  onClick={() => updateRecipeMutation.mutate({ id: editingRecipe.id, recipe: editForm })}
+                  disabled={updateRecipeMutation.isPending || !editForm.name || !editForm.resultItemId}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Cập nhật công thức
                 </Button>
               </div>
             </CardContent>
