@@ -170,6 +170,8 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     clearLatestCombatNotification,
     // expose raw store controls for debug
     socket,
+    isConnected: socketIsConnected,
+    isJoined: socketIsJoined,
     // allow clearing prepare info locally
     joinRoom: socketJoinRoom,
     toggleReady: socketToggleReady,
@@ -185,6 +187,18 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     userId: user?.id,
     enabled: !!user?.id && !!id && !!room
   });
+
+  // Debug WebSocket connection status
+  useEffect(() => {
+    console.log('🔌 Room WebSocket Status:', {
+      isConnected: socketIsConnected,
+      isJoined: socketIsJoined,
+      roomId: id,
+      userId: user?.id,
+      hasSocket: !!socket,
+      socketId: socket?.id
+    });
+  }, [socketIsConnected, socketIsJoined, id, user?.id, socket]);
 
   // Local debug UI state
 
@@ -328,7 +342,11 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
 
   useEffect(() => {
     if (socketCombatResult) {
-      console.debug('[RoomPage] socketCombatResult effect running, payload=', socketCombatResult);
+      console.log('🔥 WebSocket Combat Result Received:', {
+        hasResult: !!socketCombatResult,
+        result: socketCombatResult,
+        roomId: id
+      });
       setCombatResult(socketCombatResult as CombatResult);
       setShowCombatModal(true);
       // Lock Start while combat UI is showing so host cannot re-start
@@ -453,16 +471,25 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
       return response.data;
     },
     onSuccess: (data) => {
+      // Debug log for start combat response
+      console.log('🎮 Start Combat API Response:', {
+        hasCombatResult: !!data.combatResult,
+        data: data,
+        combatResult: data.combatResult
+      });
+      
       queryClient.invalidateQueries({ queryKey: ['room', id] });
       if (data.combatResult) {
         setCombatResult(data.combatResult as CombatResult);
         setShowCombatModal(true);
         toast.success('Trận chiến đã bắt đầu!');
       } else {
+        console.warn('⚠️ No combatResult in API response, waiting for WebSocket...');
         toast.success('Trận chiến đã bắt đầu!');
       }
     },
     onError: (error: Error) => {
+      console.error('❌ Start Combat Error:', error);
       toast.error(error.message || 'Không thể bắt đầu trận chiến');
     },
   });
@@ -767,9 +794,17 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                         }
                         if (user?.id && socketStartCombat) {
                           try {
+                            console.log('🚀 Starting combat via WebSocket...', {
+                              roomId: Number(id),
+                              userId: user.id,
+                              isConnected: socketIsConnected,
+                              isJoined: socketIsJoined
+                            });
                             await socketStartCombat(Number(id), user.id);
+                            console.log('✅ WebSocket combat start successful');
                           } catch (error) {
-                            console.error('Failed to start combat via socket:', error);
+                            console.error('❌ Failed to start combat via socket:', error);
+                            console.log('🔄 Falling back to REST API...');
                             startMutation.mutate();
                           }
                         }
@@ -782,9 +817,17 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                       }
                       if (user?.id && socketStartCombat) {
                         try {
+                          console.log('🚀 Starting combat via WebSocket (fallback path)...', {
+                            roomId: Number(id),
+                            userId: user.id,
+                            isConnected: socketIsConnected,
+                            isJoined: socketIsJoined
+                          });
                           await socketStartCombat(Number(id), user.id);
+                          console.log('✅ WebSocket combat start successful (fallback)');
                         } catch (error) {
-                          console.error('Failed to start combat via socket:', error);
+                          console.error('❌ Failed to start combat via socket (fallback):', error);
+                          console.log('🔄 Falling back to REST API (final fallback)...');
                           startMutation.mutate();
                         }
                       }
