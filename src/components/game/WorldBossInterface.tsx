@@ -85,6 +85,13 @@ export function WorldBossInterface() {
   const { emitAttackBoss, emitGetBossStatus } = useWorldBossSocket({
     bossUpdate: (data) => {
       if (data) {
+        console.log('🔥 World Boss Update Received:', {
+          totalDamageReceived: data.damagePhases?.totalDamageReceived,
+          currentPhase: data.damagePhases?.currentPhase,
+          currentHp: data.currentHp,
+          maxHp: data.maxHp
+        });
+        
         const fullBoss: WorldBoss = {
           ...data,
           currentPhase: Number(data.damagePhases?.currentPhase) || 1,
@@ -450,15 +457,15 @@ export function WorldBossInterface() {
         </CardHeader>
         
         <CardContent className="space-y-4">
-          {/* HP Bar */}
+          {/* HP Bar - Based on Damage Progress */}
           <div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium">HP</span>
               <span className="text-sm text-gray-600">
-                {currentBoss.currentHp.toLocaleString()} / {currentBoss.maxHp.toLocaleString()}
+                {Math.max(0, currentBoss.maxHp - currentBoss.damagePhases.totalDamageReceived).toLocaleString()} / {currentBoss.maxHp.toLocaleString()}
               </span>
             </div>
-            <Progress value={calculateHpPercentage()} className="h-3" />
+            <Progress value={Math.max(0, 100 - calculateDamageProgress())} className="h-3" />
           </div>
 
           {/* Damage Progress Bar */}
@@ -466,7 +473,7 @@ export function WorldBossInterface() {
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium">Tiến độ sát thương</span>
               <span className="text-sm text-gray-600">
-                Phase {currentBoss.currentPhase}/3
+                {currentBoss.damagePhases.totalDamageReceived.toLocaleString()} / {currentBoss.damagePhases.phase3Threshold.toLocaleString()}
               </span>
             </div>
             <Progress value={calculateDamageProgress()} className="h-3" />
@@ -474,6 +481,9 @@ export function WorldBossInterface() {
               <span>Phase 1: {currentBoss.damagePhases.phase1Threshold.toLocaleString()}</span>
               <span>Phase 2: {currentBoss.damagePhases.phase2Threshold.toLocaleString()}</span>
               <span>Phase 3: {currentBoss.damagePhases.phase3Threshold.toLocaleString()}</span>
+            </div>
+            <div className="text-xs text-center mt-1 text-blue-600">
+              Phase {currentBoss.currentPhase}/3
             </div>
           </div>
 

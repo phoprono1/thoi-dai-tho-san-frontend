@@ -108,6 +108,10 @@ export function AdminWorldBoss() {
   const [selectedSchedule, setSelectedSchedule] = useState<number | null>(null);
   const [editingRewards, setEditingRewards] = useState(false);
   const [customRewards, setCustomRewards] = useState<any>(null);
+  const [deletingScheduleId, setDeletingScheduleId] = useState<number | null>(null);
+  const [editingBoss, setEditingBoss] = useState<any>(null);
+  const [editingSchedule, setEditingSchedule] = useState<any>(null);
+  const [deletingBossId, setDeletingBossId] = useState<number | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -249,6 +253,101 @@ export function AdminWorldBoss() {
       setSelectedSchedule(null);
     } catch {
       toast.error('Lỗi khi tạo boss từ template!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId: number) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa lịch này không?')) {
+      return;
+    }
+
+    setDeletingScheduleId(scheduleId);
+    try {
+      await api.delete(`/world-boss/schedule/${scheduleId}`);
+      toast.success('Xóa lịch boss thành công!');
+      fetchSchedules();
+    } catch (error) {
+      console.error('Delete schedule error:', error);
+      toast.error('Lỗi khi xóa lịch boss!');
+    } finally {
+      setDeletingScheduleId(null);
+    }
+  };
+
+  const handleEditBoss = (boss: any) => {
+    setEditingBoss({
+      id: boss.id,
+      name: boss.name,
+      description: boss.description,
+      level: boss.level,
+      maxHp: boss.maxHp,
+      durationMinutes: boss.durationMinutes,
+      stats: boss.stats,
+      image: boss.image
+    });
+  };
+
+  const handleUpdateBoss = async () => {
+    if (!editingBoss) return;
+
+    setLoading(true);
+    try {
+      await api.put(`/world-boss/${editingBoss.id}`, editingBoss);
+      toast.success('Cập nhật boss thành công!');
+      fetchCurrentBoss();
+      setEditingBoss(null);
+    } catch (error) {
+      console.error('Update boss error:', error);
+      toast.error('Lỗi khi cập nhật boss!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteBoss = async (bossId: number) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa boss này không? Hành động này không thể hoàn tác!')) {
+      return;
+    }
+
+    setDeletingBossId(bossId);
+    try {
+      await api.delete(`/world-boss/${bossId}`);
+      toast.success('Xóa boss thành công!');
+      fetchCurrentBoss();
+    } catch (error) {
+      console.error('Delete boss error:', error);
+      toast.error('Lỗi khi xóa boss!');
+    } finally {
+      setDeletingBossId(null);
+    }
+  };
+
+  const handleEditSchedule = (schedule: any) => {
+    setEditingSchedule({
+      id: schedule.id,
+      name: schedule.name,
+      description: schedule.description,
+      dayOfWeek: schedule.dayOfWeek,
+      startTime: schedule.startTime,
+      durationMinutes: schedule.durationMinutes,
+      isActive: schedule.isActive
+    });
+  };
+
+  const handleUpdateSchedule = async () => {
+    if (!editingSchedule) return;
+
+    setLoading(true);
+    try {
+      await api.put(`/world-boss/schedule/${editingSchedule.id}`, editingSchedule);
+      toast.success('Cập nhật lịch thành công!');
+      fetchSchedules();
+      setEditingSchedule(null);
+    } catch (error) {
+      console.error('Update schedule error:', error);
+      toast.error('Lỗi khi cập nhật lịch!');
     } finally {
       setLoading(false);
     }
@@ -481,6 +580,27 @@ export function AdminWorldBoss() {
                           >
                             Xử lý Boss hết hạn
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditBoss(currentBoss)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Sửa Boss
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteBoss(currentBoss.id)}
+                            disabled={deletingBossId === currentBoss.id}
+                          >
+                            {deletingBossId === currentBoss.id ? (
+                              <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 mr-1" />
+                            )}
+                            {deletingBossId === currentBoss.id ? 'Đang xóa...' : 'Xóa Boss'}
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -565,11 +685,27 @@ export function AdminWorldBoss() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          title="Chỉnh sửa lịch"
+                          onClick={() => handleEditSchedule(schedule)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleDeleteSchedule(schedule.id)}
+                          disabled={deletingScheduleId === schedule.id}
+                          title="Xóa lịch"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          {deletingScheduleId === schedule.id ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -1209,6 +1345,163 @@ export function AdminWorldBoss() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Boss Modal */}
+      {editingBoss && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Chỉnh sửa Boss</h3>
+              <Button variant="ghost" size="sm" onClick={() => setEditingBoss(null)}>
+                ✕
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Tên Boss</Label>
+                  <Input
+                    value={editingBoss.name}
+                    onChange={(e) => setEditingBoss({...editingBoss, name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Level</Label>
+                  <Input
+                    type="number"
+                    value={editingBoss.level}
+                    onChange={(e) => setEditingBoss({...editingBoss, level: parseInt(e.target.value)})}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>Mô tả</Label>
+                <Textarea
+                  value={editingBoss.description}
+                  onChange={(e) => setEditingBoss({...editingBoss, description: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Max HP</Label>
+                  <Input
+                    type="number"
+                    value={editingBoss.maxHp}
+                    onChange={(e) => setEditingBoss({...editingBoss, maxHp: parseInt(e.target.value)})}
+                  />
+                </div>
+                <div>
+                  <Label>Thời gian (phút)</Label>
+                  <Input
+                    type="number"
+                    value={editingBoss.durationMinutes}
+                    onChange={(e) => setEditingBoss({...editingBoss, durationMinutes: parseInt(e.target.value)})}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingBoss(null)}>
+                  Hủy
+                </Button>
+                <Button onClick={handleUpdateBoss} disabled={loading}>
+                  {loading ? 'Đang cập nhật...' : 'Cập nhật'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Schedule Modal */}
+      {editingSchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Chỉnh sửa Lịch Boss</h3>
+              <Button variant="ghost" size="sm" onClick={() => setEditingSchedule(null)}>
+                ✕
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Tên lịch</Label>
+                  <Input
+                    value={editingSchedule.name}
+                    onChange={(e) => setEditingSchedule({...editingSchedule, name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Thứ trong tuần</Label>
+                  <Select
+                    value={editingSchedule.dayOfWeek}
+                    onValueChange={(value) => setEditingSchedule({...editingSchedule, dayOfWeek: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAYS_OF_WEEK.map((day) => (
+                        <SelectItem key={day.value} value={day.value}>
+                          {day.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div>
+                <Label>Mô tả</Label>
+                <Textarea
+                  value={editingSchedule.description}
+                  onChange={(e) => setEditingSchedule({...editingSchedule, description: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Thời gian bắt đầu</Label>
+                  <Input
+                    type="time"
+                    value={editingSchedule.startTime}
+                    onChange={(e) => setEditingSchedule({...editingSchedule, startTime: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Thời gian (phút)</Label>
+                  <Input
+                    type="number"
+                    value={editingSchedule.durationMinutes}
+                    onChange={(e) => setEditingSchedule({...editingSchedule, durationMinutes: parseInt(e.target.value)})}
+                  />
+                </div>
+                <div className="flex items-center space-x-2 pt-6">
+                  <Switch
+                    checked={editingSchedule.isActive}
+                    onCheckedChange={(checked) => setEditingSchedule({...editingSchedule, isActive: checked})}
+                  />
+                  <Label>Hoạt động</Label>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingSchedule(null)}>
+                  Hủy
+                </Button>
+                <Button onClick={handleUpdateSchedule} disabled={loading}>
+                  {loading ? 'Đang cập nhật...' : 'Cập nhật'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
