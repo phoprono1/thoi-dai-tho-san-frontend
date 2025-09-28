@@ -1,68 +1,15 @@
 "use client";
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf, Hammer } from 'lucide-react';
-// queries/mutations moved to specific pages
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 
-interface PvPMatch {
-  id: number;
-  opponent: string;
-  opponentLevel: number;
-  betAmount: number;
-  status: 'waiting' | 'ready' | 'in_progress';
-}
-
 export default function ExploreTab() {
-  // user context can be used within specific pages if needed
   const router = useRouter();
-  // Explore tab is now lightweight; dungeon flows moved to /dungeons
   const { user, isLoading } = useAuth();
-
-  // No room/dungeon queries here anymore; moved to /dungeons route
-
-  // Mock data cho PvP matches (tạm thời giữ lại)
-  const pvpMatches: PvPMatch[] = [
-    {
-      id: 1,
-      opponent: 'Player123',
-      opponentLevel: 8,
-      betAmount: 100,
-      status: 'waiting'
-    },
-    {
-      id: 2,
-      opponent: 'WarriorX',
-      opponentLevel: 12,
-      betAmount: 200,
-      status: 'ready'
-    }
-  ];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'waiting': return 'text-yellow-600 bg-yellow-100';
-      case 'ready': return 'text-green-600 bg-green-100';
-      case 'in_progress': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  // dungeon create/join logic moved to dedicated page
-
-  const handleJoinPvP = () => {
-    // TODO: Implement join PvP match logic
-  };
-
-  const handleCreatePvP = () => {
-    // TODO: Implement create PvP match logic
-  };
-
-  // Explore tab no longer manages host rooms directly
 
   return (
     <div className="p-4">
@@ -73,13 +20,13 @@ export default function ExploreTab() {
 
       {/* Game Mode Buttons */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {/* Hầm ngục (Dungeon) — navigate to /dungeons */}
+        {/* Hầm ngục (Dungeon) */}
         <Button
           variant="outline"
           className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-300"
           onClick={() => router.push('/game/explore/dungeons')}
         >
-          <MapPin className="h-8 w-8 text-blue-600" />
+          <Shield className="h-8 w-8 text-blue-600" />
           <span className="font-medium">Hầm ngục</span>
         </Button>
 
@@ -109,21 +56,21 @@ export default function ExploreTab() {
           className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-indigo-50 hover:border-indigo-300"
           onClick={() => router.push('/game/explore/markets')}
         >
-          <ShoppingCart className="h-8 w-8 text-indigo-600" />
-          <span className="font-medium">Cửa hàng</span>
+          <ShoppingCart className="h-8 w-8 text-orange-600" />
+          <span className="font-medium">Cửa Hàng</span>
         </Button>
 
-        {/* Chế tạo (Crafting) */}
+        {/* Crafting Button */}
         <Button
           variant="outline"
-          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-orange-50 hover:border-orange-300"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-amber-50 hover:border-amber-300"
           onClick={() => router.push('/game/explore/crafting')}
         >
-          <Hammer className="h-8 w-8 text-orange-600" />
+          <Hammer className="h-8 w-8 text-amber-600" />
           <span className="font-medium">Chế tạo</span>
         </Button>
 
-        {/* World Boss */}
+        {/* World Boss Button */}
         <Button
           variant="outline"
           className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-purple-50 hover:border-purple-300"
@@ -143,105 +90,15 @@ export default function ExploreTab() {
           <span className="font-medium">Bảng xếp hạng</span>
         </Button>
 
-        {/* Đấu Xếp Hạng (PvP) Button */}
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-red-50 hover:border-red-300"
-            >
-              <Target className="h-8 w-8 text-red-600" />
-              <span className="font-medium">Đấu Xếp Hạng</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center space-x-2">
-                <Target className="h-5 w-5 text-red-600" />
-                <span>Đấu Xếp Hạng</span>
-              </DialogTitle>
-              <DialogDescription>
-                Đây là trang Đấu Xếp Hạng - nơi bạn có thể đấu với các người chơi khác
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {/* Create PvP Match Button */}
-              <Button onClick={handleCreatePvP} className="w-full mb-4">
-                <Target className="h-4 w-4 mr-2" />
-                Tạo Trận PvP
-              </Button>
-
-              {/* PvP Matches */}
-              <div className="space-y-3">
-                {pvpMatches.map((match) => (
-                  <Card key={match.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-600 rounded-full flex items-center justify-center">
-                            <Sword className="h-5 w-5 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium">{match.opponent}</h3>
-                            <p className="text-sm text-gray-600">Level {match.opponentLevel}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="flex items-center space-x-1 text-sm mb-1">
-                            <Crown className="h-4 w-4 text-yellow-600" />
-                            <span>{match.betAmount} Gold</span>
-                          </div>
-                          <Badge className={`text-xs ${getStatusColor(match.status)}`}>
-                            {match.status === 'waiting' ? 'Đang chờ' :
-                             match.status === 'ready' ? 'Sẵn sàng' : 'Đang đấu'}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div className="mt-4">
-                        <Button
-                          onClick={handleJoinPvP}
-                          className="w-full"
-                          disabled={match.status === 'in_progress'}
-                        >
-                          {match.status === 'waiting' ? 'Tham gia' :
-                           match.status === 'ready' ? 'Bắt đầu' : 'Đang đấu'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* PvP Stats */}
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Trophy className="h-5 w-5" />
-                    <span>Thống kê PvP</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-green-600">15</div>
-                      <div className="text-sm text-gray-600">Thắng</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-red-600">8</div>
-                      <div className="text-sm text-gray-600">Thua</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-blue-600">65%</div>
-                      <div className="text-sm text-gray-600">Tỷ lệ thắng</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Đấu Xếp Hạng (PvP) */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-red-50 hover:border-red-300"
+          onClick={() => router.push('/game/explore/pvp')}
+        >
+          <Target className="h-8 w-8 text-red-600" />
+          <span className="font-medium">Đấu Xếp Hạng</span>
+        </Button>
 
         {/* Guild War Button */}
         <Dialog>
@@ -268,23 +125,13 @@ export default function ExploreTab() {
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Chiến Tranh Công Hội</CardTitle>
-                  <CardDescription>Đang diễn ra: Dragon Warriors vs Shadow Knights</CardDescription>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Shield className="h-5 w-5" />
+                    <span>Thông tin Guild War</span>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-blue-600">Dragon Warriors</div>
-                        <div className="text-2xl font-bold">1,250</div>
-                        <div className="text-sm text-gray-600">Điểm chiến thắng</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-red-600">Shadow Knights</div>
-                        <div className="text-2xl font-bold">980</div>
-                        <div className="text-sm text-gray-600">Điểm chiến thắng</div>
-                      </div>
-                    </div>
+                  <div className="text-center mb-4">
                     <Button className="w-full">
                       <Shield className="h-4 w-4 mr-2" />
                       Tham Gia Guild War
@@ -322,6 +169,16 @@ export default function ExploreTab() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Placeholder for more activities */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 hover:border-gray-300"
+          disabled
+        >
+          <Zap className="h-8 w-8 text-gray-400" />
+          <span className="font-medium text-gray-400">Sắp có</span>
+        </Button>
       </div>
     </div>
   );

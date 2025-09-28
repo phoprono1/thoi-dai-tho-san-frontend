@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import { Building, Shield, Sword, Zap, Heart, Star, Settings } from 'lucide-react';
+import { Building, Shield, Sword, Zap, Heart, Star, Settings, RotateCcw, AlertTriangle } from 'lucide-react';
 import { DataTable } from '@/components/admin/DataTable';
 import { toast } from 'sonner';
 
@@ -46,6 +47,9 @@ interface GlobalGuildBuff {
 export default function AdminGuilds() {
   const [selectedGuild, setSelectedGuild] = useState<Guild | null>(null);
   const [editingBuffs, setEditingBuffs] = useState<{ [key: number]: GlobalGuildBuff }>({});
+  const [resetGuildId, setResetGuildId] = useState<number | null>(null);
+  const [resetLevel, setResetLevel] = useState<number>(1);
+  const [resetExperience, setResetExperience] = useState<number>(0);
   const queryClient = useQueryClient();
 
   // Fetch all guilds
@@ -53,7 +57,7 @@ export default function AdminGuilds() {
     queryKey: ['adminGuilds'],
     queryFn: async (): Promise<Guild[]> => {
       try {
-        const response = await api.get('/guild');
+        const response = await api.get('/guild/admin/all');
         return response.data || [];
       } catch (error) {
         console.error('Failed to fetch guilds:', error);
@@ -84,10 +88,28 @@ export default function AdminGuilds() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['globalGuildBuffs'] });
-      toast.success('Cập nhật buff toàn cục thành công!');
+      toast.success('Guild buff đã được cập nhật!');
     },
-    onError: () => {
-      toast.error('Lỗi khi cập nhật buff!');
+    onError: (error: any) => {
+      toast.error(`Lỗi khi cập nhật guild buff: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
+  // Reset guild level mutation
+  const resetGuildLevelMutation = useMutation({
+    mutationFn: async ({ guildId, level, experience }: { guildId: number; level: number; experience: number }) => {
+      const response = await api.put(`/guild/admin/${guildId}/level`, { level, experience });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminGuilds'] });
+      toast.success('Guild level đã được reset!');
+      setResetGuildId(null);
+      setResetLevel(1);
+      setResetExperience(0);
+    },
+    onError: (error: any) => {
+      toast.error(`Lỗi khi reset guild level: ${error.response?.data?.message || error.message}`);
     },
   });
 
@@ -148,6 +170,28 @@ export default function AdminGuilds() {
       label: 'Ngày tạo',
       render: (value: unknown) => new Date(value as string).toLocaleDateString('vi-VN'),
       sortable: true,
+    },
+    {
+      key: 'actions' as keyof Guild,
+      label: 'Actions',
+      render: (value: unknown, item: Guild) => (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setResetGuildId(item.id);
+              setResetLevel(item.level);
+              setResetExperience(item.experience);
+            }}
+            className="flex items-center gap-1"
+          >
+            <RotateCcw className="h-3 w-3" />
+            Reset Level
+          </Button>
+        </div>
+      ),
+      sortable: false,
     },
   ];
 
@@ -276,8 +320,8 @@ export default function AdminGuilds() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((level) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((level) => {
                   const buff = globalGuildBuffs?.find((b: GlobalGuildBuff) => b.guildLevel === level);
                   const isEditing = editingBuffs[buff?.id || 0];
                   
@@ -373,6 +417,69 @@ export default function AdminGuilds() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Reset Guild Level Dialog */}
+      <Dialog open={resetGuildId !== null} onOpenChange={() => setResetGuildId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Reset Guild Level
+            </DialogTitle>
+            <DialogDescription>
+              Thay đổi level và experience của guild. Thao tác này sẽ ảnh hưởng đến guild buffs của tất cả thành viên.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="reset-level">Guild Level (1-20)</Label>
+              <Input
+                id="reset-level"
+                type="number"
+                min="1"
+                max="20"
+                value={resetLevel}
+                onChange={(e) => setResetLevel(parseInt(e.target.value) || 1)}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="reset-experience">Experience</Label>
+              <Input
+                id="reset-experience"
+                type="number"
+                min="0"
+                value={resetExperience}
+                onChange={(e) => setResetExperience(parseInt(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResetGuildId(null)}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={() => {
+                if (resetGuildId) {
+                  resetGuildLevelMutation.mutate({
+                    guildId: resetGuildId,
+                    level: resetLevel,
+                    experience: resetExperience,
+                  });
+                }
+              }}
+              disabled={resetGuildLevelMutation.isPending}
+            >
+              {resetGuildLevelMutation.isPending ? 'Đang reset...' : 'Reset Guild Level'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
