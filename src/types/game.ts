@@ -141,19 +141,147 @@ export enum GuildRole {
 }
 
 export enum ItemType {
-  WEAPON = 'weapon',
-  ARMOR = 'armor',
-  ACCESSORY = 'accessory',
+  // Equipment slots (6 total)
+  WEAPON = 'weapon',        // Vũ khí chính
+  HELMET = 'helmet',        // Mũ/Nón bảo hộ
+  ARMOR = 'armor',          // Áo giáp
+  GLOVES = 'gloves',        // Găng tay
+  BOOTS = 'boots',          // Giày/Ủng
+  ACCESSORY = 'accessory',  // Phụ kiện (nhẫn, dây chuyền)
+  
+  // Non-equipment items
   CONSUMABLE = 'consumable',
   MATERIAL = 'material',
   QUEST = 'quest',
 }
+
+// Equipment slot mapping for UI
+export const EQUIPMENT_SLOTS = {
+  WEAPON: { name: 'Vũ khí', icon: '⚔️', order: 1 },
+  HELMET: { name: 'Mũ', icon: '🛡️', order: 2 },
+  ARMOR: { name: 'Áo giáp', icon: '🥼', order: 3 },
+  GLOVES: { name: 'Găng tay', icon: '🧤', order: 4 },
+  BOOTS: { name: 'Giày', icon: '👢', order: 5 },
+  ACCESSORY: { name: 'Phụ kiện', icon: '💍', order: 6 },
+} as const;
 
 export enum ConsumableType {
   HP_POTION = 'hp_potion',
   MP_POTION = 'mp_potion',
   EXP_POTION = 'exp_potion',
   STAT_BOOST = 'stat_boost',
+}
+
+export enum TitleRarity {
+  COMMON = 'common',
+  UNCOMMON = 'uncommon', 
+  RARE = 'rare',
+  EPIC = 'epic',
+  LEGENDARY = 'legendary',
+}
+
+export enum TitleSource {
+  ACHIEVEMENT = 'achievement',
+  PVP_RANK = 'pvp_rank',
+  GUILD_RANK = 'guild_rank',
+  EVENT = 'event',
+  ADMIN = 'admin',
+}
+
+// PvP Hunter Ranks (from backend)
+export enum HunterRank {
+  APPRENTICE = 'APPRENTICE',        // Thợ Săn Tập Sự (0-999)
+  AMATEUR = 'AMATEUR',              // Thợ Săn Nghiệp Dư (1000-1499)  
+  PROFESSIONAL = 'PROFESSIONAL',    // Thợ Săn Chuyên Nghiệp (1500-1999)
+  ELITE = 'ELITE',                  // Thợ Săn Tinh Anh (2000-2499)
+  EPIC = 'EPIC',                    // Thợ Săn Sử Thi (2500-2999)
+  LEGENDARY = 'LEGENDARY',          // Thợ Săn Truyền Thuyết (3000-3499)
+  MYTHICAL = 'MYTHICAL',            // Thợ Săn Huyền Thoại (3500-3999)
+  DIVINE = 'DIVINE',                // Thợ Săn Thần Thoại (4000+)
+}
+
+export const RANK_NAMES = {
+  [HunterRank.APPRENTICE]: 'Thợ Săn Tập Sự',
+  [HunterRank.AMATEUR]: 'Thợ Săn Nghiệp Dư',
+  [HunterRank.PROFESSIONAL]: 'Thợ Săn Chuyên Nghiệp',
+  [HunterRank.ELITE]: 'Thợ Săn Tinh Anh',
+  [HunterRank.EPIC]: 'Thợ Săn Sử Thi',
+  [HunterRank.LEGENDARY]: 'Thợ Săn Truyền Thuyết',
+  [HunterRank.MYTHICAL]: 'Thợ Săn Huyền Thoại',
+  [HunterRank.DIVINE]: 'Thợ Săn Thần Thoại',
+};
+
+// Animation effects for titles
+export enum TitleAnimation {
+  NONE = 'none',
+  PULSE = 'pulse',
+  GLOW = 'glow',
+  FADE = 'fade',
+  BOUNCE = 'bounce',
+  SHAKE = 'shake',
+  RAINBOW = 'rainbow',
+}
+
+export interface Title {
+  id: number;
+  name: string;
+  description: string;
+  rarity: TitleRarity;
+  source: TitleSource;
+  stats?: {
+    strength?: number;
+    intelligence?: number;
+    dexterity?: number;
+    vitality?: number;
+    luck?: number;
+  };
+  displayEffects?: {
+    color?: string;
+    backgroundColor?: string;
+    borderColor?: string;
+    glow?: boolean;
+    animation?: string;
+    prefix?: string;
+    suffix?: string;
+  };
+  requirements?: {
+    level?: number;
+    pvpRank?: string;
+    guildLevel?: number;
+    achievementIds?: number[];
+    totalKills?: number;
+    dungeonClears?: number;
+    specificDungeonClears?: {
+      dungeonId: number;
+      count: number;
+    }[];
+    itemsRequired?: {
+      itemId: number;
+      quantity: number;
+    }[];
+    pvpWins?: number;
+    pvpPoints?: number;
+    guildContribution?: number;
+    goldSpent?: number;
+    experienceGained?: number;
+    description?: string;
+  };
+  isActive: boolean;
+  isHidden: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserTitle {
+  id: number;
+  userId: number;
+  titleId: number;
+  title: Title;
+  isEquipped: boolean;
+  unlockedAt: Date;
+  unlockSource: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Item {
@@ -170,6 +298,7 @@ export interface Item {
   setId?: number; // Reference to ItemSet
   itemSet?: ItemSet; // Populated when querying with relations
   classRestrictions?: ClassRestrictions; // Class restrictions for this item
+  image?: string; // Image path for the item
 }
 
 export interface ClassRestrictions {

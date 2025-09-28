@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Sword, Shield, Crown, Edit, Trash2, Plus, Package } from 'lucide-react';
 import { UploadCloud, DownloadCloud } from 'lucide-react';
 import { Item, ItemType, ConsumableType, ItemSet, ClassRestrictions, SetBonus, ClassType, ClassTier } from '@/types/game';
+import { resolveAssetUrl } from '@/lib/asset';
 
 export default function AdminItems() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -634,12 +635,15 @@ export default function AdminItems() {
                       <SelectValue placeholder="Chọn loại item" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={ItemType.WEAPON}>Weapon</SelectItem>
-                      <SelectItem value={ItemType.ARMOR}>Armor</SelectItem>
-                      <SelectItem value={ItemType.ACCESSORY}>Accessory</SelectItem>
-                      <SelectItem value={ItemType.CONSUMABLE}>Consumable</SelectItem>
-                      <SelectItem value={ItemType.MATERIAL}>Material</SelectItem>
-                      <SelectItem value={ItemType.QUEST}>Quest</SelectItem>
+                      <SelectItem value={ItemType.WEAPON}>⚔️ Weapon (Vũ khí)</SelectItem>
+                      <SelectItem value={ItemType.HELMET}>🛡️ Helmet (Mũ)</SelectItem>
+                      <SelectItem value={ItemType.ARMOR}>🥼 Armor (Áo giáp)</SelectItem>
+                      <SelectItem value={ItemType.GLOVES}>🧤 Gloves (Găng tay)</SelectItem>
+                      <SelectItem value={ItemType.BOOTS}>👢 Boots (Giày)</SelectItem>
+                      <SelectItem value={ItemType.ACCESSORY}>💍 Accessory (Phụ kiện)</SelectItem>
+                      <SelectItem value={ItemType.CONSUMABLE}>🧪 Consumable</SelectItem>
+                      <SelectItem value={ItemType.MATERIAL}>📦 Material</SelectItem>
+                      <SelectItem value={ItemType.QUEST}>📜 Quest</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1011,15 +1015,28 @@ export default function AdminItems() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4 max-h-[720px] overflow-y-auto">
                 {items?.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between p-4 border rounded-lg bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 border-gray-200 dark:border-slate-700"
                   >
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white font-semibold">
-                        {item.type.charAt(0).toUpperCase()}
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                        {item.image ? (
+                          <Image
+                            src={resolveAssetUrl(item.image) || ''}
+                            alt={item.name}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                            {item.type.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h3 className="font-semibold dark:text-gray-100">{item.name}</h3>

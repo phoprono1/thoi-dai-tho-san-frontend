@@ -70,6 +70,7 @@ const navigation = [
   { name: 'Combat Results', href: '/admin/combat', icon: Crosshair },
   { name: 'Quests', href: '/admin/quests', icon: Target },
   { name: 'Guilds', href: '/admin/guilds', icon: Building },
+  { name: 'Titles', href: '/admin/titles', icon: Crown },
   { name: 'PVP', href: '/admin/pvp', icon: Trophy },
   { name: 'World Boss', href: '/admin/world-boss', icon: Zap },
   { name: 'Chat', href: '/admin/chat', icon: MessageSquare },
@@ -130,7 +131,7 @@ export default function AdminLayout({
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <nav className="mt-4">
+              <nav className="mt-4 overflow-y-auto max-h-[calc(100vh-120px)]">
                 {navigation.map((item) => {
                   const isActive = pathname === item.href;
                   return (
@@ -160,7 +161,7 @@ export default function AdminLayout({
                 <Gamepad2 className="w-8 h-8 text-blue-600 mr-3" />
                 <span className="text-xl font-bold text-gray-900 dark:text-gray-100">Thời Đại Thợ Săn</span>
               </div>
-              <nav className="flex-1 mt-6">
+              <nav className="flex-1 mt-6 overflow-y-auto">
                 {navigation.map((item) => {
                   const isActive = pathname === item.href;
                   return (

@@ -1,10 +1,57 @@
 "use client";
 
 import React from 'react';
+
+// Add CSS animations for title effects
+const titleAnimationStyles = `
+  @keyframes rainbow {
+    0% { color: #ff0000; }
+    16.66% { color: #ff8000; }
+    33.33% { color: #ffff00; }
+    50% { color: #00ff00; }
+    66.66% { color: #0080ff; }
+    83.33% { color: #8000ff; }
+    100% { color: #ff0000; }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  @keyframes glow {
+    0%, 100% { text-shadow: 0 0 5px currentColor; }
+    50% { text-shadow: 0 0 20px currentColor, 0 0 30px currentColor; }
+  }
+  
+  @keyframes fade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+  }
+`;
+
+// Inject styles into document head
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = titleAnimationStyles;
+  document.head.appendChild(styleElement);
+}
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 // Progress removed for compact layout
-import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart } from 'lucide-react';
+import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart, Crown, Hand, Footprints } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useUserStatusStore } from '@/stores/user-status.store';
 import { useUserStatus } from '@/hooks/use-user-status';
@@ -12,9 +59,119 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { characterClassesApi, userAttributesApi } from '@/lib/api-client';
+import { characterClassesApi, userAttributesApi, titlesApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
+
+// Equipped Title Display Component
+const EquippedTitleDisplay: React.FC = () => {
+  const { user: authUser } = useAuth();
+  
+  const { data: userTitles = [] } = useQuery({
+    queryKey: ['user-titles', authUser?.id],
+    queryFn: titlesApi.getUserTitles,
+    enabled: !!authUser?.id,
+  });
+
+  const equippedTitle = userTitles.find((ut: any) => ut.isEquipped);
+
+  if (!equippedTitle) {
+    return (
+      <Badge variant="outline" className="text-sm">
+        Không có danh hiệu
+      </Badge>
+    );
+  }
+
+  const { title } = equippedTitle;
+  const displayEffects = title?.displayEffects || {};
+
+  const getAnimationStyle = (animation: string) => {
+    switch (animation) {
+      case 'pulse': return 'pulse 2s infinite';
+      case 'rainbow': return 'rainbow 3s infinite';
+      case 'glow': return 'glow 2s infinite';
+      case 'fade': return 'fade 3s infinite';
+      case 'bounce': return 'bounce 2s infinite';
+      case 'shake': return 'shake 0.5s infinite';
+      case 'none':
+      default: return 'none';
+    }
+  };
+
+  return (
+    <Badge 
+      variant="outline" 
+      className="text-sm font-medium"
+      style={{
+        color: displayEffects.color || '#000',
+        backgroundColor: displayEffects.backgroundColor || 'transparent',
+        borderColor: displayEffects.color || '#ccc',
+        boxShadow: displayEffects.glow ? `0 0 10px ${displayEffects.color}` : 'none',
+        animation: getAnimationStyle(displayEffects.animation || 'none')
+      }}
+    >
+      {displayEffects.prefix || `[${title?.name}]`}
+    </Badge>
+  );
+};
+
+// Equipment slot component
+const EquipmentSlot: React.FC<{
+  type: string;
+  name: string;
+  icon: React.ReactNode;
+  equippedItems: any[];
+}> = ({ type, name, icon, equippedItems }) => {
+  const item = equippedItems?.find((it) => it.item.type === type);
+  
+  return (
+    <div className="border border-[var(--border)] rounded-lg p-3 bg-[var(--card)] text-[var(--foreground)] min-h-[120px] flex flex-col">
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-xs font-medium text-[var(--muted-foreground)]">{name}</span>
+      </div>
+      
+      {item ? (
+        <div className="flex-1">
+          <h5 className="font-medium text-sm leading-tight mb-1">{item.item.name}</h5>
+          
+          {item.item.stats ? (
+            <Collapsible>
+              <div className="flex items-center justify-between mb-1">
+                {item.item.level ? (
+                  <span className="text-xs text-[var(--muted-foreground)]">Lv.{item.item.level}</span>
+                ) : item.item.rarity ? (
+                  <Badge variant="outline" className="text-[11px]">{item.item.rarity}</Badge>
+                ) : (
+                  <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
+                )}
+                <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Chi tiết</CollapsibleTrigger>
+              </div>
+              <CollapsibleContent>
+                <p className="text-xs text-[var(--muted-foreground)] mb-2">{item.item.description}</p>
+                <div className="space-y-1">
+                  {Object.entries(item.item.stats).map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between text-xs">
+                      <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
+                      <span className="font-medium text-green-600">+{String(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <div className="text-xs text-[var(--muted-foreground)]">{item.item.description}</div>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-xs text-[var(--muted-foreground)] text-center">Trống</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const StatusTab: React.FC = () => {
   // Get authenticated user
@@ -39,6 +196,9 @@ const StatusTab: React.FC = () => {
 
   // Awaken modal state
   const [showAwakenModal, setShowAwakenModal] = React.useState(false);
+  
+  // Title modal state
+  const [showTitleModal, setShowTitleModal] = React.useState(false);
 
   // Attribute allocation state
   const [pendingAllocations, setPendingAllocations] = React.useState<Record<'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK', number>>({
@@ -464,155 +624,98 @@ const StatusTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Equipped Items Section - 3 slots */}
-      <Card className="shadow-sm border border-[var(--border)] bg-[var(--card)]">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold text-center flex items-center gap-2 justify-center">
-            <Shield className="h-5 w-5" />
-            Trang bị hiện tại
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4">
-          <div className="flex gap-2 overflow-x-auto py-1 md:grid md:grid-cols-3 md:overflow-visible md:gap-2 snap-x snap-mandatory">
-            {/* Weapon */}
-            <div className="min-w-[140px] md:min-w-0 flex-shrink-0 snap-start border border-[var(--border)] rounded px-2 py-1 bg-[var(--card)] text-[var(--foreground)]">
-              {equippedItems?.find((it) => it.item.type === 'weapon') ? (
-                (() => {
-                  const w = equippedItems.find((it) => it.item.type === 'weapon')!;
-                  return (
-                    <div>
-                      <h5 className="font-medium text-sm leading-tight">{w.item.name}</h5>
-
-                      {w.item.stats ? (
-                        <Collapsible>
-                          <div className="flex items-center justify-between mt-1">
-                            {w.item.level ? (
-                              <span className="text-xs text-[var(--muted-foreground)]">Lv.{w.item.level}</span>
-                            ) : w.item.rarity ? (
-                              <Badge variant="outline" className="text-[11px]">{w.item.rarity}</Badge>
-                            ) : (
-                              <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
-                            )}
-                            <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Hiện</CollapsibleTrigger>
-                          </div>
-                          <CollapsibleContent>
-                            <p className="text-xs text-[var(--muted-foreground)] mt-2">{w.item.description}</p>
-                            <div className="space-y-1 text-sm mt-2">
-                              {Object.entries(w.item.stats).map(([k, v]) => (
-                                <div key={k} className="flex items-center justify-between text-sm">
-                                  <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
-                                  <span className="font-medium">+{v}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      ) : (
-                        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{w.item.description}</div>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="py-4 text-center text-[var(--muted-foreground)] text-sm">
-                  <p>Trống</p>
-                </div>
-              )}
+      {/* Equipment and Title Section - 2 columns on PC, stacked on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Equipped Items Section - 6 slots in human body layout */}
+        <Card className="shadow-sm border border-[var(--border)] bg-[var(--card)]">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-center flex items-center gap-2 justify-center">
+              <Shield className="h-5 w-5" />
+              Trang bị hiện tại
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            {/* Human body layout grid */}
+            <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
+              {/* Top row: Weapon - Helmet - Accessory */}
+              <EquipmentSlot 
+                type="weapon" 
+                name="Vũ khí" 
+                icon={<Sword className="h-4 w-4 text-orange-500" />}
+                equippedItems={equippedItems || []}
+              />
+              <EquipmentSlot 
+                type="helmet" 
+                name="Mũ" 
+                icon={<Shield className="h-4 w-4 text-blue-500" />}
+                equippedItems={equippedItems || []}
+              />
+              <EquipmentSlot 
+                type="accessory" 
+                name="Phụ kiện" 
+                icon={<Star className="h-4 w-4 text-purple-500" />}
+                equippedItems={equippedItems || []}
+              />
+              
+              {/* Middle row: Gloves - Armor - Empty */}
+              <EquipmentSlot 
+                type="gloves" 
+                name="Găng tay" 
+                icon={<Hand className="h-4 w-4 text-gray-500" />}
+                equippedItems={equippedItems || []}
+              />
+              <EquipmentSlot 
+                type="armor" 
+                name="Áo giáp" 
+                icon={<Shield className="h-4 w-4 text-green-500" />}
+                equippedItems={equippedItems || []}
+              />
+              <div></div> {/* Empty slot for symmetry */}
+              
+              {/* Bottom row: Empty - Boots - Empty */}
+              <div></div> {/* Empty slot */}
+              <EquipmentSlot 
+                type="boots" 
+                name="Giày" 
+                icon={<Footprints className="h-4 w-4 text-brown-500" />}
+                equippedItems={equippedItems || []}
+              />
+              <div></div> {/* Empty slot */}
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Armor */}
-            <div className="min-w-[140px] md:min-w-0 flex-shrink-0 snap-start border border-[var(--border)] rounded px-2 py-1 bg-[var(--card)] text-[var(--foreground)]">
-              {equippedItems?.find((it) => it.item.type === 'armor') ? (
-                (() => {
-                  const a = equippedItems.find((it) => it.item.type === 'armor')!;
-                  return (
-                    <div>
-                      <h5 className="font-medium text-sm leading-tight">{a.item.name}</h5>
-                      {a.item.stats ? (
-                        <Collapsible>
-                          <div className="flex items-center justify-between mt-1">
-                            {a.item.level ? (
-                              <span className="text-xs text-[var(--muted-foreground)]">Lv.{a.item.level}</span>
-                            ) : a.item.rarity ? (
-                              <Badge variant="outline" className="text-[11px]">{a.item.rarity}</Badge>
-                            ) : (
-                              <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
-                            )}
-                            <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Hiện</CollapsibleTrigger>
-                          </div>
-                          <CollapsibleContent>
-                            <p className="text-xs text-[var(--muted-foreground)] mt-2">{a.item.description}</p>
-                            <div className="space-y-1 text-sm mt-2">
-                              {Object.entries(a.item.stats).map(([k, v]) => (
-                                <div key={k} className="flex items-center justify-between">
-                                  <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
-                                  <span className="font-medium">+{v}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      ) : (
-                        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{a.item.description}</div>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="py-4 text-center text-[var(--muted-foreground)] text-sm">
-                  <p>Trống</p>
+        {/* Title Section */}
+        <Card className="shadow-sm border border-[var(--border)] bg-[var(--card)]">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-center flex items-center gap-2 justify-center">
+              <Crown className="h-5 w-5 text-yellow-500" />
+              Danh hiệu
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="mb-3">
+                <span className="text-sm text-[var(--muted-foreground)]">Danh hiệu hiện tại:</span>
+                <div className="mt-1">
+                  <EquippedTitleDisplay />
                 </div>
-              )}
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowTitleModal(true)}
+                className="flex items-center gap-2 mx-auto"
+              >
+                <Crown className="h-4 w-4" />
+                Quản lý Danh hiệu
+              </Button>
             </div>
-
-            {/* Accessory */}
-            <div className="min-w-[140px] md:min-w-0 flex-shrink-0 snap-start border border-[var(--border)] rounded px-2 py-1 bg-[var(--card)] text-[var(--foreground)]">
-              {equippedItems?.find((it) => it.item.type === 'accessory') ? (
-                (() => {
-                  const acc = equippedItems.find((it) => it.item.type === 'accessory')!;
-                  return (
-                    <div>
-                      <h5 className="font-medium text-sm leading-tight">{acc.item.name}</h5>
-                      {acc.item.stats ? (
-                        <Collapsible>
-                          <div className="flex items-center justify-between mt-1">
-                            {acc.item.level ? (
-                              <span className="text-xs text-[var(--muted-foreground)]">Lv.{acc.item.level}</span>
-                            ) : acc.item.rarity ? (
-                              <Badge variant="outline" className="text-[11px]">{acc.item.rarity}</Badge>
-                            ) : (
-                              <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
-                            )}
-                            <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Hiện</CollapsibleTrigger>
-                          </div>
-                          <CollapsibleContent>
-                            <p className="text-xs text-[var(--muted-foreground)] mt-2">{acc.item.description}</p>
-                            <div className="space-y-1 text-sm mt-2">
-                              {Object.entries(acc.item.stats).map(([k, v]) => (
-                                <div key={k} className="flex items-center justify-between">
-                                  <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
-                                  <span className="font-medium">+{v}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      ) : (
-                        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{acc.item.description}</div>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="py-4 text-center text-[var(--muted-foreground)] text-sm">
-                  <p>Trống</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
   <AwakenModal open={showAwakenModal} onOpenChange={(v) => setShowAwakenModal(Boolean(v))} />
+      <TitleModal open={showTitleModal} onOpenChange={(v) => setShowTitleModal(Boolean(v))} />
     </div>
   );
 };
@@ -671,6 +774,246 @@ export function AwakenModal({ open, onOpenChange }: { open: boolean; onOpenChang
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
           <Button onClick={handleAwaken} disabled={isProcessing}>{isProcessing ? 'Đang xử lý...' : 'Thức tỉnh'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Title Modal Component
+export function TitleModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+
+  // Fetch user titles using titlesApi
+  const { data: userTitles = [], isLoading: userTitlesLoading } = useQuery({
+    queryKey: ['user-titles', authUser?.id],
+    queryFn: titlesApi.getUserTitles,
+    enabled: !!authUser?.id && open,
+  });
+
+  // Fetch all available titles using titlesApi
+  const { data: allTitles = [], isLoading: allTitlesLoading } = useQuery({
+    queryKey: ['all-titles'],
+    queryFn: titlesApi.getAllTitles,
+    enabled: open,
+  });
+
+  // Get titles that user doesn't have yet
+  const userTitleIds = new Set(userTitles.map((ut: any) => ut.titleId));
+  const availableTitles = allTitles.filter((title: any) => !userTitleIds.has(title.id));
+
+  const handleEquipTitle = async (titleId: number) => {
+    setIsProcessing(true);
+    try {
+      await titlesApi.equipTitle(titleId);
+      toast.success('Đã trang bị danh hiệu!');
+      queryClient.invalidateQueries({ queryKey: ['user-titles'] });
+    } catch (error) {
+      toast.error('Lỗi khi trang bị danh hiệu');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUnequipTitle = async () => {
+    setIsProcessing(true);
+    try {
+      await titlesApi.unequipTitle();
+      toast.success('Đã tháo danh hiệu!');
+      queryClient.invalidateQueries({ queryKey: ['user-titles'] });
+    } catch (error) {
+      toast.error('Lỗi khi tháo danh hiệu');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUnlockTitle = async () => {
+    setIsProcessing(true);
+    try {
+      const result = await titlesApi.checkAndUnlock();
+      if (result.length > 0) {
+        toast.success(`Đã mở khóa ${result.length} danh hiệu mới!`);
+      } else {
+        toast.info('Không có danh hiệu nào đủ điều kiện mở khóa');
+      }
+      queryClient.invalidateQueries({ queryKey: ['user-titles'] });
+      queryClient.invalidateQueries({ queryKey: ['all-titles'] });
+    } catch (error) {
+      toast.error('Không đủ điều kiện mở khóa');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const getRarityColor = (rarity: string) => {
+    switch (rarity) {
+      case 'common': return 'bg-gray-100 text-gray-800';
+      case 'uncommon': return 'bg-green-100 text-green-800';
+      case 'rare': return 'bg-blue-100 text-blue-800';
+      case 'epic': return 'bg-purple-100 text-purple-800';
+      case 'legendary': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Crown className="h-5 w-5 text-yellow-500" />
+            Quản lý Danh hiệu
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* User Titles */}
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Star className="h-4 w-4 text-yellow-500" />
+              Danh hiệu đã sở hữu
+            </h3>
+            <div className="space-y-2">
+              {userTitlesLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Spinner className="h-6 w-6" />
+                </div>
+              ) : userTitles.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  Chưa có danh hiệu nào
+                </div>
+              ) : (
+                userTitles.map((userTitle: any) => (
+                  <div 
+                    key={userTitle.id}
+                    className={`p-3 border rounded-lg ${userTitle.isEquipped ? 'border-yellow-500 bg-yellow-50' : 'border-gray-200'}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span 
+                            className="font-medium"
+                            style={{ color: userTitle.title?.displayEffects?.color }}
+                          >
+                            {userTitle.title?.displayEffects?.prefix} {userTitle.title?.name}
+                          </span>
+                          <Badge className={getRarityColor(userTitle.title?.rarity || 'common')}>
+                            {userTitle.title?.rarity}
+                          </Badge>
+                          {userTitle.isEquipped && (
+                            <Badge variant="default" className="bg-yellow-500">
+                              Đang trang bị
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{userTitle.title?.description}</p>
+                        {userTitle.title?.stats && (
+                          <div className="flex gap-2 text-xs">
+                            {Object.entries(userTitle.title.stats).map(([stat, value]) => (
+                              <span key={stat} className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                                {stat}: +{String(value)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {userTitle.isEquipped ? (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={handleUnequipTitle}
+                            disabled={isProcessing}
+                          >
+                            Tháo
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="sm"
+                            onClick={() => handleEquipTitle(userTitle.title?.id)}
+                            disabled={isProcessing}
+                          >
+                            Trang bị
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Available Titles to Unlock */}
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-blue-500" />
+              Danh hiệu có thể mở khóa
+            </h3>
+            <div className="space-y-2">
+              {allTitlesLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Spinner className="h-6 w-6" />
+                </div>
+              ) : availableTitles.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  Không có danh hiệu nào để mở khóa
+                </div>
+              ) : (
+                availableTitles.map((title: any) => (
+                  <div 
+                    key={title.id}
+                    className="p-3 border rounded-lg border-gray-200 bg-gray-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span 
+                            className="font-medium text-gray-500"
+                            style={{ color: title.displayEffects?.color }}
+                          >
+                            {title.displayEffects?.prefix} {title.name}
+                          </span>
+                          <Badge className={getRarityColor(title.rarity)}>
+                            {title.rarity}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{title.description}</p>
+                        {title.stats && (
+                          <div className="flex gap-2 text-xs mb-2">
+                            {Object.entries(title.stats).map(([stat, value]) => (
+                              <span key={stat} className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                {stat}: +{String(value)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          onClick={handleUnlockTitle}
+                          disabled={isProcessing}
+                        >
+                          Kiểm tra & Mở khóa
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Đóng
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

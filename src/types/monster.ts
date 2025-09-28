@@ -34,6 +34,7 @@ export interface Monster {
     maxQuantity: number;
   }[] | null;
   isActive: boolean;
+  image?: string; // Image path for the monster
   createdAt: string;
   updatedAt: string;
 }

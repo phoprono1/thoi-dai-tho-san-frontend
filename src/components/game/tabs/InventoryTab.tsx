@@ -1,6 +1,38 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+
+// Add CSS for rarity effects
+const rarityEffectStyles = `
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  
+  @keyframes legendary-glow {
+    0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.3); }
+  }
+  
+  .rarity-legendary {
+    animation: legendary-glow 2s ease-in-out infinite;
+  }
+  
+  .rarity-epic {
+    box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3);
+  }
+  
+  .rarity-rare {
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2);
+  }
+`;
+
+// Inject styles into document head
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = rarityEffectStyles;
+  document.head.appendChild(styleElement);
+}
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +44,9 @@ import {
   Heart,
   Coins,
   RefreshCw,
-  Loader2
+  Loader2,
+  Hand,
+  Footprints
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -137,27 +171,121 @@ export default function InventoryTab() {
     const r = Number(rarity) || 1;
     switch (r) {
       case 1: // common
-        return { border: 'border-gray-200', bg: 'bg-gray-50', glow: '' };
+        return { 
+          border: 'border-gray-200', 
+          bg: 'bg-gray-50', 
+          glow: '', 
+          overlay: '',
+          cssClass: ''
+        };
       case 2: // uncommon
-        return { border: 'border-green-400', bg: 'bg-gradient-to-br from-green-50 to-green-100', glow: '' };
+        return { 
+          border: 'border-green-400', 
+          bg: 'bg-gradient-to-br from-green-50 to-green-100', 
+          glow: '', 
+          overlay: 'bg-gradient-to-t from-green-400/20 to-transparent',
+          cssClass: ''
+        };
       case 3: // rare
-        return { border: 'border-blue-400', bg: 'bg-gradient-to-br from-blue-50 to-blue-100', glow: '' };
+        return { 
+          border: 'border-blue-400', 
+          bg: 'bg-gradient-to-br from-blue-50 to-blue-100', 
+          glow: '', 
+          overlay: 'bg-gradient-to-t from-blue-400/30 to-transparent',
+          cssClass: 'rarity-rare'
+        };
       case 4: // epic
-        return { border: 'border-purple-500', bg: 'bg-gradient-to-br from-purple-50 to-purple-100', glow: 'shadow-md' };
+        return { 
+          border: 'border-purple-500', 
+          bg: 'bg-gradient-to-br from-purple-50 to-purple-100', 
+          glow: 'shadow-md', 
+          overlay: 'bg-gradient-to-t from-purple-500/40 to-transparent',
+          cssClass: 'rarity-epic'
+        };
       case 5: // legendary
-        return { border: 'border-yellow-400', bg: 'bg-gradient-to-br from-yellow-50 to-yellow-100', glow: 'shadow-lg ring-1 ring-yellow-300' };
+        return { 
+          border: 'border-yellow-400', 
+          bg: 'bg-gradient-to-br from-yellow-50 to-yellow-100', 
+          glow: 'shadow-lg ring-1 ring-yellow-300', 
+          overlay: 'bg-gradient-to-t from-yellow-400/50 to-transparent',
+          cssClass: 'rarity-legendary'
+        };
       default:
-        return { border: 'border-gray-200', bg: 'bg-gray-50', glow: '' };
+        return { 
+          border: 'border-gray-200', 
+          bg: 'bg-gray-50', 
+          glow: '', 
+          overlay: '',
+          cssClass: ''
+        };
     }
   };
 
+  // Create item display component with rarity effects
+  const ItemCard = ({ userItem, count, onClick }: { userItem: UserItem; count?: number; onClick: () => void }) => {
+    const rarity = rarityStyle(userItem.item.rarity);
+    
+    return (
+      <Card
+        className={`group cursor-pointer transition-all transform-gpu will-change-transform hover:scale-[1.
+          03] hover:shadow-xl ${userItem.isEquipped ? 'ring-2 ring-blue-500' : ''} ${rarity.border} ${rarity.glow} ${rarity.cssClass}`}
+        onClick={onClick}
+      >
+        <CardContent className={`p-1 flex items-center justify-center relative overflow-hidden ${rarity.bg}`}>
+          {/* Item Image */}
+          <div className="relative w-32 h-32 flex items-center justify-center">
+            {userItem.item.image ? (
+              <Image
+                src={resolveAssetUrl(userItem.item.image) || ''}
+                alt={userItem.item.name}
+                width={128}
+                height={128}
+                className="object-contain"
+                unoptimized
+              />
+            ) : (
+              renderItemIcon(userItem.item.type, 'h-16 w-16 text-gray-400')
+            )}
+            
+            {/* Rarity Overlay Effect */}
+            {rarity.overlay && (
+              <div className={`absolute inset-0 ${rarity.overlay} pointer-events-none`} />
+            )}
+            
+            {/* Equipped Badge */}
+            {userItem.isEquipped && (
+              <div className="absolute -top-1 -left-1 bg-green-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                E
+              </div>
+            )}
+            
+            {/* Quantity Badge */}
+            {count && count > 1 && (
+              <div className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {count > 99 ? '99+' : count}
+              </div>
+            )}
+          </div>
+          
+          {/* Item Name */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 text-center truncate">
+            {userItem.item.name}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Equipment types - expanded to 6 slots
+  const equipmentTypes = ['weapon', 'helmet', 'armor', 'gloves', 'boots', 'accessory'];
+
   // Which item types should be stacked (non-equip)
   const isStackable = (type?: string) => {
-    return !type || (type !== 'weapon' && type !== 'armor' && type !== 'accessory');
+    return !type || !equipmentTypes.includes(type);
   };
 
   const isEquipableType = (type?: string) => {
-    return !!type && (type === 'weapon' || type === 'armor' || type === 'accessory');
+    return !!type && equipmentTypes.includes(type);
   };
 
   // Build grouped display list: for stackable types we show one tile with a count
@@ -203,8 +331,14 @@ export default function InventoryTab() {
     switch (type) {
       case 'weapon':
         return <Sword className={className} />;
+      case 'helmet':
+        return <Shield className={className} />;
       case 'armor':
         return <Shield className={className} />;
+      case 'gloves':
+        return <Hand className={className} />;
+      case 'boots':
+        return <Footprints className={className} />;
       case 'accessory':
         return <Gem className={className} />;
       case 'consumable':
@@ -346,34 +480,39 @@ export default function InventoryTab() {
   return (
     <div className="p-3">
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 gap-2 mb-4 text-center">
-          <TabsTrigger value="all">Tất cả</TabsTrigger>
-          <TabsTrigger value="weapon">Vũ khí</TabsTrigger>
-          <TabsTrigger value="armor">Giáp</TabsTrigger>
-          <TabsTrigger value="accessory">Phụ kiện</TabsTrigger>
-          <TabsTrigger value="consumable">Tiêu hao</TabsTrigger>
+        <TabsList className="w-full mb-4 overflow-x-auto">
+          <div className="flex gap-1 min-w-max px-1">
+            <TabsTrigger value="all" className="whitespace-nowrap text-xs px-2 py-1">Tất cả</TabsTrigger>
+            <TabsTrigger value="weapon" className="whitespace-nowrap text-xs px-2 py-1">Vũ khí</TabsTrigger>
+            <TabsTrigger value="helmet" className="whitespace-nowrap text-xs px-2 py-1">Mũ</TabsTrigger>
+            <TabsTrigger value="armor" className="whitespace-nowrap text-xs px-2 py-1">Giáp</TabsTrigger>
+            <TabsTrigger value="gloves" className="whitespace-nowrap text-xs px-2 py-1">Găng</TabsTrigger>
+            <TabsTrigger value="boots" className="whitespace-nowrap text-xs px-2 py-1">Giày</TabsTrigger>
+            <TabsTrigger value="accessory" className="whitespace-nowrap text-xs px-2 py-1">Phụ kiện</TabsTrigger>
+            <TabsTrigger value="consumable" className="whitespace-nowrap text-xs px-2 py-1">Tiêu hao</TabsTrigger>
+          </div>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
           {/* Controls: sort + page size */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-nowrap">
-              <div className="flex flex-col items-start">
-                <label className="text-sm text-gray-600 mb-1">Sắp xếp</label>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+              <div className="flex flex-col items-start min-w-0">
+                <label className="text-xs text-gray-600 mb-1">Sắp xếp</label>
                 <div className="flex items-center gap-2">
-                  <select value={sortField} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortField(e.target.value as 'name' | 'price' | 'rarity' | 'type')} className="p-1 rounded border">
+                  <select value={sortField} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortField(e.target.value as 'name' | 'price' | 'rarity' | 'type')} className="p-1 text-xs rounded border min-w-0">
                     <option value="name">Tên</option>
                     <option value="price">Giá</option>
                     <option value="rarity">Phẩm chất</option>
                     <option value="type">Loại</option>
                   </select>
-                  <button className="px-2 py-1 border rounded" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? '↑' : '↓'}</button>
+                  <button className="px-2 py-1 border rounded text-xs" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>{sortOrder === 'asc' ? '↑' : '↓'}</button>
                 </div>
               </div>
 
-              <div className="flex flex-col items-start">
-                <label className="text-sm text-gray-600 mb-1">Hiển thị</label>
-                <select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="p-1 rounded border">
+              <div className="flex flex-col items-start min-w-0">
+                <label className="text-xs text-gray-600 mb-1">Hiển thị</label>
+                <select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="p-1 text-xs rounded border min-w-0">
                   <option value={12}>12</option>
                   <option value={24}>24</option>
                   <option value={48}>48</option>
@@ -390,7 +529,7 @@ export default function InventoryTab() {
             {refreshCountdown > 0 && <div className="text-sm text-gray-500">({refreshCountdown}s)</div>}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
             {(() => {
               const grouped = buildDisplayList(items);
               const sorted = sortDisplay(grouped);
@@ -398,47 +537,14 @@ export default function InventoryTab() {
               // ensure pageCount is referenced so linters don't complain
               const _pageCount = pageCount;
               void _pageCount;
-              return pageItems.map(({ sample, count, ids }) => {
-                const item = sample.item;
-                const rs = rarityStyle(item.rarity);
-                const imgSrc = (item as unknown as { image?: string }).image;
-                const resolved = resolveAssetUrl(imgSrc);
-                return (
-                  <Card
-                    key={ids.join('-')}
-                    className={`group cursor-pointer transition-all transform-gpu will-change-transform hover:scale-[1.03] hover:shadow-xl flex items-stretch justify-center ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
-                    onClick={() => setSelectedItem(sample)}
-                  >
-                    <CardContent className="p-1 flex items-center justify-center">
-                      {/* Tile with hover scale + shine, border color by rarity, and count badge */}
-                      <div className={`relative rounded-md overflow-hidden ${rs.bg} ${rs.glow}`}>
-                        <div className={`${rs.border} rounded-md overflow-hidden border-2`}>
-                          {resolved ? (
-                            <div className="h-24 w-24 relative">
-                              <Image src={resolved} alt={item.name} width={96} height={96} style={{ objectFit: 'cover' }} unoptimized />
-                              {/* Shine overlay */}
-                              <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-60 transition-opacity duration-500">
-                                <span className="block absolute -left-16 top-0 w-32 h-full transform rotate-12 bg-gradient-to-r from-white/0 via-white/30 to-white/0 blur-sm animate-[shine_1s_linear]" />
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="h-24 w-24 flex items-center justify-center bg-gray-100">
-                              {renderItemIcon(item.type, 'h-8 w-8 text-gray-600')}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Count badge for stacked items */}
-                        {count > 1 && (
-                          <div className="absolute bottom-1 right-1">
-                            <div className="bg-black/85 text-white text-xs px-1 rounded">x{count}</div>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              });
+              return pageItems.map(({ sample, count, ids }) => (
+                <ItemCard
+                  key={ids.join('-')}
+                  userItem={sample}
+                  count={count}
+                  onClick={() => setSelectedItem(sample)}
+                />
+              ));
             })()}
           </div>
 
@@ -457,51 +563,21 @@ export default function InventoryTab() {
         </TabsContent>
 
         {/* Other tabs with filtered items */}
-        {['weapon', 'armor', 'accessory', 'consumable'].map((type) => (
+        {['weapon', 'helmet', 'armor', 'gloves', 'boots', 'accessory', 'consumable'].map((type) => (
           <TabsContent key={type} value={type} className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
               {(() => {
                 const filtered = items.filter((ui) => ui.item.type === type);
                 const grouped = sortDisplay(buildDisplayList(filtered));
                 const { pageItems } = getPage(grouped);
-                return pageItems.map(({ sample, count, ids }) => {
-                  const item = sample.item;
-                  const rs = rarityStyle(item.rarity);
-                  const imgSrc = (item as unknown as { image?: string }).image;
-                  const resolved = resolveAssetUrl(imgSrc);
-                  return (
-                    <Card
-                      key={ids.join('-')}
-                      className={`group cursor-pointer transition-all transform-gpu will-change-transform hover:scale-[1.03] hover:shadow-xl ${sample.isEquipped ? 'ring-2 ring-blue-500' : ''}`}
-                      onClick={() => setSelectedItem(sample)}
-                    >
-                      <CardContent className="p-1 flex items-center justify-center">
-                        <div className={`relative rounded-md overflow-hidden ${rs.bg} ${rs.glow}`}>
-                          <div className={`${rs.border} rounded-md overflow-hidden border-2`}>
-                            {resolved ? (
-                              <div className="h-24 w-24 relative">
-                                <Image src={resolved} alt={item.name} width={96} height={96} style={{ objectFit: 'cover' }} unoptimized />
-                                <span className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-60 transition-opacity duration-500">
-                                  <span className="block absolute -left-16 top-0 w-32 h-full transform rotate-12 bg-gradient-to-r from-white/0 via-white/30 to-white/0 blur-sm animate-[shine_1s_linear]" />
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="h-24 w-24 flex items-center justify-center bg-gray-100">
-                                {renderItemIcon(item.type, 'h-8 w-8 text-gray-600')}
-                              </div>
-                            )}
-                          </div>
-
-                          {count > 1 && (
-                            <div className="absolute bottom-1 right-1">
-                              <div className="bg-black/85 text-white text-xs px-1 rounded">x{count}</div>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                });
+                return pageItems.map(({ sample, count, ids }) => (
+                  <ItemCard
+                    key={ids.join('-')}
+                    userItem={sample}
+                    count={count}
+                    onClick={() => setSelectedItem(sample)}
+                  />
+                ));
               })()}
             </div>
           </TabsContent>

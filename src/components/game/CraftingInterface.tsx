@@ -334,10 +334,6 @@ export default function CraftingInterface() {
                               
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {recipe.craftingTime}s
-                                </div>
-                                <div className="flex items-center gap-1">
                                   <Coins className="h-3 w-3 text-yellow-500" />
                                   {recipe.goldCost.toLocaleString()}
                                 </div>
@@ -439,7 +435,7 @@ export default function CraftingInterface() {
                               {materialItem?.name || `Item ${material.itemId}`}
                             </span>
                             <span className={hasEnough ? 'text-green-600' : 'text-red-500'}>
-                              {available}/{required}
+                              {required}
                             </span>
                           </div>
                         );
@@ -452,10 +448,6 @@ export default function CraftingInterface() {
                     <div>
                       <span className="text-muted-foreground">Level:</span>
                       <span className="ml-2 font-medium">{selectedRecipe.craftingLevel}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Thời gian:</span>
-                      <span className="ml-2 font-medium">{selectedRecipe.craftingTime}s</span>
                     </div>
                   </div>
                 </CardContent>
@@ -509,10 +501,6 @@ export default function CraftingInterface() {
                         <Coins className="h-3 w-3 text-yellow-500" />
                         <span className="font-medium">{(selectedRecipe.goldCost * craftQuantity).toLocaleString()}</span>
                       </div>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Thời gian:</span>
-                      <span className="font-medium">{selectedRecipe.craftingTime * craftQuantity}s</span>
                     </div>
                   </div>
 

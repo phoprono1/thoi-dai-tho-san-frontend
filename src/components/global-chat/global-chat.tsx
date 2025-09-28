@@ -13,6 +13,67 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { useJoinGuild } from '@/hooks/use-api';
 
+// Add CSS animations for title effects (same as StatusTab)
+const titleAnimationStyles = `
+  @keyframes rainbow {
+    0% { color: #ff0000; }
+    16.66% { color: #ff8000; }
+    33.33% { color: #ffff00; }
+    50% { color: #00ff00; }
+    66.66% { color: #0080ff; }
+    83.33% { color: #8000ff; }
+    100% { color: #ff0000; }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  @keyframes glow {
+    0%, 100% { text-shadow: 0 0 5px currentColor; }
+    50% { text-shadow: 0 0 20px currentColor, 0 0 30px currentColor; }
+  }
+  
+  @keyframes fade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+  }
+`;
+
+// Inject styles into document head
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = titleAnimationStyles;
+  document.head.appendChild(styleElement);
+}
+
+// Helper function to get animation style (same as StatusTab)
+const getAnimationStyle = (animation: string) => {
+  switch (animation) {
+    case 'pulse': return 'pulse 2s infinite';
+    case 'rainbow': return 'rainbow 3s infinite';
+    case 'glow': return 'glow 2s infinite';
+    case 'fade': return 'fade 3s infinite';
+    case 'bounce': return 'bounce 2s infinite';
+    case 'shake': return 'shake 0.5s infinite';
+    case 'none':
+    default: return 'none';
+  }
+};
+
 export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
   // When embedded we always render the panel (desktop right column). Otherwise use the floating drawer trigger.
   const [isOpen, setIsOpen] = useState<boolean>(embedded);
@@ -179,10 +240,28 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
                     } catch {
                     // fall back to rendering raw message
                       return (
-                        <div key={`invite-${computedKey}`} className="flex items-start gap-2">
-                          <span className="font-bold text-blue-500">{msg.username}:</span>
-                          <p className="flex-1 break-words">{msg.message}</p>
-                          <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                        <div key={`invite-${computedKey}`} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="font-bold text-blue-500 truncate">{msg.username}</span>
+                              {msg.userTitle && (
+                                <span 
+                                  className="text-xs px-2 py-0.5 rounded-full font-medium shadow-sm"
+                                  style={{
+                                    color: msg.userTitle.displayEffects?.color || '#ffffff',
+                                    backgroundColor: msg.userTitle.displayEffects?.backgroundColor || '#f59e0b',
+                                    borderColor: msg.userTitle.displayEffects?.borderColor,
+                                    border: msg.userTitle.displayEffects?.borderColor ? '1px solid' : 'none',
+                                    boxShadow: msg.userTitle.displayEffects?.glow ? '0 0 8px rgba(245, 158, 11, 0.5)' : undefined,
+                                  }}
+                                >
+                                  {msg.userTitle.prefix || `[${msg.userTitle.name}]`}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400 flex-shrink-0">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                          </div>
+                          <p className="text-sm break-words pl-1 text-gray-700 dark:text-gray-300">{msg.message}</p>
                         </div>
                       );
                   }
@@ -224,10 +303,29 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
                   );
                 } catch {
                   return (
-                    <div key={`guild-invite-${computedKey}`} className="flex items-start gap-2">
-                      <span className="font-bold text-blue-500">{msg.username}:</span>
-                      <p className="flex-1 break-words">{msg.message}</p>
-                      <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                    <div key={`guild-invite-${computedKey}`} className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="font-bold text-blue-500 truncate">{msg.username}</span>
+                          {msg.userTitle && (
+                            <span 
+                              className="text-xs px-2 py-0.5 rounded-full font-medium shadow-sm"
+                              style={{
+                                color: msg.userTitle.displayEffects?.color || '#ffffff',
+                                backgroundColor: msg.userTitle.displayEffects?.backgroundColor || '#f59e0b',
+                                borderColor: msg.userTitle.displayEffects?.borderColor || msg.userTitle.displayEffects?.color || '#ccc',
+                                border: '1px solid',
+                                boxShadow: msg.userTitle.displayEffects?.glow ? `0 0 10px ${msg.userTitle.displayEffects?.color || '#f59e0b'}` : 'none',
+                                animation: getAnimationStyle(msg.userTitle.displayEffects?.animation || 'none'),
+                              }}
+                            >
+                              {msg.userTitle.prefix || `[${msg.userTitle.name}]`}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400 flex-shrink-0">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                      </div>
+                      <p className="text-sm break-words pl-1 text-gray-700 dark:text-gray-300">{msg.message}</p>
                     </div>
                   );
                 }
@@ -267,10 +365,29 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
                   );
                 } catch {
                   return (
-                    <div key={`guild-invite-${computedKey}`} className="flex items-start gap-2">
-                      <span className="font-bold text-blue-500">{msg.username}:</span>
-                      <p className="flex-1 break-words">{msg.message}</p>
-                      <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                    <div key={`guild-invite-${computedKey}`} className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="font-bold text-blue-500 truncate">{msg.username}</span>
+                          {msg.userTitle && (
+                            <span 
+                              className="text-xs px-2 py-0.5 rounded-full font-medium shadow-sm"
+                              style={{
+                                color: msg.userTitle.displayEffects?.color || '#ffffff',
+                                backgroundColor: msg.userTitle.displayEffects?.backgroundColor || '#f59e0b',
+                                borderColor: msg.userTitle.displayEffects?.borderColor || msg.userTitle.displayEffects?.color || '#ccc',
+                                border: '1px solid',
+                                boxShadow: msg.userTitle.displayEffects?.glow ? `0 0 10px ${msg.userTitle.displayEffects?.color || '#f59e0b'}` : 'none',
+                                animation: getAnimationStyle(msg.userTitle.displayEffects?.animation || 'none'),
+                              }}
+                            >
+                              {msg.userTitle.prefix || `[${msg.userTitle.name}]`}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400 flex-shrink-0">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                      </div>
+                      <p className="text-sm break-words pl-1 text-gray-700 dark:text-gray-300">{msg.message}</p>
                     </div>
                   );
                 }
@@ -278,10 +395,32 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
 
               // Normal message render
               return (
-                <div key={computedKey} className="flex items-start gap-2">
-                  <span className="font-bold text-blue-500">{msg.username}:</span>
-                  <p className="flex-1 break-words">{msg.message}</p>
-                  <span className="text-xs text-gray-400">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                <div key={computedKey} className="space-y-1">
+                  {/* Header with username, title, and timestamp */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="font-bold text-blue-500 truncate">{msg.username}</span>
+                      {/* User Title Display */}
+                      {msg.userTitle && (
+                        <span 
+                          className="text-xs px-2 py-0.5 rounded-full font-medium shadow-sm"
+                          style={{
+                            color: msg.userTitle.displayEffects?.color || '#ffffff',
+                            backgroundColor: msg.userTitle.displayEffects?.backgroundColor || '#f59e0b',
+                            borderColor: msg.userTitle.displayEffects?.borderColor || msg.userTitle.displayEffects?.color || '#ccc',
+                            border: '1px solid',
+                            boxShadow: msg.userTitle.displayEffects?.glow ? `0 0 10px ${msg.userTitle.displayEffects?.color || '#f59e0b'}` : 'none',
+                            animation: getAnimationStyle(msg.userTitle.displayEffects?.animation || 'none'),
+                          }}
+                        >
+                          {msg.userTitle.prefix || `[${msg.userTitle.name}]`}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 flex-shrink-0">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                  </div>
+                  {/* Message content */}
+                  <p className="text-sm break-words pl-1 text-gray-700 dark:text-gray-300">{msg.message}</p>
                 </div>
               );
             })}

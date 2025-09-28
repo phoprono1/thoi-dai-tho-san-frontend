@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { Monster } from '@/types/monster';
 import { Item } from '@/types/item';
 import { DataTable } from '@/components/admin/DataTable';
+import { resolveAssetUrl } from '@/lib/asset';
 
 interface Dungeon {
   id: number;
@@ -25,6 +26,7 @@ interface Dungeon {
   requiredItem: number | null;
   dropItems: { itemId: number; dropRate: number }[] | null;
   description?: string | null;
+  image?: string; // Image path for the dungeon
   createdAt: string;
   updatedAt: string;
 }
@@ -313,6 +315,29 @@ export default function AdminDungeons() {
 
 
   const columns = [
+    {
+      key: 'image' as keyof Dungeon,
+      label: 'Hình ảnh',
+      sortable: false,
+      render: (value: unknown, item: Dungeon) => (
+        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+          {item.image ? (
+            <Image
+              src={resolveAssetUrl(item.image) || ''}
+              alt={item.name}
+              width={48}
+              height={48}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-white font-semibold text-xs">
+              {item.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'name' as keyof Dungeon,
       label: 'Tên Dungeon',

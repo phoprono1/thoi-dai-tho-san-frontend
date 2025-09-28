@@ -14,6 +14,7 @@ import { Swords, UploadCloud, DownloadCloud } from 'lucide-react';
 import { DataTable } from '@/components/admin/DataTable';
 import { Monster, MonsterType, MonsterElement } from '@/types/monster';
 import { Item } from '@/types/item';
+import { resolveAssetUrl } from '@/lib/asset';
 
 export default function AdminMonsters() {
   // Setup API interceptors for authentication
@@ -249,6 +250,29 @@ export default function AdminMonsters() {
   };
 
   const columns = [
+    {
+      key: 'image' as keyof Monster,
+      label: 'Hình ảnh',
+      sortable: false,
+      render: (value: unknown, item: Monster) => (
+        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+          {item.image ? (
+            <Image
+              src={resolveAssetUrl(item.image) || ''}
+              alt={item.name}
+              width={48}
+              height={48}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full bg-purple-500 flex items-center justify-center text-white font-semibold text-xs">
+              {item.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'name' as keyof Monster,
       label: 'Tên Monster',

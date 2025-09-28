@@ -10,6 +10,17 @@ export interface ChatMessage {
   message: string;
   type: string;
   createdAt: string;
+  userTitle?: {
+    name: string;
+    prefix?: string;
+    displayEffects?: {
+      color?: string;
+      backgroundColor?: string;
+      borderColor?: string;
+      glow?: boolean;
+      animation?: string;
+    };
+  };
 }
 
 interface ChatState {

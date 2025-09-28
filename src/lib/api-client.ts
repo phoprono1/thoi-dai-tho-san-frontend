@@ -477,3 +477,41 @@ export const dailyLoginApi = {
     return response.data;
   },
 };
+
+// Titles API
+export const titlesApi = {
+  getAllTitles: async () => {
+    const response = await api.get('/titles');
+    return response.data;
+  },
+
+  getUserTitles: async () => {
+    const response = await api.get('/titles/my-titles');
+    return response.data;
+  },
+
+  getEquippedTitle: async () => {
+    const response = await api.get('/titles/equipped');
+    return response.data;
+  },
+
+  equipTitle: async (titleId: number) => {
+    const response = await api.post(`/titles/equip/${titleId}`);
+    return response.data;
+  },
+
+  unequipTitle: async () => {
+    const response = await api.post('/titles/unequip');
+    return response.data;
+  },
+
+  checkRequirements: async (titleId: number) => {
+    const response = await api.get(`/titles/check-requirements/${titleId}`);
+    return response.data;
+  },
+
+  checkAndUnlock: async () => {
+    const response = await api.post('/titles/check-and-unlock');
+    return response.data;
+  },
+};
