@@ -62,6 +62,7 @@ import { Button } from '@/components/ui/button';
 import { characterClassesApi, userAttributesApi, titlesApi } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { ClassAdvancementModal } from '../modals/ClassAdvancementModal';
 
 // Equipped Title Display Component
 const EquippedTitleDisplay: React.FC = () => {
@@ -199,6 +200,9 @@ const StatusTab: React.FC = () => {
   
   // Title modal state
   const [showTitleModal, setShowTitleModal] = React.useState(false);
+
+  // Class advancement modal state
+  const [showClassAdvancementModal, setShowClassAdvancementModal] = React.useState(false);
 
   // Attribute allocation state
   const [pendingAllocations, setPendingAllocations] = React.useState<Record<'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK', number>>({
@@ -429,12 +433,6 @@ const StatusTab: React.FC = () => {
               <User className="h-5 w-5" />
               <div className="flex flex-col">
                 <div className="font-semibold text-sm">{user.username}</div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[var(--muted-foreground)]">{characterClass?.name || 'Chưa chọn lớp'}</span>
-                  {!characterClass && currentLevel.level >= 10 ? (
-                    <Button size="sm" variant="ghost" onClick={() => setShowAwakenModal(true)}>Thức tỉnh</Button>
-                  ) : null}
-                </div>
               </div>
             </div>
 
@@ -685,15 +683,16 @@ const StatusTab: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Title Section */}
+        {/* Title & Class Advancement Section */}
         <Card className="shadow-sm border border-[var(--border)] bg-[var(--card)]">
           <CardHeader>
             <CardTitle className="text-base font-semibold text-center flex items-center gap-2 justify-center">
               <Crown className="h-5 w-5 text-yellow-500" />
-              Danh hiệu
+              Danh hiệu & Chuyển chức
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4">
+          <CardContent className="p-4 space-y-4">
+            {/* Title Section */}
             <div className="text-center">
               <div className="mb-3">
                 <span className="text-sm text-[var(--muted-foreground)]">Danh hiệu hiện tại:</span>
@@ -711,11 +710,65 @@ const StatusTab: React.FC = () => {
                 Quản lý Danh hiệu
               </Button>
             </div>
+
+            {/* Divider */}
+            <div className="border-t border-[var(--border)]"></div>
+
+            {/* Class Advancement Section */}
+            <div className="text-center">
+              <div className="mb-3">
+                <span className="text-sm text-[var(--muted-foreground)]">Lớp hiện tại:</span>
+                <div className="mt-1 font-medium text-blue-600">
+                  {characterClass ? characterClass.name : 'Chưa chọn lớp'}
+                </div>
+                <div className="text-xs text-[var(--muted-foreground)] mt-1">
+                  {characterClass ? `Tier ${characterClass.tier}` : 'Chưa có lớp'}
+                </div>
+              </div>
+              
+              {/* Logic hiển thị button */}
+              {!characterClass ? (
+                // Chưa có class
+                currentLevel.level >= 10 ? (
+                  // Level >= 10: Hiển thị button Thức tỉnh
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowAwakenModal(true)}
+                    className="flex items-center gap-2 mx-auto"
+                  >
+                    <Star className="h-4 w-4" />
+                    Thức tỉnh
+                  </Button>
+                ) : (
+                  // Level < 10: Hiển thị thông báo
+                  <div className="text-xs text-[var(--muted-foreground)]">
+                    Cần đạt level 10 để thức tỉnh
+                  </div>
+                )
+              ) : (
+                // Đã có class: Hiển thị button chuyển chức tiếp theo
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowClassAdvancementModal(true)}
+                  className="flex items-center gap-2 mx-auto"
+                >
+                  <Star className="h-4 w-4" />
+                  Xem chuyển chức tiếp theo
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
   <AwakenModal open={showAwakenModal} onOpenChange={(v) => setShowAwakenModal(Boolean(v))} />
       <TitleModal open={showTitleModal} onOpenChange={(v) => setShowTitleModal(Boolean(v))} />
+      <ClassAdvancementModal 
+        open={showClassAdvancementModal} 
+        onOpenChange={(v) => setShowClassAdvancementModal(Boolean(v))}
+        currentClass={characterClass}
+      />
     </div>
   );
 };
@@ -1019,5 +1072,6 @@ export function TitleModal({ open, onOpenChange }: { open: boolean; onOpenChange
     </Dialog>
   );
 }
+
 
 export default StatusTab;

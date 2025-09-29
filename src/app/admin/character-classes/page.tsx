@@ -1,5 +1,5 @@
-import AdminCharacterClasses from '@/components/admin/AdminCharacterClasses';
+import AdminCharacterClassesEnhanced from '@/components/admin/AdminCharacterClassesEnhanced';
 
 export default function AdminCharacterClassesPage() {
-  return <AdminCharacterClasses />;
+  return <AdminCharacterClassesEnhanced />;
 }

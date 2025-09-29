@@ -384,6 +384,32 @@ export const characterClassesApi = {
     const response = await api.get('/character-classes/advancement/available');
     return response.data;
   },
+
+  // Pending advancement APIs
+  getPendingAdvancement: async () => {
+    const response = await api.get('/character-classes/advancement/pending');
+    return response.data;
+  },
+
+  acceptPendingAdvancement: async () => {
+    const response = await api.post('/character-classes/advancement/pending/accept');
+    return response.data;
+  },
+
+  clearPendingAdvancement: async () => {
+    const response = await api.delete('/character-classes/advancement/pending');
+    return response.data;
+  },
+
+  createPendingAdvancement: async (data: any) => {
+    const response = await api.post('/character-classes/advancement/pending/create', data);
+    return response.data;
+  },
+
+  checkAdvancementRequirements: async (targetClassId: number) => {
+    const response = await api.get(`/character-classes/advancement/check/${targetClassId}`);
+    return response.data;
+  },
 };
 
 // Skills API
