@@ -24,6 +24,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { worldBossApi } from '@/lib/world-boss-api';
+import { resolveAssetUrl } from '@/lib/asset';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useWorldBossSocket } from '@/hooks/useWorldBossSocket';
 import { WorldBossCombatModal, WorldBossCombatResult } from './WorldBossCombatModal';
@@ -412,8 +413,8 @@ export function WorldBossInterface() {
             <div className="flex-shrink-0">
               {currentBoss.image ? (
                 <div className="h-20 w-20 md:h-24 md:w-24 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden">
-                  <img 
-                    src={`http://localhost:3005${currentBoss.image}`} 
+                  <img
+                    src={resolveAssetUrl(currentBoss.image) ?? undefined}
                     alt={currentBoss.name}
                     className="w-full h-full object-cover"
                   />
