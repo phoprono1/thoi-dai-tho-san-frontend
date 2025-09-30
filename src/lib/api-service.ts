@@ -235,9 +235,28 @@ class ApiService {
     });
   }
 
+  // Open a gacha box using a user-owned item instance (consumes the user_item and required key atomically server-side)
+  async openGachaFromUserItem(userItemId: number, usedKeyItemId?: number): Promise<{ awarded?: unknown[] }> {
+    // Backend route is POST /gacha/open-item/:userItemId
+    const payload = typeof usedKeyItemId === 'number' ? { usedKeyItemId } : undefined;
+    return this.request<{ awarded?: unknown[] }>(`/gacha/open-item/${userItemId}`, {
+      method: 'POST',
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+  }
+
+  // Fetch public gacha box info (entries & rates)
+  async getGachaBox(boxId: number): Promise<any> {
+    return this.request<any>(`/gacha/${boxId}`);
+  }
+
   // Quest APIs
   async getUserQuests(): Promise<UserQuest[]> {
     return this.request<UserQuest[]>(`/quests/user/my-quests`);
+  }
+
+  async getQuest(id: number): Promise<Quest> {
+    return this.request<Quest>(`/quests/${id}`);
   }
 
   async startQuest(questId: number): Promise<UserQuest> {

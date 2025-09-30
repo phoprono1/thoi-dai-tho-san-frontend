@@ -76,6 +76,14 @@ interface ItemSetLocal {
   setBonuses?: SetBonusLocal[];
   items?: SetItemLocal[];
 }
+// Public shape for GET /gacha/:id used in the UI
+interface GachaBoxPublic {
+  id: number;
+  name: string;
+  openMode?: string;
+  metadata?: Record<string, unknown>;
+  entries: Array<Record<string, unknown>>;
+}
 import { useUserStatusStore } from '@/stores/user-status.store';
 
 export default function InventoryTab() {
@@ -101,6 +109,11 @@ export default function InventoryTab() {
   const setEquippedItems = useUserStatusStore((s) => s.setEquippedItems);
   const [refreshDisabled, setRefreshDisabled] = useState(false);
   const [refreshCountdown, setRefreshCountdown] = useState(0);
+  const [isOpening, setIsOpening] = useState(false);
+  const [revealState, setRevealState] = useState<{ open: boolean; stage: 'waiting' | 'revealed'; awarded: unknown[] }>({ open: false, stage: 'waiting', awarded: [] });
+  const [sellModalOpen, setSellModalOpen] = useState(false);
+  const [sellQuantity, setSellQuantity] = useState<number>(1);
+  const [sellMax, setSellMax] = useState<number>(1);
 
   // When an item is selected, ensure we have its ItemSet details available.
   useEffect(() => {
@@ -135,7 +148,55 @@ export default function InventoryTab() {
     return () => {
       mounted = false;
     };
-  }, [selectedItem]);
+  }, [selectedItem, items]);
+
+  // Fetch public gacha box info when selectedItem is a box
+  const [boxInfo, setBoxInfo] = useState<GachaBoxPublic | null>(null);
+  const [boxRequiredKeyName, setBoxRequiredKeyName] = useState<string | null>(null);
+  const [boxRequiredKeyId, setBoxRequiredKeyId] = useState<number | null>(null);
+  const [ownedKeyCount, setOwnedKeyCount] = useState<number>(0);
+  const [useRequiredKey, setUseRequiredKey] = useState<boolean>(true);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      // Reset gacha-related state by default so non-box selections don't keep stale UI
+      setBoxInfo(null);
+      setBoxRequiredKeyName(null);
+      setBoxRequiredKeyId(null);
+      setOwnedKeyCount(0);
+      if (!selectedItem) return;
+      const maybe = (selectedItem.item as unknown as Record<string, unknown>)?.gachaBoxId;
+      if (!maybe) return;
+      try {
+        const info = await apiService.getGachaBox(Number(maybe));
+        if (!mounted) return;
+        setBoxInfo(info as unknown as GachaBoxPublic);
+        // If box requires a key item, resolve its id and name
+        try {
+          const meta = info as unknown as GachaBoxPublic;
+          const reqId = meta.metadata && Object.prototype.hasOwnProperty.call(meta.metadata, 'requiredKeyItemId') ? Number((meta.metadata as Record<string, unknown>)['requiredKeyItemId']) : undefined;
+          if (reqId) {
+            const itm = await itemsApi.getItem(reqId);
+            if (mounted) setBoxRequiredKeyName(itm?.name ?? null);
+            if (mounted) setBoxRequiredKeyId(reqId ?? null);
+            // compute owned count
+            const owned = items.filter((ui) => ui.item.id === reqId).reduce((s, ui) => s + (Number((ui as unknown as Record<string, unknown>).quantity || 1)), 0);
+            if (mounted) setOwnedKeyCount(owned);
+          } else {
+            if (mounted) setBoxRequiredKeyName(null);
+            if (mounted) setBoxRequiredKeyId(null);
+            if (mounted) setOwnedKeyCount(0);
+          }
+        } catch {
+          if (mounted) setBoxRequiredKeyName(null);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  // include `items` so ownedKeyCount updates when inventory changes and clear state on non-box items
+  }, [selectedItem, items]);
 
   // If not authenticated, show message
   if (!isAuthenticated || !userId) {
@@ -472,8 +533,43 @@ export default function InventoryTab() {
   };
 
   const handleSellItem = async () => {
-    // TODO: Implement sell item logic
-    toast.info('Tính năng bán vật phẩm đang được phát triển');
+    // Open sell modal for selected item
+    if (!selectedItem) return toast.error('Chưa chọn vật phẩm để bán');
+    // compute available quantity for this userItem
+    const uiRec = selectedItem as unknown as Record<string, unknown>;
+    const qty = Math.max(1, Number(uiRec.quantity || uiRec.qty || 1));
+    setSellMax(qty);
+    setSellQuantity(1);
+    setSellModalOpen(true);
+  };
+
+  const confirmSell = async () => {
+    if (!selectedItem || !userId) return;
+    const q = Math.max(1, Math.min(sellMax, Math.floor(sellQuantity) || 1));
+    try {
+      const resp = await itemsApi.sellItem(selectedItem.id, q);
+      // try to show gold received from resp, otherwise generic message
+      const gold = resp && (resp as any).goldReceived ? Number((resp as any).goldReceived) : undefined;
+      if (gold != null) {
+        toast.success(`Đã bán ${q}x ${selectedItem.item.name} — nhận ${gold} vàng`);
+      } else if (resp && (resp as any).message) {
+        toast.success(String((resp as any).message));
+      } else {
+        toast.success('Đã bán vật phẩm');
+      }
+      setSellModalOpen(false);
+      // refresh user and inventory caches
+      queryClient.invalidateQueries({ queryKey: ['user-items', userId] });
+      queryClient.invalidateQueries({ queryKey: ['userItems', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user', userId] });
+      // close detail modal as the item may have been consumed
+      setSelectedItem(null);
+    } catch (err) {
+      console.error('Sell failed', err);
+      const msg = err && err instanceof Error ? err.message : 'Không thể bán vật phẩm';
+      toast.error(msg || 'Không thể bán vật phẩm');
+    }
   };
 
 
@@ -617,6 +713,10 @@ export default function InventoryTab() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Show required key item if any */}
+              {boxRequiredKeyName && (
+                <div className="text-sm text-yellow-400 font-medium">Cần: {boxRequiredKeyName} để mở rương</div>
+              )}
               {/* Item Stats */}
               {selectedItem.item.stats && (
                 <div className="space-y-2">
@@ -717,6 +817,99 @@ export default function InventoryTab() {
 
               {/* Action Buttons */}
               <div className="flex space-x-2">
+                {/* Open for gacha boxes (catalog item has gachaBoxId) */}
+                {!!(((selectedItem.item as unknown) as Record<string, unknown>).gachaBoxId) && (
+                  <Button
+                    className="flex-1 bg-amber-400 text-black"
+                    onClick={async () => {
+                      // Open gacha from this user_item
+                      if (!userId) return;
+                      setIsOpening(true);
+                      setRevealState({ open: true, stage: 'waiting', awarded: [] });
+                      try {
+                        // Start server call
+                        // choose key id to use: if user opted to use required key and they own it
+                        const keyToUse = useRequiredKey && boxRequiredKeyId && ownedKeyCount > 0 ? boxRequiredKeyId : undefined;
+                        const respPromise = apiService.openGachaFromUserItem(selectedItem.id, keyToUse);
+                        // Minimum animation delay before reveal
+                        const minDelay = new Promise((res) => setTimeout(res, 900));
+                        const [resp] = await Promise.all([respPromise, minDelay]);
+                        const awarded = (resp && (resp as unknown as { awarded?: unknown[] }).awarded) || [];
+                        // If server intentionally returned no awards (allowed when no guaranteed entries),
+                        // immediately transition out of the waiting spinner into the revealed state so
+                        // the UI can show the "no rewards" message instead of hanging on the spinner.
+                        if (!awarded || awarded.length === 0) {
+                          setRevealState({ open: true, stage: 'revealed', awarded: [] });
+                          // Refresh inventory caches even if nothing awarded so UI stays consistent
+                          queryClient.invalidateQueries({ queryKey: ['user-items', userId] });
+                          queryClient.invalidateQueries({ queryKey: ['userItems', userId] });
+                          queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+                          setIsOpening(false);
+                          return;
+                        }
+                        // For better UX, fetch item details (name, image, rarity) and reveal sequentially
+                        const itemIds = Array.from(new Set(awarded
+                          .filter((a) => a && typeof a === 'object' && 'itemId' in (a as Record<string, unknown>))
+                          .map((a) => Number((a as Record<string, unknown>).itemId))));
+                        const idToItem: Record<number, { name: string; image?: string; rarity?: number }> = {};
+                        await Promise.all(itemIds.map(async (iid: number) => {
+                          try {
+                            const it = await itemsApi.getItem(iid);
+                            idToItem[iid] = { name: it?.name ?? `Item #${iid}`, image: it?.image, rarity: it?.rarity };
+                          } catch {
+                            idToItem[iid] = { name: `Item #${iid}` };
+                          }
+                        }));
+
+                        // Build awarded list enriched with item details
+                        const awardedDetailed = awarded.map((a) => {
+                          if (a && typeof a === 'object' && 'itemId' in (a as Record<string, unknown>)) {
+                            const ai = a as Record<string, unknown>;
+                            const iid = Number(ai.itemId);
+                            const meta = idToItem[iid] || { name: `Item #${iid}` };
+                            return { ...ai, name: String(meta.name), image: meta.image, rarity: meta.rarity };
+                          }
+                          return a;
+                        });
+
+                        // Prepare all award details first, then reveal them together in one synchronized step.
+                        // This avoids staggered DOM updates that look inconsistent when users spam-open boxes.
+                        setRevealState({ open: true, stage: 'waiting', awarded: [] });
+                        // short suspense pause before showing everything at once
+                        await new Promise((r) => setTimeout(r, 700));
+                        setRevealState({ open: true, stage: 'revealed', awarded: awardedDetailed });
+                        // Refresh inventory and related caches
+                        queryClient.invalidateQueries({ queryKey: ['user-items', userId] });
+                        queryClient.invalidateQueries({ queryKey: ['userItems', userId] });
+                        queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+                      } catch (err) {
+                        console.error('Open gacha failed', err);
+                        const msg = (err && typeof err === 'object' && 'message' in err) ? String((err as { message?: unknown }).message ?? '') : 'Không thể mở rương';
+                        if (msg.includes('Yêu cầu sử dụng key cụ thể')) {
+                          const more = boxRequiredKeyId ? `Yêu cầu key id=${boxRequiredKeyId}. Bạn có ${ownedKeyCount} cái.` : '';
+                          toast.error(`${msg} ${more}`);
+                        } else {
+                          toast.error(msg || 'Không thể mở rương');
+                        }
+                        setRevealState({ open: false, stage: 'waiting', awarded: [] });
+                      } finally {
+                        setIsOpening(false);
+                      }
+                    }}
+                    disabled={isOpening}
+                  >
+                    {isOpening ? 'Đang mở...' : 'Mở rương'}
+                  </Button>
+                )}
+                {/* If box requires a specific key, show small toggle and owned count */}
+                {boxRequiredKeyId ? (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-400">Dùng key:</label>
+                    <button onClick={() => setUseRequiredKey((v) => !v)} className={`px-2 py-1 text-xs rounded ${useRequiredKey ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
+                      {useRequiredKey ? `Có (${ownedKeyCount})` : 'Không'}
+                    </button>
+                  </div>
+                ) : null}
                 {isEquipableType(selectedItem.item.type) ? (
                   <Button
                     className="flex-1"
@@ -725,15 +918,18 @@ export default function InventoryTab() {
                   >
                     {selectedItem.isEquipped ? 'Tháo ra' : 'Mặc vào'}
                   </Button>
-                ) : selectedItem.item.type === 'consumable' ? (
-                  <Button
-                    className="flex-1"
-                    onClick={() => handleUseItem(selectedItem)}
-                  >
-                    Sử dụng
-                  </Button>
                 ) : (
+                  // If this item maps to a gacha box, hide the Use button (it uses 'Mở rương' instead)
+                  (!((selectedItem.item as unknown as Record<string, unknown>).gachaBoxId) && selectedItem.item.type === 'consumable') ? (
+                    <Button
+                      className="flex-1"
+                      onClick={() => handleUseItem(selectedItem)}
+                    >
+                      Sử dụng
+                    </Button>
+                  ) : (
                   <div className="flex-1" />
+                  )
                 )}
                 <Button
                   variant="outline"
@@ -744,11 +940,120 @@ export default function InventoryTab() {
                   Bán
                 </Button>
               </div>
+
+              {/* Gacha drop table: show when selected item is a gacha box */}
+              {boxInfo && (
+                <div className="mt-4 p-3 border rounded bg-[var(--card)]">
+                  <div className="text-sm font-semibold mb-2">Bảng rớt: {boxInfo.name}</div>
+                  <div className="text-xs text-gray-400 mb-2">Hiển thị tỉ lệ (xem notes):</div>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="overflow-y-auto max-h-56 md:max-h-80 pr-2">
+                    {(boxInfo.entries as unknown[]).length === 0 ? (
+                      <div className="text-xs text-gray-400">Không có mục trong bảng rớt để hiển thị.</div>
+                    ) : (
+                      (boxInfo.entries as unknown[]).map((eu) => {
+                        const e = eu as Record<string, unknown>;
+                        const id = e.id as number | undefined;
+                        const itemName = (e.itemName as string) ?? (e.itemId ? `Item #${e.itemId}` : '—');
+                        const amtMin = e.amountMin as number | undefined;
+                        const amtMax = e.amountMax as number | undefined;
+                        const guaranteed = !!e.guaranteed;
+                        const displayRate = e.displayRate as number | null | undefined;
+                        return (
+                          <div key={String(id ?? Math.random())} className="flex items-center justify-between text-sm p-2 border rounded bg-white/5">
+                            <div>
+                              <div className="font-medium">{itemName}</div>
+                              <div className="text-xs text-gray-400">Số lượng: {amtMin}{amtMax && amtMax !== amtMin ? ` - ${amtMax}` : ''} {guaranteed ? '• Guaranteed' : ''}</div>
+                            </div>
+                            <div className="text-right text-xs text-gray-300">
+                              {displayRate == null ? '—' : `${(Number(displayRate) * 100).toFixed(2)}%`}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </CardContent>
           </Card>
         </div>
       )}
 
+      {/* Reveal Modal */}
+          {revealState.open && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60" onClick={() => setRevealState({ open: false, stage: 'waiting', awarded: [] })}>
+              <div className="bg-white rounded-lg p-6 w-full max-w-md text-center" onClick={(e) => e.stopPropagation()} style={{ zIndex: 10000 }}>
+                {revealState.stage === 'waiting' ? (
+                  <div>
+                    <div className="text-lg font-semibold mb-2">Đang mở rương...</div>
+                    <div className="h-40 flex items-center justify-center">
+                      <Loader2 className="animate-spin h-12 w-12 text-amber-400" />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-lg font-semibold mb-4">Bạn nhận được:</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {revealState.awarded.length === 0 && <div>Không có phần thưởng</div>}
+                      {revealState.awarded.map((a, idx) => {
+                        const obj = a as Record<string, unknown> | null;
+                        const name = obj && 'name' in obj ? String(obj.name) : JSON.stringify(a);
+                        const img = obj && 'image' in obj ? String(obj.image) : undefined;
+                        const rarity = obj && 'rarity' in obj && obj.rarity != null ? Number(obj.rarity) : undefined;
+                        const rnum = typeof rarity === 'number' ? rarity : 0;
+                        const rarityClass = rnum >= 5 ? 'ring-yellow-400' : (rnum === 4 ? 'ring-purple-500' : (rnum === 3 ? 'ring-blue-400' : 'ring-gray-300'));
+                        return (
+                          <div key={idx} className={`p-3 rounded bg-[var(--card)] flex items-center gap-3 border ${rarityClass}`}>
+                            <div className="w-20 h-20 bg-black/5 rounded flex items-center justify-center overflow-hidden">
+                              {img ? (
+                                <Image src={resolveAssetUrl(img) || ''} alt={name} width={80} height={80} className="object-contain" unoptimized />
+                              ) : (
+                                <div className="text-sm text-gray-500">(No image)</div>
+                              )}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <div className="font-semibold">{name}</div>
+                              <div className="text-xs text-gray-400 mt-1">{rarity ? `Rarity: ${rarity}` : ''}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4">
+                      <Button onClick={() => { setRevealState({ open: false, stage: 'waiting', awarded: [] }); if (userId) queryClient.invalidateQueries({ queryKey: ['user-items', userId] }); }}>
+                        Đóng
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+      {/* Sell Modal */}
+      {sellModalOpen && selectedItem && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50" onClick={() => setSellModalOpen(false)}>
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="text-lg font-semibold mb-2">Bán vật phẩm</div>
+            <div className="mb-3">{selectedItem.item.name}</div>
+            <div className="mb-3 text-sm text-gray-600">Số lượng có: {sellMax}</div>
+            <div className="flex items-center gap-2 mb-3">
+              <input type="number" min={1} max={sellMax} value={sellQuantity} onChange={(e) => setSellQuantity(Number(e.target.value || 1))} className="border p-2 rounded w-24" />
+              <div className="text-sm">x Giá bán: {Number((selectedItem.item as unknown as Record<string, unknown>).price || 0)} vàng</div>
+            </div>
+            <div className="mb-4 text-sm">Tổng nhận: <strong>{sellQuantity * Number((selectedItem.item as unknown as Record<string, unknown>).price || 0)}</strong> vàng</div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSellModalOpen(false)}>Hủy</Button>
+              <Button onClick={() => confirmSell()}>Xác nhận bán</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+          
       {/* Close modal on Escape key */}
       {selectedItem && (
         <EscapeKeyListener onEscape={() => setSelectedItem(null)} />

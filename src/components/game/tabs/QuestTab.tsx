@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,19 @@ interface RewardItem {
   quantity?: number;
   qty?: number;
 }
+// Local lightweight Quest type to include optional dependencies and name
+type QuestAny = {
+  id?: number;
+  title?: string;
+  name?: string;
+  description?: string;
+  type?: string;
+  timeLimit?: string | null;
+  requirements?: Record<string, unknown> | null;
+  rewards?: Record<string, unknown> | null;
+  dependencies?: { prerequisiteQuests?: Array<number | string | { id?: number; name?: string; title?: string }> } | null;
+  maxProgress?: number;
+};
 import { toast } from 'sonner';
 import { UserQuest, QuestStatus, UserItem, User } from '@/types';
 import useQuestStore from '@/stores/useQuestStore';
@@ -378,7 +391,13 @@ export default function QuestTab() {
         </TabsContent>
       </Tabs>
         {detailQuest && (
-          <QuestDetailsModal uq={detailQuest} dungeons={dungeonsData as Dungeon[]} items={itemsData} onClose={() => setDetailQuest(null)} />
+          <QuestDetailsModal
+            uq={detailQuest}
+            dungeons={dungeonsData as Dungeon[]}
+            items={itemsData}
+            quests={(mergedQuests || []).map((mq: UserQuest) => mq.quest as QuestAny)}
+            onClose={() => setDetailQuest(null)}
+          />
         )}
       </div>
     );
@@ -393,7 +412,7 @@ interface QuestCardProps {
 }
 
 function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: QuestCardProps) {
-  const quest = userQuest.quest;
+  const quest = userQuest.quest as QuestAny;
 
   // Compute aggregated progress across multiple requirement types.
   // Simple strategy: sum required counts and sum completed counts (capped per requirement).
@@ -482,7 +501,18 @@ function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: Que
     return { completed: totalCompleted, total: totalRequired };
   };
 
-  const { completed: numericProgress, total: maxProgress } = computeAggregatedProgress(quest, userQuest.progress);
+  // Normalize requirements and rewards to typed locals to satisfy TypeScript
+  const reqObj = (quest.requirements ?? {}) as ReqAny;
+  const rewardsObj = (quest.rewards ?? { experience: 0, gold: 0, items: [] }) as {
+    experience?: number;
+    gold?: number;
+    items?: unknown[];
+  };
+
+  const { completed: numericProgress, total: maxProgress } = computeAggregatedProgress(
+    { requirements: reqObj, maxProgress: quest.maxProgress },
+    userQuest.progress,
+  );
   const progressPercentage = maxProgress > 0 ? (numericProgress / maxProgress) * 100 : 0;
 
   const getQuestTypeColor = (type: string) => {
@@ -523,13 +553,13 @@ function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: Que
           <div className="flex items-center space-x-3">
             {getStatusIcon(userQuest.status)}
             <div>
-              <CardTitle className="text-lg">{quest.title}</CardTitle>
-              <CardDescription>{quest.description}</CardDescription>
+              <CardTitle className="text-lg">{quest.name ?? quest.title}</CardTitle>
+                <CardDescription>{quest.description}</CardDescription>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge className={getQuestTypeColor(quest.type)}>
-              {getQuestTypeLabel(quest.type)}
+            <Badge className={getQuestTypeColor(quest.type ?? '')}>
+              {getQuestTypeLabel(quest.type ?? '')}
             </Badge>
           </div>
         </div>
@@ -561,10 +591,10 @@ function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: Que
         )}
 
         {/* Requirements */}
-        {quest.requirements.level && (
+        {reqObj.level && (
           <div className="flex items-center space-x-1 text-sm text-gray-600 mb-3">
             <Star className="h-4 w-4" />
-            <span>Yêu cầu level {quest.requirements.level}</span>
+            <span>Yêu cầu level {reqObj.level}</span>
           </div>
         )}
 
@@ -574,16 +604,16 @@ function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: Que
           <div className="flex items-center space-x-4 text-sm">
             <div className="flex items-center space-x-1">
               <Star className="h-4 w-4 text-yellow-500" />
-              <span>{quest.rewards.experience} EXP</span>
+              <span>{rewardsObj.experience ?? 0} EXP</span>
             </div>
             <div className="flex items-center space-x-1">
               <Coins className="h-4 w-4 text-yellow-500" />
-              <span>{quest.rewards.gold} vàng</span>
+              <span>{rewardsObj.gold ?? 0} vàng</span>
             </div>
-            {quest.rewards.items && quest.rewards.items.length > 0 && (
+            {rewardsObj.items && rewardsObj.items.length > 0 && (
               <div className="flex items-center space-x-1">
                 <Gem className="h-4 w-4 text-purple-500" />
-                <span>{quest.rewards.items.length} vật phẩm</span>
+                <span>{rewardsObj.items.length} vật phẩm</span>
               </div>
             )}
           </div>
@@ -612,8 +642,8 @@ function QuestCard({ userQuest, onAccept, onClaim, onOpenDetails, onCheck }: Que
 }
 
 // Details modal/drawer
-function QuestDetailsModal({ uq, onClose, dungeons, items }: { uq: UserQuest; onClose: () => void; dungeons: Dungeon[]; items?: Item[] }) {
-  const q = uq.quest;
+function QuestDetailsModal({ uq, onClose, dungeons, items, quests }: { uq: UserQuest; onClose: () => void; dungeons: Dungeon[]; items?: Item[]; quests?: QuestAny[] }) {
+  const q = uq.quest as QuestAny;
   // Local lightweight types for rendering quest requirements/progress
   interface KillReq { enemyType: string; count: number }
   interface CollectReq { itemId: number; quantity: number }
@@ -636,6 +666,56 @@ function QuestDetailsModal({ uq, onClose, dungeons, items }: { uq: UserQuest; on
 
   const req: RequirementsAny = (q.requirements || {}) as RequirementsAny;
   const prog: ProgressAny = (uq.progress || {}) as ProgressAny;
+
+  const qRewards = (q.rewards ?? { experience: 0, gold: 0, items: [] }) as {
+    experience?: number;
+    gold?: number;
+    items?: unknown[];
+  };
+
+  // Cache for fetched quest names when the passed `quests` prop doesn't include them
+  const [resolvedNames, setResolvedNames] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    // Collect numeric ids we need to resolve
+    const idsToFetch: number[] = [];
+    if (q.dependencies && Array.isArray(q.dependencies.prerequisiteQuests)) {
+      for (const p of q.dependencies.prerequisiteQuests) {
+        const idNum = typeof p === 'number' ? p : typeof p === 'string' ? Number(p) : p?.id ? Number(p.id) : NaN;
+        if (!isNaN(idNum)) {
+          const found = (quests || []).find((qq) => Number(qq?.id) === idNum);
+          if (!found && resolvedNames[idNum] == null) {
+            idsToFetch.push(idNum);
+          }
+        }
+      }
+    }
+
+    if (idsToFetch.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const id of idsToFetch) {
+        try {
+          const resp = await apiService.getQuest(id);
+          if (cancelled) return;
+          if (resp && resp.id) {
+            const anyResp = resp as unknown as { name?: string; title?: string };
+            setResolvedNames((prev) => ({ ...prev, [id]: anyResp.name || anyResp.title || `#${id}` }));
+          } else {
+            setResolvedNames((prev) => ({ ...prev, [id]: `#${id}` }));
+          }
+        } catch {
+          // On error, set fallback so we don't retry repeatedly
+          setResolvedNames((prev) => ({ ...prev, [id]: `#${id}` }));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [q.dependencies, quests, resolvedNames]);
 
   // Normalize rewards.items to a typed array for rendering
   const rewardItems: RewardItem[] = Array.isArray(q.rewards?.items) ? (q.rewards.items as unknown as RewardItem[]) : [];
@@ -703,7 +783,7 @@ function QuestDetailsModal({ uq, onClose, dungeons, items }: { uq: UserQuest; on
     <div className="fixed inset-0 bg-[rgba(0,0,0,0.4)] flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-[var(--card)] text-[var(--card-foreground)] w-full max-w-2xl p-4 rounded" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium">{q.title}</h3>
+          <h3 className="text-lg font-medium">{q.name ?? q.title}</h3>
           <button onClick={onClose} className="text-sm">✕</button>
         </div>
 
@@ -749,11 +829,11 @@ function QuestDetailsModal({ uq, onClose, dungeons, items }: { uq: UserQuest; on
           <div className="mt-2 text-sm text-gray-700 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2"><Star className="h-4 w-4 text-yellow-500"/> EXP</div>
-              <div className="text-gray-500">{q.rewards?.experience ?? 0}</div>
+              <div className="text-gray-500">{Number(qRewards.experience ?? 0)}</div>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2"><Coins className="h-4 w-4 text-yellow-500"/> Vàng</div>
-              <div className="text-gray-500">{q.rewards?.gold ?? 0}</div>
+              <div className="text-gray-500">{Number(qRewards.gold ?? 0)}</div>
             </div>
             {rewardItems.length > 0 ? (
               <div>
@@ -770,6 +850,44 @@ function QuestDetailsModal({ uq, onClose, dungeons, items }: { uq: UserQuest; on
               </div>
             ) : (
               <div className="text-sm text-gray-500">Không có vật phẩm</div>
+            )}
+          </div>
+        </div>
+        {/* Prerequisite quests / dependencies */}
+        <div className="mt-4">
+          <h4 className="font-medium">Cần hoàn thành quest trước:</h4>
+          <div className="mt-2 text-sm text-gray-700">
+            {q.dependencies && Array.isArray(q.dependencies.prerequisiteQuests) && q.dependencies.prerequisiteQuests.length > 0 ? (
+              <ul className="list-disc list-inside">
+                {q.dependencies.prerequisiteQuests.map(
+                  (
+                    p: number | string | { id?: number; name?: string; title?: string },
+                    idx: number,
+                  ) => {
+                    // Resolve to human friendly name when possible using the passed quests list
+                    let label: string;
+                    let idNum: number | null = null;
+                    if (typeof p === 'number') idNum = p;
+                    else if (typeof p === 'string') idNum = Number(p);
+                    else if (p && p.id) idNum = Number(p.id);
+
+                    if (idNum != null && !isNaN(idNum)) {
+                      const found = (quests || []).find((qq) => Number(qq?.id) === idNum);
+                      if (found) label = found.name || found.title || `#${idNum}`;
+                      else if (resolvedNames[idNum]) label = resolvedNames[idNum];
+                      else label = `#${idNum}`; // will update after fetch
+                    } else if (typeof p === 'object') {
+                      label = p?.name || p?.title || '#?';
+                    } else {
+                      label = `#${String(p)}`;
+                    }
+
+                    return <li key={idx}>{label}</li>;
+                  },
+                )}
+              </ul>
+            ) : (
+              <div className="text-sm text-gray-500">Không có nhiệm vụ tiền đề</div>
             )}
           </div>
         </div>

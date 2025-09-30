@@ -60,12 +60,13 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: Home },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Items', href: '/admin/items', icon: Sword },
+  { name: 'Gacha', href: '/admin/gacha', icon: Shield },
   { name: 'Crafting', href: '/admin/crafting', icon: Hammer },
   { name: 'Skills', href: '/admin/skills', icon: Sparkles },
   { name: 'Market', href: '/admin/market', icon: Shop },
   { name: 'Monsters', href: '/admin/monsters', icon: PawPrint },
   { name: 'Dungeons', href: '/admin/dungeons', icon: Shield },
-  {name: 'Rooms', href: '/admin/rooms', icon: Building2 },
+  { name: 'Rooms', href: '/admin/rooms', icon: Building2 },
   { name: 'Character Classes', href: '/admin/character-classes', icon: UserCheck },
   { name: 'Combat Results', href: '/admin/combat', icon: Crosshair },
   { name: 'Quests', href: '/admin/quests', icon: Target },
@@ -117,7 +118,7 @@ export default function AdminLayout({
   return (
     <QueryClientProvider client={adminQueryClient}>
       <AdminProvider>
-  <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
           {/* Mobile sidebar */}
           <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
             <div className="fixed inset-0 bg-black bg-opacity-25" onClick={() => setSidebarOpen(false)} />
@@ -138,11 +139,10 @@ export default function AdminLayout({
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center px-4 py-3 text-sm font-medium ${
-                        isActive
+                      className={`flex items-center px-4 py-3 text-sm font-medium ${isActive
                           ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200 border-r-2 border-blue-700'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'
-                      }`}
+                        }`}
                       onClick={() => setSidebarOpen(false)}
                     >
                       <item.icon className="w-5 h-5 mr-3" />
@@ -168,11 +168,10 @@ export default function AdminLayout({
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center px-6 py-3 text-sm font-medium transition-colors ${
-                        isActive
+                      className={`flex items-center px-6 py-3 text-sm font-medium transition-colors ${isActive
                           ? 'bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-200 border-r-4 border-blue-700'
                           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'
-                      }`}
+                        }`}
                     >
                       <item.icon className="w-5 h-5 mr-3" />
                       {item.name}

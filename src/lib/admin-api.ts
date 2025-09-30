@@ -3,7 +3,11 @@ import axios from 'axios';
 
 // Admin-specific API client without auth interceptors
 export const adminApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005',
+  // Ensure adminApi talks to the backend API prefix. The backend sets a global
+  // prefix of '/api' so include it in the default base URL to avoid 404s when
+  // code calls endpoints like '/gacha'. In production NEXT_PUBLIC_API_URL can
+  // include the full '/api' path if desired.
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -209,6 +213,23 @@ export const adminApiEndpoints = {
   // Backfill actions
   backfillUser: (userId: number) => adminApi.post(`/admin/backfill/user/${userId}`),
   backfillBatch: () => adminApi.post('/admin/backfill/batch'),
+
+  // Gacha / Boxes
+  getGachaBoxes: () => adminApi.get('/gacha'),
+  getGachaBox: (id: number) => adminApi.get(`/gacha/${id}`),
+  createGachaBox: (data: any) => adminApi.post('/gacha', data),
+  updateGachaBox: (id: number, data: any) => adminApi.put(`/gacha/${id}`, data),
+  deleteGachaBox: (id: number) => adminApi.delete(`/gacha/${id}`),
+
+  // Entries
+  addGachaEntry: (boxId: number, data: any) => adminApi.post(`/gacha/${boxId}/entries`, data),
+  updateGachaEntry: (entryId: number, data: any) => adminApi.put(`/gacha/entries/${entryId}`, data),
+  deleteGachaEntry: (entryId: number) => adminApi.delete(`/gacha/entries/${entryId}`),
+
+  // User gacha instances
+  getUserGachaInstances: () => adminApi.get('/me/gacha/instances'),
+  awardUserGachaInstance: (data: any) => adminApi.post('/me/gacha/instances', data),
+  openUserGachaInstance: (id: number) => adminApi.post(`/me/gacha/instances/${id}/open`),
 };
 
 export default adminApi;

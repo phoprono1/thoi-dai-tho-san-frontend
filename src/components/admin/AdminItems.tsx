@@ -367,11 +367,11 @@ export default function AdminItems() {
       duration: item.duration || 0,
       setId: item.setId || 0,
       // Only core attributes (matching user stats)
-      strength: item.stats.strength || 0,
-      intelligence: item.stats.intelligence || 0,
-      dexterity: item.stats.dexterity || 0,
-      vitality: item.stats.vitality || 0,
-      luck: item.stats.luck || 0,
+      strength: item.stats?.strength || 0,
+      intelligence: item.stats?.intelligence || 0,
+      dexterity: item.stats?.dexterity || 0,
+      vitality: item.stats?.vitality || 0,
+      luck: item.stats?.luck || 0,
       tradable: typeof item.tradable === 'boolean' ? item.tradable : true,
     });
     setClassRestrictions(item.classRestrictions || {
@@ -1050,11 +1050,11 @@ export default function AdminItems() {
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-300 mt-1">
-                          {item.stats.strength && `STR: ${item.stats.strength} `}
-                          {item.stats.intelligence && `INT: ${item.stats.intelligence} `}
-                          {item.stats.dexterity && `DEX: ${item.stats.dexterity} `}
-                          {item.stats.vitality && `VIT: ${item.stats.vitality} `}
-                          {item.stats.luck && `LCK: ${item.stats.luck} `}
+                          {item.stats?.strength && `STR: ${item.stats?.strength} `}
+                          {item.stats?.intelligence && `INT: ${item.stats?.intelligence} `}
+                          {item.stats?.dexterity && `DEX: ${item.stats?.dexterity} `}
+                          {item.stats?.vitality && `VIT: ${item.stats?.vitality} `}
+                          {item.stats?.luck && `LCK: ${item.stats?.luck} `}
                         </div>
                         {item.type === ItemType.CONSUMABLE && (
                           <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
