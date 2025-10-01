@@ -1,5 +1,5 @@
-import AdminSkills from "@/components/admin/AdminSkills";
+import AdminSkillsNew from "@/components/admin/AdminSkillsNew";
 
 export default function AdminItemsPage() {
-  return <AdminSkills />;
+  return <AdminSkillsNew />;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { resolveAssetUrl } from '@/lib/asset';
 import { 
   Hammer, 
   Clock, 
@@ -52,6 +54,7 @@ interface Item {
   rarity: number;
   price: number;
   description?: string;
+  image?: string;
   stats?: {
     strength?: number;
     intelligence?: number;
@@ -318,29 +321,71 @@ export default function CraftingInterface() {
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="font-semibold">{recipe.name}</h3>
-                                {recipe.resultItem && (
-                                  <Badge variant="outline" className={getRarityColor(recipe.resultItem.rarity)}>
-                                    {getRarityLabel(recipe.resultItem.rarity)}
-                                  </Badge>
+                            <div className="flex items-start gap-3 flex-1">
+                              {/* Recipe Result Item Image */}
+                              <div className="relative w-12 h-12 flex-shrink-0">
+                                {recipe.resultItem?.image ? (
+                                  <Image
+                                    src={resolveAssetUrl(recipe.resultItem.image) || ''}
+                                    alt={recipe.resultItem.name}
+                                    width={48}
+                                    height={48}
+                                    className="object-contain rounded border"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 bg-gray-200 rounded border flex items-center justify-center">
+                                    <Package className="h-6 w-6 text-gray-400" />
+                                  </div>
                                 )}
                               </div>
                               
-                              {recipe.description && (
-                                <p className="text-sm text-muted-foreground mb-3">{recipe.description}</p>
-                              )}
-                              
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <Coins className="h-3 w-3 text-yellow-500" />
-                                  {recipe.goldCost.toLocaleString()}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h3 className="font-semibold">{recipe.name}</h3>
+                                  {recipe.resultItem && (
+                                    <Badge variant="outline" className={getRarityColor(recipe.resultItem.rarity)}>
+                                      {getRarityLabel(recipe.resultItem.rarity)}
+                                    </Badge>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <Package className="h-3 w-3" />
-                                  x{recipe.resultQuantity}
+                                
+                                {recipe.description && (
+                                  <p className="text-sm text-muted-foreground mb-3">{recipe.description}</p>
+                                )}
+                                
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <Coins className="h-3 w-3 text-yellow-500" />
+                                    {recipe.goldCost.toLocaleString()}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Package className="h-3 w-3" />
+                                    x{recipe.resultQuantity}
+                                  </div>
                                 </div>
+                                
+                                {/* Materials preview */}
+                                {recipe.materials && recipe.materials.length > 0 && (
+                                  <div className="mt-2 text-xs">
+                                    <span className="text-muted-foreground">Nguyên liệu: </span>
+                                    {recipe.materials.slice(0, 2).map((material, idx) => {
+                                      const available = getUserItemQuantity(material.itemId);
+                                      const required = material.quantity;
+                                      const hasEnough = available >= required;
+                                      const materialItem = allItems?.find(item => item.id === material.itemId);
+                                      
+                                      return (
+                                        <span key={idx} className={`${hasEnough ? 'text-green-600' : 'text-red-500'} mr-2`}>
+                                          {materialItem?.name?.substring(0, 8) || `Item${material.itemId}`} {available}/{required}
+                                        </span>
+                                      );
+                                    })}
+                                    {recipe.materials.length > 2 && (
+                                      <span className="text-muted-foreground">+{recipe.materials.length - 2} khác</span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
@@ -384,12 +429,34 @@ export default function CraftingInterface() {
                   {selectedRecipe.resultItem && (
                     <div className="p-3 bg-gray-50 rounded-lg">
                       <h4 className="font-medium mb-2">Kết quả:</h4>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium">{selectedRecipe.resultItem.name}</span>
-                        <Badge variant="outline" className={getRarityColor(selectedRecipe.resultItem.rarity)}>
-                          {getRarityLabel(selectedRecipe.resultItem.rarity)}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">x{selectedRecipe.resultQuantity}</span>
+                      <div className="flex items-center gap-3 mb-2">
+                        {/* Result Item Image */}
+                        <div className="relative w-12 h-12 flex-shrink-0">
+                          {selectedRecipe.resultItem.image ? (
+                            <Image
+                              src={resolveAssetUrl(selectedRecipe.resultItem.image) || ''}
+                              alt={selectedRecipe.resultItem.name}
+                              width={48}
+                              height={48}
+                              className="object-contain rounded border"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-200 rounded border flex items-center justify-center">
+                              <Package className="h-6 w-6 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{selectedRecipe.resultItem.name}</span>
+                            <Badge variant="outline" className={getRarityColor(selectedRecipe.resultItem.rarity)}>
+                              {getRarityLabel(selectedRecipe.resultItem.rarity)}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">x{selectedRecipe.resultQuantity}</span>
+                          </div>
+                        </div>
                       </div>
                       
                       {/* Stats */}
@@ -431,11 +498,30 @@ export default function CraftingInterface() {
                         
                         return (
                           <div key={index} className="flex items-center justify-between text-sm">
-                            <span className={hasEnough ? '' : 'text-red-500'}>
-                              {materialItem?.name || `Item ${material.itemId}`}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {/* Material Item Image */}
+                              <div className="relative w-8 h-8 flex-shrink-0">
+                                {materialItem?.image ? (
+                                  <Image
+                                    src={resolveAssetUrl(materialItem.image) || ''}
+                                    alt={materialItem.name}
+                                    width={32}
+                                    height={32}
+                                    className="object-contain rounded border"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 bg-gray-200 rounded border flex items-center justify-center">
+                                    <Package className="h-4 w-4 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              <span className={hasEnough ? '' : 'text-red-500'}>
+                                {materialItem?.name || `Item ${material.itemId}`}
+                              </span>
+                            </div>
                             <span className={hasEnough ? 'text-green-600' : 'text-red-500'}>
-                              {required}
+                              {available}/{required}
                             </span>
                           </div>
                         );

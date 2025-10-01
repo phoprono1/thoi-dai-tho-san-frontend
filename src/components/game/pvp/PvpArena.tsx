@@ -110,6 +110,16 @@ export function PvpArena() {
   const [activeTab, setActiveTab] = useState<'opponents' | 'leaderboard' | 'history'>('opponents');
   const [refreshCooldown, setRefreshCooldown] = useState(0);
 
+  // Convert PvpMatch to CombatResultData format
+  const convertMatchToCombatResult = (match: PvpMatch) => {
+    return {
+      winnerId: match.winnerId || undefined,
+      challengerId: match.challengerId,
+      pointsChange: match.pointsChange,
+      combatResult: match.combatResult,
+    };
+  };
+
   // Fetch my ranking
   const fetchMyRanking = async () => {
     try {
@@ -289,7 +299,7 @@ export function PvpArena() {
         </TabsContent>
       </Tabs>
       
-      {showCombat && (
+      {showCombat && combatResult && (
         <CombatDialog
           open={showCombat}
           onOpenChange={(open) => {
@@ -301,7 +311,7 @@ export function PvpArena() {
               }, 100);
             }
           }}
-          combatResult={combatResult}
+          combatResult={convertMatchToCombatResult(combatResult)}
         />
       )}
     </div>

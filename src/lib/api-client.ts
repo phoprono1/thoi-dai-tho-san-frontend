@@ -438,6 +438,21 @@ export const skillsApi = {
     const response = await api.get('/skills/effects');
     return response.data;
   },
+
+  equipSkill: async (skillId: string) => {
+    const response = await api.post(`/skills/equip/${skillId}`);
+    return response.data;
+  },
+
+  unequipSkill: async (skillId: string) => {
+    const response = await api.post(`/skills/unequip/${skillId}`);
+    return response.data;
+  },
+
+  getEquippedSlots: async () => {
+    const response = await api.get('/skills/slots');
+    return response.data;
+  },
 };
 
 // User Attributes API

@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from 'react';
+import SkillsSection from '@/components/game/SkillsSection';
 
 // Add CSS animations for title effects
 const titleAnimationStyles = `
@@ -647,6 +649,9 @@ const StatusTab: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Skills Section */}
+      <SkillsSection />
+
       {/* Equipment and Title Section - 2 columns on PC, stacked on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Equipped Items Section - 6 slots in human body layout */}
@@ -888,7 +893,7 @@ export function TitleModal({ open, onOpenChange }: { open: boolean; onOpenChange
       await titlesApi.equipTitle(titleId);
       toast.success('Đã trang bị danh hiệu!');
       queryClient.invalidateQueries({ queryKey: ['user-titles'] });
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi trang bị danh hiệu');
     } finally {
       setIsProcessing(false);
@@ -901,7 +906,7 @@ export function TitleModal({ open, onOpenChange }: { open: boolean; onOpenChange
       await titlesApi.unequipTitle();
       toast.success('Đã tháo danh hiệu!');
       queryClient.invalidateQueries({ queryKey: ['user-titles'] });
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi tháo danh hiệu');
     } finally {
       setIsProcessing(false);
@@ -919,7 +924,7 @@ export function TitleModal({ open, onOpenChange }: { open: boolean; onOpenChange
       }
       queryClient.invalidateQueries({ queryKey: ['user-titles'] });
       queryClient.invalidateQueries({ queryKey: ['all-titles'] });
-    } catch (error) {
+    } catch {
       toast.error('Không đủ điều kiện mở khóa');
     } finally {
       setIsProcessing(false);

@@ -61,6 +61,15 @@ export function MatchHistory({ matches, currentUserId }: MatchHistoryProps) {
     };
   };
 
+  const convertMatchToCombatResult = (match: PvpMatch) => {
+    return {
+      winnerId: match.winnerId || undefined,
+      challengerId: match.challengerId,
+      pointsChange: match.pointsChange,
+      combatResult: match.combatResult,
+    };
+  };
+
   return (
     <>
       <Card>
@@ -146,7 +155,7 @@ export function MatchHistory({ matches, currentUserId }: MatchHistoryProps) {
       <CombatDialog
         open={showCombat}
         onOpenChange={setShowCombat}
-        combatResult={selectedMatch}
+        combatResult={selectedMatch ? convertMatchToCombatResult(selectedMatch) : {}}
         currentUserId={currentUserId}
       />
     </>
