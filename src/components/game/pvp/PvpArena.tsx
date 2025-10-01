@@ -258,18 +258,21 @@ export function PvpArena() {
       )}
 
       <Tabs defaultValue="opponents" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="opponents" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Đối thủ
+        <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsTrigger value="opponents" className="flex items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
+            <Target className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Đối thủ</span>
+            <span className="sm:hidden">Đối thủ</span>
           </TabsTrigger>
-          <TabsTrigger value="leaderboard" className="flex items-center gap-2">
-            <Trophy className="h-4 w-4" />
-            Bảng xếp hạng
+          <TabsTrigger value="leaderboard" className="flex items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
+            <Trophy className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Bảng xếp hạng</span>
+            <span className="sm:hidden">BXH</span>
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            Lịch sử
+          <TabsTrigger value="history" className="flex items-center gap-1 sm:gap-2 p-2 sm:p-3 text-xs sm:text-sm">
+            <History className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Lịch sử</span>
+            <span className="sm:hidden">Lịch sử</span>
           </TabsTrigger>
         </TabsList>
 

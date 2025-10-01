@@ -66,6 +66,7 @@ const navigation = [
   { name: 'Market', href: '/admin/market', icon: Shop },
   { name: 'Monsters', href: '/admin/monsters', icon: PawPrint },
   { name: 'Dungeons', href: '/admin/dungeons', icon: Shield },
+  { name: 'Wild Areas', href: '/admin/wildarea', icon: PawPrint },
   { name: 'Rooms', href: '/admin/rooms', icon: Building2 },
   { name: 'Character Classes', href: '/admin/character-classes', icon: UserCheck },
   { name: 'Combat Results', href: '/admin/combat', icon: Crosshair },

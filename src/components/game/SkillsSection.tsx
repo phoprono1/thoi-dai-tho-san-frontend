@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { skillsApi } from '@/lib/api-client';
+import { apiService } from '@/lib/api-service';
 import { resolveAssetUrl } from '@/lib/asset';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -32,6 +33,7 @@ import {
   X,
   TrendingUp,
   Info,
+  Gem,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -646,6 +648,13 @@ export default function SkillsSection() {
     enabled: !!authUser?.id,
   });
 
+  // Get user stats to show available skill points
+  const { data: userStats } = useQuery({
+    queryKey: ['userStats', authUser?.id],
+    queryFn: () => apiService.getUserStats(authUser!.id),
+    enabled: !!authUser?.id,
+  });
+
   const equipMutation = useMutation({
     mutationFn: (skillId: string) => skillsApi.equipSkill(skillId),
     onSuccess: () => {
@@ -699,6 +708,13 @@ export default function SkillsSection() {
         <CardTitle className="text-sm flex items-center gap-2">
           <Sparkles className="h-4 w-4" />
           Kỹ năng
+          {/* Skill Points Display */}
+          <div className="flex items-center gap-1 ml-2">
+            <Gem className="h-3 w-3 text-blue-500" />
+            <span className="text-xs font-medium text-blue-600">
+              {userStats?.availableSkillPoints || 0} SP
+            </span>
+          </div>
         </CardTitle>
         <Button
           size="sm"

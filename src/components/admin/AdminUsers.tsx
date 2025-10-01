@@ -361,19 +361,20 @@ export default function AdminUsers() {
 
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="destructive"
                         onClick={async (e) => {
                           e.stopPropagation();
+                          if (!confirm(`Bạn có chắc muốn reset user "${user.username}" về level 1 và xóa toàn bộ tiến trình không?`)) return;
                           try {
-                            await adminApiEndpoints.backfillUser(user.id);
-                            toast.success('Backfill started / completed for user');
+                            const result = await adminApiEndpoints.resetUser(user.id);
+                            toast.success(result.data?.message || 'Reset user thành công!');
                             refetch();
                           } catch (err: unknown) {
-                            toast.error(`Backfill failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                            toast.error(`Reset user failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
                           }
                         }}
                       >
-                        Backfill Stats
+                        Reset User
                       </Button>
 
                       {user.isBanned ? (

@@ -83,43 +83,59 @@ export function PvpLeaderboard({ players, currentUserId }: PvpLeaderboardProps) 
               return (
                 <div 
                   key={player.id}
-                  className={`flex items-center gap-4 p-4 border rounded-lg transition-colors ${getRankBg(position, isCurrentUser)}`}
+                  className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 border rounded-lg transition-colors ${getRankBg(position, isCurrentUser)}`}
                 >
                   {/* Rank Position */}
-                  <div className="flex items-center justify-center w-12">
+                  <div className="flex items-center justify-between sm:justify-center sm:w-12">
                     <div className="flex items-center gap-1">
                       {getRankIcon(position)}
                       <span className={`font-bold ${position <= 3 ? 'text-lg' : 'text-sm'}`}>
                         #{position}
                       </span>
                     </div>
+                    
+                    {/* Special Badge for Top 3 - Mobile */}
+                    {position <= 3 && (
+                      <div className="sm:hidden">
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            position === 1 ? 'border-yellow-400 text-yellow-600' :
+                            position === 2 ? 'border-gray-400 text-gray-600' :
+                            'border-orange-400 text-orange-600'
+                          }
+                        >
+                          {position === 1 ? 'Vô địch' : position === 2 ? 'Á quân' : 'Hạng 3'}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Player Info */}
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-medium ${isCurrentUser ? 'text-primary' : ''}`}>
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`font-medium truncate ${isCurrentUser ? 'text-primary' : ''}`}>
                         {player.user.username}
                         {isCurrentUser && <span className="text-xs text-primary ml-1">(Bạn)</span>}
                       </span>
-                      <Badge variant="secondary">Lv.{player.user.level}</Badge>
-                      <Badge className={RANK_COLORS[player.currentRank as keyof typeof RANK_COLORS]}>
+                      <Badge variant="secondary" className="flex-shrink-0">Lv.{player.user.level}</Badge>
+                      <Badge className={`${RANK_COLORS[player.currentRank as keyof typeof RANK_COLORS]} flex-shrink-0`}>
                         {player.rankName}
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="font-mono font-medium text-primary">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+                      <span className="font-mono font-medium text-primary flex-shrink-0">
                         {player.hunterPoints} điểm
                       </span>
-                      <span>{player.wins}W/{player.losses}L</span>
-                      <span>{(player.winRate || 0).toFixed(1)}% thắng</span>
+                      <span className="flex-shrink-0">{player.wins}W/{player.losses}L</span>
+                      <span className="flex-shrink-0">{(player.winRate || 0).toFixed(1)}% thắng</span>
                     </div>
                   </div>
                   
-                  {/* Special Badges for Top 3 */}
+                  {/* Special Badges for Top 3 - Desktop */}
                   {position <= 3 && (
-                    <div className="text-right">
+                    <div className="hidden sm:block text-right">
                       <Badge 
                         variant="outline" 
                         className={

@@ -38,10 +38,10 @@ export function MatchHistory({ matches, currentUserId }: MatchHistoryProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
+    // Mobile-friendly shorter format
     return date.toLocaleDateString('vi-VN', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -98,12 +98,12 @@ export function MatchHistory({ matches, currentUserId }: MatchHistoryProps) {
                 return (
                   <div 
                     key={match.id}
-                    className={`flex items-center justify-between p-4 border rounded-lg ${
+                    className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 border rounded-lg ${
                       result.won ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
                     }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-full ${
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
                         result.won ? 'bg-green-100' : 'bg-red-100'
                       }`}>
                         <Swords className={`h-4 w-4 ${
@@ -111,17 +111,17 @@ export function MatchHistory({ matches, currentUserId }: MatchHistoryProps) {
                         }`} />
                       </div>
                       
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={result.won ? 'default' : 'destructive'}>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={result.won ? 'default' : 'destructive'} className="flex-shrink-0">
                             {result.won ? 'THẮNG' : 'THUA'}
                           </Badge>
-                          <span className="font-medium">vs {result.opponent.username}</span>
+                          <span className="font-medium truncate">vs {result.opponent.username}</span>
                         </div>
                         
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{formatDate(match.createdAt)}</span>
-                          <span className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+                          <span className="flex-shrink-0">{formatDate(match.createdAt)}</span>
+                          <span className="flex items-center gap-1 flex-shrink-0">
                             {result.isPointsGain ? (
                               <TrendingUp className="h-3 w-3 text-green-600" />
                             ) : (
@@ -139,10 +139,10 @@ export function MatchHistory({ matches, currentUserId }: MatchHistoryProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => viewCombatDetails(match)}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0"
                     >
                       <Eye className="h-4 w-4" />
-                      Xem chi tiết
+                      <span className="sm:inline">Xem chi tiết</span>
                     </Button>
                   </div>
                 );

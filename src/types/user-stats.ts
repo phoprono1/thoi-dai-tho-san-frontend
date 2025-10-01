@@ -21,6 +21,8 @@ export interface UserStats {
   armorPen: number;
   dodgeRate: number;
   accuracy: number;
+  availableSkillPoints?: number;
+  totalSkillPointsEarned?: number;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -84,29 +84,29 @@ export function OpponentsList({
             {opponents.map((opponent) => (
               <div 
                 key={opponent.id} 
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
               >
-                <div className="flex items-center gap-4">
-                  <div className="p-2 rounded-full bg-primary/10">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="p-2 rounded-full bg-primary/10 flex-shrink-0">
                     <User className="h-5 w-5 text-primary" />
                   </div>
                   
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{opponent.user.username}</span>
-                      <Badge variant="secondary">Lv.{opponent.user.level}</Badge>
-                      <Badge className={RANK_COLORS[opponent.currentRank as keyof typeof RANK_COLORS]}>
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium truncate">{opponent.user.username}</span>
+                      <Badge variant="secondary" className="flex-shrink-0">Lv.{opponent.user.level}</Badge>
+                      <Badge className={`${RANK_COLORS[opponent.currentRank as keyof typeof RANK_COLORS]} flex-shrink-0`}>
                         {opponent.rankName}
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1 flex-shrink-0">
                         <Trophy className="h-3 w-3" />
                         {opponent.hunterPoints} điểm
                       </span>
-                      <span>{opponent.wins}W/{opponent.losses}L</span>
-                      <span>{(opponent.winRate || 0).toFixed(1)}% thắng</span>
+                      <span className="flex-shrink-0">{opponent.wins}W/{opponent.losses}L</span>
+                      <span className="flex-shrink-0">{(opponent.winRate || 0).toFixed(1)}% thắng</span>
                     </div>
                   </div>
                 </div>
@@ -114,7 +114,8 @@ export function OpponentsList({
                 <Button
                   onClick={() => onChallenge(opponent.userId)}
                   disabled={loading}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0"
+                  size="sm"
                 >
                   <Swords className="h-4 w-4" />
                   Thách đấu

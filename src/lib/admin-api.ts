@@ -58,6 +58,7 @@ export const adminApiEndpoints = {
   demoteFromAdmin: (id: number) => adminApi.post(`/users/${id}/demote`, { type: 'admin' }),
   promoteToDonor: (id: number) => adminApi.post(`/users/${id}/promote`, { type: 'donor' }),
   demoteFromDonor: (id: number) => adminApi.post(`/users/${id}/demote`, { type: 'donor' }),
+  resetUser: (id: number) => adminApi.post(`/admin/reset-user/${id}`),
   resetAllUsers: () => adminApi.post('/admin/reset-all-users'),
 
   // Items
@@ -225,6 +226,14 @@ export const adminApiEndpoints = {
   addGachaEntry: (boxId: number, data: any) => adminApi.post(`/gacha/${boxId}/entries`, data),
   updateGachaEntry: (entryId: number, data: any) => adminApi.put(`/gacha/entries/${entryId}`, data),
   deleteGachaEntry: (entryId: number) => adminApi.delete(`/gacha/entries/${entryId}`),
+
+  // WildArea Management
+  getWildAreaMonsters: () => adminApi.get('/wildarea/admin'),
+  getWildAreaMonster: (id: number) => adminApi.get(`/wildarea/admin/${id}`),
+  createWildAreaMonster: (data: { monsterId: number; minLevel: number; maxLevel: number; spawnWeight?: number; description?: string }) => adminApi.post('/wildarea/admin', data),
+  updateWildAreaMonster: (id: number, data: { minLevel?: number; maxLevel?: number; spawnWeight?: number; description?: string; isActive?: boolean }) => adminApi.put(`/wildarea/admin/${id}`, data),
+  deleteWildAreaMonster: (id: number, hard = false) => adminApi.delete(`/wildarea/admin/${id}`, { params: { hard: hard.toString() } }),
+  getWildAreaStats: () => adminApi.get('/wildarea/stats'),
 
   // User gacha instances
   getUserGachaInstances: () => adminApi.get('/me/gacha/instances'),

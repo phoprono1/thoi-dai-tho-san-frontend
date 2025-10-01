@@ -306,9 +306,9 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
         <div className="space-y-6">
           {!showResult ? (
             // Combat Arena - Hiển thị khi đang animate
-            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-6 text-white relative overflow-hidden">
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-4 sm:p-6 text-white relative overflow-hidden">
               {/* Players Side */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 {/* Team 1 - Player */}
                 <div className="space-y-3">
                   <h3 className="font-bold text-lg text-blue-400 flex items-center gap-2">
@@ -330,8 +330,8 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                         return (
                           <div key={playerId} className="bg-blue-900/40 p-3 rounded-lg relative overflow-hidden border border-blue-800">
                             <div className="flex items-center justify-between mb-2">
-                              <div className="font-medium">{player.name}</div>
-                              <Badge className="bg-blue-600">
+                              <div className="font-medium truncate">{player.name}</div>
+                              <Badge className="bg-blue-600 flex-shrink-0">
                                 Lv.{level}
                               </Badge>
                             </div>
@@ -339,7 +339,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                             <div className="space-y-1">
                               <div className="flex justify-between text-xs">
                                 <span>HP</span>
-                                <span>{playerHp[String(playerId)]?.current || currentHp}/{playerHp[String(playerId)]?.max || maxHp}</span>
+                                <span className="font-mono">{playerHp[String(playerId)]?.current || currentHp}/{playerHp[String(playerId)]?.max || maxHp}</span>
                               </div>
                               <Progress
                                 value={(playerHp[String(playerId)]?.current || currentHp) / (playerHp[String(playerId)]?.max || maxHp) * 100}
@@ -379,7 +379,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                 
                 {/* Team 2 - Enemy */}
                 <div className="space-y-3">
-                  <h3 className="font-bold text-lg text-red-400 flex items-center gap-2 justify-end">
+                  <h3 className="font-bold text-lg text-red-400 flex items-center gap-2 lg:justify-end">
                     <span>Đối thủ</span>
                     <Swords className="h-4 w-4" />
                   </h3>
@@ -398,8 +398,8 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                         return (
                           <div key={enemyId} className="bg-red-900/40 p-3 rounded-lg relative overflow-hidden border border-red-800">
                             <div className="flex items-center justify-between mb-2">
-                              <div className="font-medium">{enemy.name}</div>
-                              <Badge className="bg-red-600">
+                              <div className="font-medium truncate">{enemy.name}</div>
+                              <Badge className="bg-red-600 flex-shrink-0">
                                 Lv.{level}
                               </Badge>
                             </div>
@@ -407,7 +407,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                             <div className="space-y-1">
                               <div className="flex justify-between text-xs">
                                 <span>HP</span>
-                                <span>{enemyHp[String(enemyId)]?.current || currentHp}/{enemyHp[String(enemyId)]?.max || maxHp}</span>
+                                <span className="font-mono">{enemyHp[String(enemyId)]?.current || currentHp}/{enemyHp[String(enemyId)]?.max || maxHp}</span>
                               </div>
                               <Progress
                                 value={(enemyHp[String(enemyId)]?.current || currentHp) / (enemyHp[String(enemyId)]?.max || maxHp) * 100}
@@ -457,7 +457,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                 </div>
                 
                 <div className="bg-gray-900/60 p-3 rounded min-h-[60px] flex items-center animate-pulse">
-                  <p className="text-white">{getCurrentLogText()}</p>
+                  <p className="text-white text-sm break-words">{getCurrentLogText()}</p>
                 </div>
               </div>
             </div>
@@ -465,16 +465,16 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
             // Result Summary - Hiển thị khi hoàn thành
             <div className="space-y-6">
               {/* Result Card */}
-              <div className={`bg-gradient-to-br ${isVictory ? 'from-green-900/80 to-emerald-800/80 border-green-700' : 'from-red-900/80 to-rose-800/80 border-red-700'} p-6 rounded-lg text-white relative overflow-hidden border`}>
+              <div className={`bg-gradient-to-br ${isVictory ? 'from-green-900/80 to-emerald-800/80 border-green-700' : 'from-red-900/80 to-rose-800/80 border-red-700'} p-4 sm:p-6 rounded-lg text-white relative overflow-hidden border`}>
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex items-center gap-3">
-                    {isVictory ? <Trophy className="h-8 w-8 text-yellow-300" /> : <Skull className="h-8 w-8 text-red-300" />}
-                    <h2 className="text-2xl font-bold">
+                    {isVictory ? <Trophy className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-300" /> : <Skull className="h-6 w-6 sm:h-8 sm:w-8 text-red-300" />}
+                    <h2 className="text-xl sm:text-2xl font-bold">
                       {isVictory ? 'CHIẾN THẮNG' : 'THẤT BẠI'}
                     </h2>
                   </div>
                   
-                  <div className="text-xl font-semibold">
+                  <div className="text-lg sm:text-xl font-semibold">
                     <span className={isVictory ? 'text-green-300' : 'text-red-300'}>
                       {isVictory ? '+' : '-'}{Math.abs(pointsChange)} điểm Hunter
                     </span>
@@ -506,7 +506,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                         return (
                           <div key={index} className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="font-medium">{player.name}</span>
+                              <span className="font-medium truncate">{player.name}</span>
                               <Badge variant={currentHp > 0 ? 'default' : 'destructive'}>
                                 {currentHp > 0 ? 'Sống' : 'Tử vong'}
                               </Badge>
@@ -518,7 +518,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className="flex items-center gap-1">
                                 <Heart className="h-3 w-3 text-red-500" />
-                                <span>{currentHp}/{maxHp} HP</span>
+                                <span className="truncate">{currentHp}/{maxHp} HP</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Swords className="h-3 w-3 text-orange-500" />
@@ -562,7 +562,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                         return (
                           <div key={index} className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="font-medium">{enemy.name}</span>
+                              <span className="font-medium truncate">{enemy.name}</span>
                               <Badge variant={currentHp > 0 ? 'default' : 'destructive'}>
                                 {currentHp > 0 ? 'Sống' : 'Tử vong'}
                               </Badge>
@@ -575,7 +575,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className="flex items-center gap-1">
                                 <Heart className="h-3 w-3 text-red-500" />
-                                <span>{currentHp}/{maxHp} HP</span>
+                                <span className="truncate">{currentHp}/{maxHp} HP</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Swords className="h-3 w-3 text-orange-500" />
@@ -629,7 +629,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                         return (
                           <div 
                             key={index} 
-                            className={`p-2 rounded ${
+                            className={`p-2 rounded text-xs sm:text-sm break-words ${
                               logText.includes('gây') ? 'bg-red-50 text-red-700' :
                               logText.includes('hồi') ? 'bg-green-50 text-green-700' :
                               'bg-gray-50 text-gray-700'
@@ -651,7 +651,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
           )}
           
           {/* Actions */}
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <div>
               {isAnimating && !showResult && (
                 <Button
@@ -670,7 +670,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
             </div>
             <Button 
               onClick={() => onOpenChange(false)}
-              className={showResult ? 'bg-green-600 hover:bg-green-700' : ''}
+              className={`w-full sm:w-auto ${showResult ? 'bg-green-600 hover:bg-green-700' : ''}`}
             >
               {showResult ? 'Hoàn tất' : 'Đóng'}
             </Button>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { adminApiEndpoints } from '@/lib/admin-api';
 import { useAdmin } from '@/components/providers/AdminProvider';
-import { Users, Sword, Shield, Crown, Building, Target, PawPrint } from 'lucide-react';
+import { Users, Sword, Shield, Crown, Building, Target, PawPrint, TreePine } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { logout } = useAdmin();
@@ -166,6 +166,14 @@ export default function AdminDashboard() {
               >
                 <PawPrint className="w-4 h-4 mr-2" />
                 Monsters Management
+              </Button>
+              <Button
+                onClick={() => window.location.href = '/admin/wildarea'}
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <TreePine className="w-4 h-4 mr-2" />
+                WildArea Management
               </Button>
             </CardContent>
           </Card>
