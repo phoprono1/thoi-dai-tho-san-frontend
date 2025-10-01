@@ -461,6 +461,11 @@ export const userAttributesApi = {
     const response = await api.post('/user-attributes/allocate-multiple', { allocations });
     return response.data;
   },
+
+  recalculateAttributePoints: async () => {
+    const response = await api.post('/user-attributes/recalculate');
+    return response.data;
+  },
 };
 
 // Giftcode API

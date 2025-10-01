@@ -71,6 +71,12 @@ export function PvpLeaderboard({ players, currentUserId }: PvpLeaderboardProps) 
         ) : (
           <div className="space-y-2">
             {players.map((player, index) => {
+              // Skip if user data is missing (defensive check)
+              if (!player.user) {
+                console.warn(`Player ${player.id} has no user data, skipping`);
+                return null;
+              }
+
               const position = index + 1;
               const isCurrentUser = player.user.id === currentUserId;
               

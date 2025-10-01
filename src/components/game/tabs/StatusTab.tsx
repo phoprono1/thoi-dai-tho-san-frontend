@@ -540,29 +540,54 @@ const StatusTab: React.FC = () => {
                                userAttributes.allocatedPoints.dexterity +
                                userAttributes.allocatedPoints.vitality +
                                userAttributes.allocatedPoints.luck) > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-6 px-2"
-                onClick={async () => {
-                  try {
-                    const result = await userAttributesApi.resetAttributePoints();
-                    if (result.success) {
-                      toast.success(result.message);
-                      queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
-                      queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
-                      queryClient.invalidateQueries({ queryKey: ['user-attributes'] });
-                    } else {
-                      toast.error(result.message || 'Reset thất bại');
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-6 px-2"
+                  onClick={async () => {
+                    try {
+                      const result = await userAttributesApi.resetAttributePoints();
+                      if (result.success) {
+                        toast.success(result.message);
+                        queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+                        queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
+                        queryClient.invalidateQueries({ queryKey: ['user-attributes'] });
+                      } else {
+                        toast.error(result.message || 'Reset thất bại');
+                      }
+                    } catch (error) {
+                      console.error('Reset attributes error:', error);
+                      toast.error('Có lỗi xảy ra khi reset điểm');
                     }
-                  } catch (error) {
-                    console.error('Reset attributes error:', error);
-                    toast.error('Có lỗi xảy ra khi reset điểm');
-                  }
-                }}
-              >
-                Reset
-              </Button>
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="text-xs h-6 px-2 bg-green-600 hover:bg-green-700"
+                  onClick={async () => {
+                    try {
+                      const result = await userAttributesApi.recalculateAttributePoints();
+                      if (result.success) {
+                        toast.success(result.message + (result.pointsGranted ? ` (+${result.pointsGranted} điểm)` : ''));
+                        queryClient.invalidateQueries({ queryKey: ['user-status', userId] });
+                        queryClient.invalidateQueries({ queryKey: ['user-stats', userId] });
+                        queryClient.invalidateQueries({ queryKey: ['user-attributes'] });
+                      } else {
+                        toast.error(result.message || 'Recalculate thất bại');
+                      }
+                    } catch (error) {
+                      console.error('Recalculate attributes error:', error);
+                      toast.error('Có lỗi xảy ra khi tính toán lại điểm');
+                    }
+                  }}
+                >
+                  Tính lại điểm
+                </Button>
+              </>
             )}
           </div>
         </CardHeader>
