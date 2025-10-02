@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Crown, Clock, MapPin, Settings, UserX } from 'lucide-react';
-import { api } from '@/lib/api-client';
+import { Users, Crown, Clock, MapPin, Settings, UserX, FileWarning } from 'lucide-react';
+import { api, itemsApi } from '@/lib/api-client';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Dungeon } from '@/types/game';
 import { useRoomSocket } from '@/hooks/useRoomSocket';
@@ -119,7 +119,7 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   const [combatResult, setCombatResult] = useState<CombatResult | null>(null);
   const [showDungeonDialog, setShowDungeonDialog] = useState(false);
   const [selectedDungeonId, setSelectedDungeonId] = useState<number | null>(null);
-  
+
   const { data: room, isLoading, error } = useQuery({
     queryKey: ['room', id],
     queryFn: async () => {
@@ -142,6 +142,30 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
     refetchInterval: 2000,
     enabled: !!id,
   });
+
+  // Query for specific required item only when needed
+  const { data: requiredItemData } = useQuery({
+    queryKey: ['item', room?.dungeon?.requiredItem],
+    queryFn: async () => {
+      if (!room?.dungeon?.requiredItem) return null;
+      try {
+        const response = await api.get(`/items/${room.dungeon.requiredItem}`);
+        return response.data;
+      } catch (error) {
+        console.error('Failed to fetch required item:', error);
+        return null;
+      }
+    },
+    enabled: !!room?.dungeon?.requiredItem,
+  });
+
+  const getItemRequirement = (requiredItemId: number | null) => {
+    if (!requiredItemId) return 'vật phẩm không xác định';
+    if (requiredItemData && requiredItemData.id === requiredItemId) {
+      return requiredItemData.name;
+    }
+    return `vật phẩm #${requiredItemId}`;
+  };
 
   const { data: dungeons } = useQuery({
     queryKey: ['dungeons'],
@@ -347,16 +371,38 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
         result: socketCombatResult,
         roomId: id
       });
+      
+      // Log current inventory BEFORE processing combat result
+      if (user?.id) {
+        console.log(`[FRONTEND DEBUG] Processing combat result for user ${user.id}`);
+        // Get current inventory state
+        const currentData = queryClient.getQueryData(['user-items', user.id]);
+        console.log('[FRONTEND DEBUG] Current inventory data before combat result processing:', currentData);
+      }
+      
       setCombatResult(socketCombatResult as CombatResult);
       setShowCombatModal(true);
       // Lock Start while combat UI is showing so host cannot re-start
       try { setPreventStart(true); } catch {}
       if (user?.id) {
+        console.log(`[FRONTEND DEBUG] Invalidating queries for user ${user.id} after combat result`);
         queryClient.invalidateQueries({ queryKey: ['user', user.id] });
+        // Invalidate user items queries to refresh inventory after combat
+        queryClient.invalidateQueries({ queryKey: ['user-items', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['userItems', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['userConsumables'] });
+        
+        // Force immediate refetch to verify data is updated
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: ['user-items', user.id] }).then(() => {
+            const newData = queryClient.getQueryData(['user-items', user.id]);
+            console.log('[FRONTEND DEBUG] Inventory data after refetch:', newData);
+          });
+        }, 500);
       }
       void reportCombatToQuests(socketCombatResult);
     }
-  }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests, setPreventStart]);
+  }, [socketCombatResult, queryClient, user?.id, reportCombatToQuests, setPreventStart, id]);
 
   // Auto-hide notification banner after showing
   useEffect(() => {
@@ -478,10 +524,32 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
         combatResult: data.combatResult
       });
       
+      // Log current inventory BEFORE processing combat result
+      if (user?.id) {
+        console.log(`[FRONTEND DEBUG] REST Combat success for user ${user.id}`);
+        const currentData = queryClient.getQueryData(['user-items', user.id]);
+        console.log('[FRONTEND DEBUG] Current inventory data before REST combat result processing:', currentData);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['room', id] });
       if (data.combatResult) {
         setCombatResult(data.combatResult as CombatResult);
         setShowCombatModal(true);
+        // Invalidate user items queries to refresh inventory after combat
+        if (user?.id) {
+          console.log(`[FRONTEND DEBUG] Invalidating queries for user ${user.id} after REST combat result`);
+          queryClient.invalidateQueries({ queryKey: ['user-items', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['userItems', user.id] });
+          queryClient.invalidateQueries({ queryKey: ['userConsumables'] });
+          
+          // Force immediate refetch to verify data is updated
+          setTimeout(() => {
+            queryClient.refetchQueries({ queryKey: ['user-items', user.id] }).then(() => {
+              const newData = queryClient.getQueryData(['user-items', user.id]);
+              console.log('[FRONTEND DEBUG] Inventory data after REST combat refetch:', newData);
+            });
+          }, 500);
+        }
         toast.success('Trận chiến đã bắt đầu!');
       } else {
         console.warn('⚠️ No combatResult in API response, waiting for WebSocket...');
@@ -509,6 +577,8 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
   });
 
   const handleCombatModalClose = () => {
+    console.log(`[FRONTEND DEBUG] Closing combat modal for user ${user?.id}`);
+    
     setShowCombatModal(false);
     setCombatResult(null);
   try { useRoomSocketStore.setState({ combatResult: null }); } catch { }
@@ -520,6 +590,25 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
 
     // Keep Start disabled until server/host explicitly resets room state
     try { setPreventStart(true); } catch {}
+
+    // Final invalidation to ensure inventory is updated after combat modal closes
+    if (user?.id) {
+      console.log(`[FRONTEND DEBUG] Final invalidation for user ${user.id} on modal close`);
+      const beforeCloseData = queryClient.getQueryData(['user-items', user.id]);
+      console.log('[FRONTEND DEBUG] Inventory data before modal close invalidation:', beforeCloseData);
+      
+      queryClient.invalidateQueries({ queryKey: ['user-items', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['userItems', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['userConsumables'] });
+      
+      // Force final refetch to verify data is updated
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['user-items', user.id] }).then(() => {
+          const afterCloseData = queryClient.getQueryData(['user-items', user.id]);
+          console.log('[FRONTEND DEBUG] Inventory data after modal close refetch:', afterCloseData);
+        });
+      }, 500);
+    }
 
     if (isHost) resetRoomMutation.mutate();
   };
@@ -671,6 +760,13 @@ export default function RoomPageContent({ roomId, dungeonId }: Props) {
                   <p className="font-medium text-sm truncate">{currentDungeonName}</p>
                 )}
                 <p className="text-xs text-gray-500">Lv {currentDungeonLevel}</p>
+                {/* Show required item warning if dungeon requires item */}
+                {room.dungeon?.requiredItem && (
+                  <p className="text-xs text-yellow-600 font-medium flex items-center gap-1 mt-1">
+                    <FileWarning className="h-4 w-4" />
+                    Cần có {getItemRequirement(room.dungeon.requiredItem)} mỗi lần đánh
+                  </p>
+                )}
               </div>
               <div className="col-span-1">
                 <p className="text-xs text-gray-500">Host</p>

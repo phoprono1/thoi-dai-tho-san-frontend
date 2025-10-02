@@ -86,6 +86,7 @@ interface RoomSocketState {
   // Room data
   roomInfo: RoomInfo | null;
   combatResult: CombatResult | null;
+  combatError: { message: string; type: string } | null;
   // Prepare-to-start UI state provided by server when host initiates prepare
   prepareInfo: RoomInfo | null;
   // Prevent starting another combat until UI/server acknowledges reset
@@ -127,8 +128,9 @@ export const useRoomSocketStore = create<RoomSocketState>()(
     isConnected: false,
     roomInfo: null,
     combatResult: null,
-  prepareInfo: null,
-  preventStart: false,
+    combatError: null,
+    prepareInfo: null,
+    preventStart: false,
     joinedRooms: new Set(),
     connectionAttempts: new Map(),
     error: null,
@@ -241,6 +243,18 @@ export const useRoomSocketStore = create<RoomSocketState>()(
             // ignore logging errors
           }
         }
+      });
+
+      socket.on('combatError', (data: { roomId: number; error: { message: string; type: string } }) => {
+        console.log('[RoomSocket] Received combatError:', data);
+        set({ 
+          combatError: data.error,
+          // Clear any existing combat result since there was an error
+          combatResult: null 
+        });
+        
+        // Show toast notification for the error
+        toast.error(`Combat Error: ${data.error.message}`);
       });
 
       socket.on('combatStarted', (data: CombatResult) => {

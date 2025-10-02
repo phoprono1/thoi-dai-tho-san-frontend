@@ -365,7 +365,7 @@ export interface Dungeon {
   enemies: DungeonEnemy[];
   levelRequirement: number;
   isHidden: boolean;
-  requiredItem?: string;
+  requiredItem?: number; // Changed from string to number to match backend
   dropItems: DungeonDrop[];
 }
 
