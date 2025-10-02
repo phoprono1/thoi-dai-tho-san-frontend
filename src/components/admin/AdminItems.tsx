@@ -813,7 +813,8 @@ export default function AdminItems() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={ConsumableType.HP_POTION}>HP Potion</SelectItem>
-                          <SelectItem value={ConsumableType.MP_POTION}>MP Potion</SelectItem>
+                          <SelectItem value={ConsumableType.MP_POTION}>MP Potion (Stamina)</SelectItem>
+                          <SelectItem value={ConsumableType.MANA_POTION}>Mana Potion</SelectItem>
                           <SelectItem value={ConsumableType.EXP_POTION}>EXP Potion</SelectItem>
                           <SelectItem value={ConsumableType.STAT_BOOST}>Stat Boost</SelectItem>
                         </SelectContent>
@@ -823,6 +824,7 @@ export default function AdminItems() {
                       <Label htmlFor="consumableValue">
                         {formData.consumableType === ConsumableType.HP_POTION && 'HP Restore'}
                         {formData.consumableType === ConsumableType.MP_POTION && 'MP Restore'}
+                        {formData.consumableType === ConsumableType.MANA_POTION && 'Mana Restore'}
                         {formData.consumableType === ConsumableType.EXP_POTION && 'EXP Amount'}
                         {formData.consumableType === ConsumableType.STAT_BOOST && 'Boost Amount'}
                       </Label>
@@ -1059,7 +1061,8 @@ export default function AdminItems() {
                         {item.type === ItemType.CONSUMABLE && (
                           <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                             {item.consumableType === ConsumableType.HP_POTION && `Restores ${item.consumableValue} HP`}
-                            {item.consumableType === ConsumableType.MP_POTION && `Restores ${item.consumableValue} MP`}
+                            {item.consumableType === ConsumableType.MP_POTION && `Restores ${item.consumableValue} MP (Stamina)`}
+                            {item.consumableType === ConsumableType.MANA_POTION && `Restores ${item.consumableValue} Mana`}
                             {item.consumableType === ConsumableType.EXP_POTION && `Grants ${item.consumableValue} EXP`}
                             {item.consumableType === ConsumableType.STAT_BOOST && `Boost for ${item.duration}min`}
                           </div>

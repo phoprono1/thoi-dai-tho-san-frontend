@@ -6,6 +6,7 @@ export interface UserStats {
   userId: number;
   maxHp: number;
   currentHp: number;
+  currentMana?: number | null; // Nullable - initialized on first combat
   attack: number;
   defense: number;
   strength: number;

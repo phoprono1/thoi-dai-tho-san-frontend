@@ -15,6 +15,9 @@ interface Player {
   attack: number;
   defense: number;
   speed: number;
+  // Mana fields
+  maxMana?: number;
+  currentMana?: number;
   // Combat engine metadata
   metadata?: {
     level?: number;
@@ -22,6 +25,7 @@ interface Player {
     defense?: number;
     speed?: number;
     maxHp?: number;
+    maxMana?: number;
   };
   // Combat stats for compatibility
   stats?: {
@@ -29,6 +33,7 @@ interface Player {
     attack: number;
     defense: number;
     speed?: number;
+    maxMana?: number;
   };
 }
 
@@ -80,6 +85,8 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
   const [playbackSpeed] = useState(167); // ~6x speed, tương tự như CombatModal
   const [playerHp, setPlayerHp] = useState<{ [key: string]: { current: number; max: number } }>({});
   const [enemyHp, setEnemyHp] = useState<{ [key: string]: { current: number; max: number } }>({});
+  const [playerMana, setPlayerMana] = useState<{ [key: string]: { current: number; max: number } }>({});
+  const [enemyMana, setEnemyMana] = useState<{ [key: string]: { current: number; max: number } }>({});
   const [damageAnimation, setDamageAnimation] = useState({ player: false, enemy: false });
   const [showResult, setShowResult] = useState(false);
   
@@ -171,18 +178,31 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
     return player.metadata?.speed || player.stats?.speed || player.speed || 100;
   }, []);
   
-  // Hàm xử lý từng log
+  const getPlayerMaxMana = useCallback((player: Player): number => {
+    return player.metadata?.maxMana || player.stats?.maxMana || player.maxMana || 100;
+  }, []);
+  
+  const getPlayerCurrentMana = useCallback((player: Player): number => {
+    return player.currentMana ?? getPlayerMaxMana(player);
+  }, [getPlayerMaxMana]);
+  
+  // Hàm xử lý từng log với HP và mana animation
+  // Sử dụng useRef để tránh circular dependency
   const processLog = useCallback((index: number) => {
     const { logs } = combatData;
     if (!logs || !Array.isArray(logs) || !logs[index]) return;
     
     const log = logs[index];
     let logText = '';
+    let logDetails: Record<string, unknown> | null = null;
+    
     try {
       if (typeof log === 'string') {
         logText = log;
       } else if (log && typeof log === 'object') {
         logText = log.message || log.description || log.text || JSON.stringify(log);
+        // Try to extract details from log object
+        logDetails = (log as Record<string, unknown>).details as Record<string, unknown> || log as Record<string, unknown>;
       } else {
         logText = String(log);
       }
@@ -190,15 +210,62 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
       logText = 'Invalid log entry';
     }
     
-    // Xử lý animation dựa trên nội dung log
-    if (logText.includes('gây') && logText.toLowerCase().includes('người chơi')) {
-      // Đối thủ gây damage cho người chơi
-      setDamageAnimation(prev => ({ ...prev, player: true }));
-      setTimeout(() => setDamageAnimation(prev => ({ ...prev, player: false })), playbackSpeed * 0.8);
-    } else if (logText.includes('gây')) {
-      // Người chơi gây damage cho đối thủ
-      setDamageAnimation(prev => ({ ...prev, enemy: true }));
-      setTimeout(() => setDamageAnimation(prev => ({ ...prev, enemy: false })), playbackSpeed * 0.8);
+    // Xử lý HP và Mana changes từ log details
+    if (logDetails) {
+      const targetId = logDetails.targetId; // ID của người bị tấn công
+      const actorId = logDetails.actorId; // ID của người tấn công
+      
+      // Update HP nếu có hpAfter - dựa vào targetId để xác định ai bị ảnh hưởng
+      if (typeof logDetails.hpAfter === 'number' && targetId !== undefined) {
+        const targetIdStr = String(targetId);
+        
+        // Check xem target là player hay enemy bằng cách kiểm tra trong prev state
+        setPlayerHp(prev => {
+          if (prev[targetIdStr]) {
+            setDamageAnimation(curr => ({ ...curr, player: true }));
+            setTimeout(() => setDamageAnimation(curr => ({ ...curr, player: false })), playbackSpeed * 0.8);
+            return { ...prev, [targetIdStr]: { ...prev[targetIdStr], current: Number(logDetails.hpAfter) } };
+          }
+          return prev;
+        });
+        
+        setEnemyHp(prev => {
+          if (prev[targetIdStr]) {
+            setDamageAnimation(curr => ({ ...curr, enemy: true }));
+            setTimeout(() => setDamageAnimation(curr => ({ ...curr, enemy: false })), playbackSpeed * 0.8);
+            return { ...prev, [targetIdStr]: { ...prev[targetIdStr], current: Number(logDetails.hpAfter) } };
+          }
+          return prev;
+        });
+      }
+      
+      // Update Mana nếu có manaAfter - dựa vào actorId (người dùng skill)
+      if (typeof logDetails.manaAfter === 'number' && actorId !== undefined) {
+        const actorIdStr = String(actorId);
+        
+        setPlayerMana(prev => {
+          if (prev[actorIdStr]) {
+            return { ...prev, [actorIdStr]: { ...prev[actorIdStr], current: Number(logDetails.manaAfter) } };
+          }
+          return prev;
+        });
+        
+        setEnemyMana(prev => {
+          if (prev[actorIdStr]) {
+            return { ...prev, [actorIdStr]: { ...prev[actorIdStr], current: Number(logDetails.manaAfter) } };
+          }
+          return prev;
+        });
+      }
+    } else {
+      // Fallback: Xử lý animation dựa trên nội dung log text
+      if (logText.includes('gây') && logText.toLowerCase().includes('người chơi')) {
+        setDamageAnimation(prev => ({ ...prev, player: true }));
+        setTimeout(() => setDamageAnimation(prev => ({ ...prev, player: false })), playbackSpeed * 0.8);
+      } else if (logText.includes('gây')) {
+        setDamageAnimation(prev => ({ ...prev, enemy: true }));
+        setTimeout(() => setDamageAnimation(prev => ({ ...prev, enemy: false })), playbackSpeed * 0.8);
+      }
     }
   }, [combatData, playbackSpeed]);
   
@@ -213,30 +280,50 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
       
       // Khởi tạo HP cho người chơi và đối thủ
       const initialPlayerHp: { [key: string]: { current: number; max: number } } = {};
+      const initialPlayerMana: { [key: string]: { current: number; max: number } } = {};
       if (finalPlayers && finalPlayers.length > 0) {
         finalPlayers.forEach((player: Player, idx: number) => {
+          const playerId = String(player.id || `player-${idx}`);
           const maxHp = getPlayerMaxHp(player);
           const currentHp = getPlayerCurrentHp(player);
-          initialPlayerHp[String(player.id || `player-${idx}`)] = {
+          const maxMana = getPlayerMaxMana(player);
+          const currentMana = getPlayerCurrentMana(player);
+          
+          initialPlayerHp[playerId] = {
             current: currentHp,
             max: maxHp
+          };
+          initialPlayerMana[playerId] = {
+            current: currentMana,
+            max: maxMana
           };
         });
       }
       setPlayerHp(initialPlayerHp);
+      setPlayerMana(initialPlayerMana);
       
       const initialEnemyHp: { [key: string]: { current: number; max: number } } = {};
+      const initialEnemyMana: { [key: string]: { current: number; max: number } } = {};
       if (finalEnemies && finalEnemies.length > 0) {
         finalEnemies.forEach((enemy: Enemy, idx: number) => {
+          const enemyId = String(enemy.id || `enemy-${idx}`);
           const maxHp = getPlayerMaxHp(enemy);
           const currentHp = getPlayerCurrentHp(enemy);
-          initialEnemyHp[String(enemy.id || `enemy-${idx}`)] = {
+          const maxMana = getPlayerMaxMana(enemy);
+          const currentMana = getPlayerCurrentMana(enemy);
+          
+          initialEnemyHp[enemyId] = {
             current: currentHp,
             max: maxHp
+          };
+          initialEnemyMana[enemyId] = {
+            current: currentMana,
+            max: maxMana
           };
         });
       }
       setEnemyHp(initialEnemyHp);
+      setEnemyMana(initialEnemyMana);
       
       // Auto-play combat logs với tốc độ nhanh hơn
       const interval = setInterval(() => {
@@ -261,7 +348,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
       return () => clearInterval(interval);
     }
     return undefined;
-  }, [open, playbackSpeed, processLog, combatResult, combatData, getPlayerCurrentHp, getPlayerMaxHp]);
+  }, [open, playbackSpeed, processLog, combatResult, combatData, getPlayerCurrentHp, getPlayerMaxHp, getPlayerMaxMana, getPlayerCurrentMana]);
   
   // Lấy log hiện tại để hiển thị
   const getCurrentLogText = () => {
@@ -323,6 +410,8 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                         const level = getPlayerLevel(player);
                         const maxHp = getPlayerMaxHp(player);
                         const currentHp = getPlayerCurrentHp(player);
+                        const maxMana = getPlayerMaxMana(player);
+                        const currentMana = getPlayerCurrentMana(player);
                         const attack = getPlayerAttack(player);
                         const defense = getPlayerDefense(player);
                         const speed = getPlayerSpeed(player);
@@ -344,6 +433,22 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                               <Progress
                                 value={(playerHp[String(playerId)]?.current || currentHp) / (playerHp[String(playerId)]?.max || maxHp) * 100}
                                 className={`h-2 bg-gray-700 ${damageAnimation.player ? 'animate-pulse' : ''}`}
+                              />
+                            </div>
+                            
+                            {/* Mana Bar */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="flex items-center gap-1">
+                                  <Zap className="h-3 w-3 text-cyan-400" />
+                                  Mana
+                                </span>
+                                <span className="font-mono text-cyan-300">{playerMana[String(playerId)]?.current || currentMana}/{playerMana[String(playerId)]?.max || maxMana}</span>
+                              </div>
+                              <Progress
+                                value={(playerMana[String(playerId)]?.current || currentMana) / (playerMana[String(playerId)]?.max || maxMana) * 100}
+                                className="h-2 bg-gray-700"
+                                style={{ '--progress-foreground': 'rgb(34 211 238)' } as React.CSSProperties}
                               />
                             </div>
                             
@@ -391,6 +496,8 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                         const level = getPlayerLevel(enemy);
                         const maxHp = getPlayerMaxHp(enemy);
                         const currentHp = getPlayerCurrentHp(enemy);
+                        const maxMana = getPlayerMaxMana(enemy);
+                        const currentMana = getPlayerCurrentMana(enemy);
                         const attack = getPlayerAttack(enemy);
                         const defense = getPlayerDefense(enemy);
                         const speed = getPlayerSpeed(enemy);
@@ -413,6 +520,22 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                                 value={(enemyHp[String(enemyId)]?.current || currentHp) / (enemyHp[String(enemyId)]?.max || maxHp) * 100}
                                 className={`h-2 bg-gray-700 ${damageAnimation.enemy ? 'animate-pulse' : ''}`}
                                 style={{ '--progress-foreground': 'rgb(220 38 38)' } as React.CSSProperties}
+                              />
+                            </div>
+                            
+                            {/* Mana Bar */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="flex items-center gap-1">
+                                  <Zap className="h-3 w-3 text-cyan-400" />
+                                  Mana
+                                </span>
+                                <span className="font-mono text-cyan-300">{enemyMana[String(enemyId)]?.current || currentMana}/{enemyMana[String(enemyId)]?.max || maxMana}</span>
+                              </div>
+                              <Progress
+                                value={(enemyMana[String(enemyId)]?.current || currentMana) / (enemyMana[String(enemyId)]?.max || maxMana) * 100}
+                                className="h-2 bg-gray-700"
+                                style={{ '--progress-foreground': 'rgb(34 211 238)' } as React.CSSProperties}
                               />
                             </div>
                             

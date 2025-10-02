@@ -3,6 +3,20 @@
 
 import React from 'react';
 import SkillsSection from '@/components/game/SkillsSection';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart, Crown, Hand, Footprints } from 'lucide-react';
+import { useUserStatusStore } from '@/stores/user-status.store';
+import { useUserStatus } from '@/hooks/use-user-status';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { Spinner } from '@/components/ui/spinner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { characterClassesApi, userAttributesApi, titlesApi } from '@/lib/api-client';
+import { toast } from 'sonner';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { ClassAdvancementModal } from '../modals/ClassAdvancementModal';
+import { resolveAssetUrl } from '@/lib/asset';
 
 // Add CSS animations for title effects
 const titleAnimationStyles = `
@@ -50,21 +64,6 @@ if (typeof document !== 'undefined') {
   styleElement.textContent = titleAnimationStyles;
   document.head.appendChild(styleElement);
 }
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-// Progress removed for compact layout
-import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart, Crown, Hand, Footprints } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useUserStatusStore } from '@/stores/user-status.store';
-import { useUserStatus } from '@/hooks/use-user-status';
-import { useAuth } from '@/components/providers/AuthProvider';
-import { Spinner } from '@/components/ui/spinner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { characterClassesApi, userAttributesApi, titlesApi } from '@/lib/api-client';
-import { toast } from 'sonner';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { ClassAdvancementModal } from '../modals/ClassAdvancementModal';
 
 // Equipped Title Display Component
 const EquippedTitleDisplay: React.FC = () => {
@@ -119,57 +118,184 @@ const EquippedTitleDisplay: React.FC = () => {
   );
 };
 
-// Equipment slot component
+// Equipment slot component with image and tooltip
 const EquipmentSlot: React.FC<{
   type: string;
   name: string;
   icon: React.ReactNode;
   equippedItems: any[];
 }> = ({ type, name, icon, equippedItems }) => {
+  const [showTooltip, setShowTooltip] = React.useState(false);
   const item = equippedItems?.find((it) => it.item.type === type);
   
+  // Helper function to convert rarity number to string
+  const getRarityText = (rarity: number | string | undefined): string => {
+    if (typeof rarity === 'number') {
+      return ['common', 'uncommon', 'rare', 'epic', 'legendary'][rarity - 1] || 'common';
+    } else if (typeof rarity === 'string') {
+      return rarity.toLowerCase();
+    }
+    return 'common';
+  };
+  
+  // Rarity colors and effects
+  const getRarityStyles = (rarity: number | string | undefined) => {
+    const rarityStr = getRarityText(rarity);
+    
+    switch (rarityStr) {
+      case 'common':
+        return {
+          border: 'border-gray-400',
+          glow: 'shadow-sm',
+          bg: 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900',
+          text: 'text-gray-700 dark:text-gray-300'
+        };
+      case 'uncommon':
+        return {
+          border: 'border-green-400',
+          glow: 'shadow-md shadow-green-200 dark:shadow-green-900',
+          bg: 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30',
+          text: 'text-green-700 dark:text-green-400'
+        };
+      case 'rare':
+        return {
+          border: 'border-blue-400',
+          glow: 'shadow-lg shadow-blue-300 dark:shadow-blue-900',
+          bg: 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30',
+          text: 'text-blue-700 dark:text-blue-400'
+        };
+      case 'epic':
+        return {
+          border: 'border-purple-500',
+          glow: 'shadow-xl shadow-purple-400 dark:shadow-purple-900 animate-pulse',
+          bg: 'bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30',
+          text: 'text-purple-700 dark:text-purple-400'
+        };
+      case 'legendary':
+        return {
+          border: 'border-yellow-500',
+          glow: 'shadow-2xl shadow-yellow-400 dark:shadow-yellow-900 animate-pulse',
+          bg: 'bg-gradient-to-br from-yellow-50 via-orange-50 to-yellow-100 dark:from-yellow-900/30 dark:via-orange-900/30 dark:to-yellow-800/30',
+          text: 'text-yellow-800 dark:text-yellow-400'
+        };
+      default:
+        return {
+          border: 'border-gray-300 dark:border-gray-600',
+          glow: 'shadow-sm',
+          bg: 'bg-gray-50 dark:bg-gray-800',
+          text: 'text-gray-600 dark:text-gray-400'
+        };
+    }
+  };
+
+  const rarityStyles = item ? getRarityStyles(item.item.rarity) : null;
+  
   return (
-    <div className="border border-[var(--border)] rounded-lg p-3 bg-[var(--card)] text-[var(--foreground)] min-h-[120px] flex flex-col">
-      <div className="flex items-center gap-2 mb-2">
-        {icon}
-        <span className="text-xs font-medium text-[var(--muted-foreground)]">{name}</span>
+    <div className="relative group">
+      {/* Equipment slot container */}
+      <div 
+        className={`
+          border-2 rounded-lg p-2 min-h-[120px] flex flex-col items-center justify-center
+          transition-all duration-300 cursor-pointer
+          ${item ? `${rarityStyles?.border} ${rarityStyles?.glow} ${rarityStyles?.bg} hover:scale-105` : 'border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/50'}
+        `}
+        onClick={() => item && setShowTooltip(!showTooltip)}
+        onMouseEnter={() => item && setShowTooltip(true)}
+        onMouseLeave={() => item && setShowTooltip(false)}
+      >
+        {/* Slot label */}
+        <div className="absolute top-1 left-1 flex items-center gap-1 opacity-60">
+          <span className="text-[10px] font-medium">{name}</span>
+        </div>
+        
+        {item ? (
+          <div className="flex flex-col items-center justify-center gap-1">
+            {/* Item image - backend uses 'image' not 'imageUrl', resolve with asset helper */}
+            {item.item.image ? (
+              <div className="relative w-20 h-20">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={resolveAssetUrl(item.item.image)} 
+                  alt={item.item.name}
+                  className="w-full h-full object-contain drop-shadow-lg"
+                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                    // Fallback to icon if image fails
+                    e.currentTarget.style.display = 'none';
+                    const fallback = e.currentTarget.parentElement?.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.classList.remove('hidden');
+                  }}
+                />
+              </div>
+            ) : null}
+            
+            {/* Fallback icon */}
+            <div className={`${item.item.image ? 'hidden' : ''} text-4xl`}>
+              {icon}
+            </div>
+            
+            {/* Item level badge */}
+            {item.item.level && (
+              <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                Lv.{item.item.level}
+              </Badge>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 opacity-30">
+            <div className="text-3xl">{icon}</div>
+            <span className="text-[10px] text-center">Trống</span>
+          </div>
+        )}
       </div>
       
-      {item ? (
-        <div className="flex-1">
-          <h5 className="font-medium text-sm leading-tight mb-1">{item.item.name}</h5>
+      {/* Tooltip/Popover */}
+      {item && showTooltip && (
+        <div 
+          className="absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-3 
+                     bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 
+                     border-gray-200 dark:border-gray-700 pointer-events-none
+                     animate-in fade-in-0 zoom-in-95 duration-200"
+        >
+          {/* Arrow */}
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45 
+                          bg-white dark:bg-gray-800 border-l-2 border-t-2 
+                          border-gray-200 dark:border-gray-700" />
           
-          {item.item.stats ? (
-            <Collapsible>
-              <div className="flex items-center justify-between mb-1">
-                {item.item.level ? (
-                  <span className="text-xs text-[var(--muted-foreground)]">Lv.{item.item.level}</span>
-                ) : item.item.rarity ? (
-                  <Badge variant="outline" className="text-[11px]">{item.item.rarity}</Badge>
-                ) : (
-                  <span className="text-xs text-[var(--muted-foreground)]">&nbsp;</span>
-                )}
-                <CollapsibleTrigger className="text-xs text-[var(--muted-foreground)] underline">Chi tiết</CollapsibleTrigger>
-              </div>
-              <CollapsibleContent>
-                <p className="text-xs text-[var(--muted-foreground)] mb-2">{item.item.description}</p>
-                <div className="space-y-1">
-                  {Object.entries(item.item.stats).map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between text-xs">
-                      <span className="capitalize text-[var(--muted-foreground)]">{k}</span>
-                      <span className="font-medium text-green-600">+{String(v)}</span>
-                    </div>
-                  ))}
+          <div className="relative">
+            {/* Item name with rarity color */}
+            <h5 className={`font-bold text-sm mb-1 ${rarityStyles?.text}`}>
+              {item.item.name}
+            </h5>
+            
+            {/* Rarity badge - convert number to text */}
+            {item.item.rarity && (
+              <Badge className={`text-xs mb-2 ${rarityStyles?.text} ${rarityStyles?.bg} border-0`}>
+                {getRarityText(item.item.rarity).toUpperCase()}
+              </Badge>
+            )}
+            
+            {/* Description */}
+            {item.item.description && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 italic">
+                {item.item.description}
+              </p>
+            )}
+            
+            {/* Stats */}
+            {item.item.stats && Object.keys(item.item.stats).length > 0 && (
+              <div className="space-y-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Chỉ số:
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
-          ) : (
-            <div className="text-xs text-[var(--muted-foreground)]">{item.item.description}</div>
-          )}
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-xs text-[var(--muted-foreground)] text-center">Trống</p>
+                {Object.entries(item.item.stats).map(([stat, value]) => (
+                  <div key={stat} className="flex justify-between text-xs">
+                    <span className="text-gray-600 dark:text-gray-400 capitalize">{stat}:</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">+{String(value)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -351,9 +477,21 @@ const StatusTab: React.FC = () => {
     return Math.floor(baseMaxHp + hpFromVit * effective);
   };
 
+  // Calculate max Mana from INT (same formula as backend)
+  const calculateMaxMana = (int: number): number => {
+    const baseMana = 50;
+    const manaFromInt = 10;
+    const effective = Math.pow(Math.max(0, int || 0), 0.94);
+    return Math.floor(baseMana + manaFromInt * effective);
+  };
+
   const maxHp = calculateMaxHp(displayedStats.vit);
   const currentHp = stats.currentHp;
   const hpPercent = maxHp > 0 ? (currentHp / maxHp) * 100 : 0;
+
+  const maxMana = calculateMaxMana(displayedStats.int);
+  const currentMana = stats.currentMana ?? maxMana; // Use maxMana if null (first combat)
+  const manaPercent = maxMana > 0 ? (currentMana / maxMana) * 100 : 0;
 
   // Use server-authoritative combatPower only. Server calculates this when stats change
   // (level up, equip/unequip items, class advancement) and persists it to avoid race conditions.
@@ -493,6 +631,20 @@ const StatusTab: React.FC = () => {
             </div>
             <div className="h-2 bg-[rgba(255,255,255,0.06)] rounded overflow-hidden">
               <div className="h-full bg-red-500" style={{ width: `${hpPercent}%` }} />
+            </div>
+          </div>
+
+          {/* Thanh mana */}
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1">
+                <Zap className="h-3 w-3 text-blue-500" />
+                <span className="text-blue-500 font-medium text-xs">Mana</span>
+              </div>
+              <span className="text-blue-500 font-bold text-sm">{currentMana}/{maxMana}</span>
+            </div>
+            <div className="h-2 bg-[rgba(255,255,255,0.06)] rounded overflow-hidden">
+              <div className="h-full bg-blue-500" style={{ width: `${manaPercent}%` }} />
             </div>
           </div>
 

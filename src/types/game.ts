@@ -167,7 +167,8 @@ export const EQUIPMENT_SLOTS = {
 
 export enum ConsumableType {
   HP_POTION = 'hp_potion',
-  MP_POTION = 'mp_potion',
+  MP_POTION = 'mp_potion', // DEPRECATED: Dùng cho stamina (giữ tương thích)
+  MANA_POTION = 'mana_potion', // ✅ NEW: Lọ hồi mana thực sự
   EXP_POTION = 'exp_potion',
   STAT_BOOST = 'stat_boost',
 }

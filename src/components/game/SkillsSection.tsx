@@ -65,6 +65,8 @@ interface SkillDefinition {
   requiredAttribute: 'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK';
   requiredAttributeValue: number;
   skillPointCost: number;
+  cooldown?: number; // Turn-based cooldown (e.g., 3 turns)
+  manaCost?: number; // Mana cost to use skill
   effects: Record<number, SkillEffect>;
   prerequisites?: string[];
   classRestrictions?: string[];
@@ -200,6 +202,13 @@ const SkillSlot: React.FC<SkillSlotProps> = ({ skill, slotType, onEquip, onUnequ
           Lv.{currentLevel}
         </div>
 
+        {/* Cooldown Badge (Active/Toggle skills only) */}
+        {definition.cooldown && definition.cooldown > 0 && (definition.skillType === 'active' || definition.skillType === 'toggle') && (
+          <div className="absolute bottom-0 right-0 bg-blue-600 text-white text-[9px] font-bold px-1 rounded-tl rounded-br flex items-center gap-0.5">
+            <span>CD: {definition.cooldown}T</span>
+          </div>
+        )}
+
         {/* Remove icon on hover */}
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
           <X className="h-6 w-6 text-white" />
@@ -215,6 +224,23 @@ const SkillSlot: React.FC<SkillSlotProps> = ({ skill, slotType, onEquip, onUnequ
               <span className="font-bold">{definition.name}</span>
             </div>
             <p className="text-xs text-gray-300">{definition.description}</p>
+            {/* Cooldown & Mana Cost */}
+            {(definition.cooldown || definition.manaCost) && (
+              <div className="text-xs space-y-1">
+                {definition.cooldown && definition.cooldown > 0 && (
+                  <div className="flex items-center gap-1 text-blue-400">
+                    <Zap className="h-3 w-3" />
+                    <span>Kích hoạt mỗi <strong>{definition.cooldown} turn</strong></span>
+                  </div>
+                )}
+                {definition.manaCost && definition.manaCost > 0 && (
+                  <div className="flex items-center gap-1 text-cyan-400">
+                    <Zap className="h-3 w-3" />
+                    <span>Chi phí: <strong>{definition.manaCost} mana</strong></span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="text-xs">
               <span className="font-semibold">Level {currentLevel}:</span>
               {currentEffect?.statBonuses && Object.entries(currentEffect.statBonuses).map(([stat, value]) => (

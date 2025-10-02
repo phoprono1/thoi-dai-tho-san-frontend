@@ -181,8 +181,8 @@ export default function AdminSkillsNew() {
     sortOrder: 0,
     category: 'Combat',
     skillType: 'passive' as 'passive' | 'active' | 'toggle',
-    manaCost: 0,
-    cooldown: 0,
+    manaCost: 10,
+    cooldown: 3,
     targetType: 'self' as 'self' | 'enemy' | 'ally' | 'aoe_enemies' | 'aoe_allies',
     damageType: 'physical' as 'physical' | 'magical',
     damageFormula: '',
@@ -428,8 +428,8 @@ export default function AdminSkillsNew() {
       category: formData.category,
       skillType: formData.skillType,
       ...(formData.skillType !== 'passive' && {
-        manaCost: formData.manaCost || undefined,
-        cooldown: formData.cooldown || undefined,
+        manaCost: formData.manaCost > 0 ? formData.manaCost : 10,
+        cooldown: formData.cooldown > 0 ? formData.cooldown : 3,
         targetType: formData.targetType || undefined,
         damageType: formData.damageType || undefined,
         damageFormula: formData.damageFormula.trim() || undefined,
@@ -485,8 +485,8 @@ export default function AdminSkillsNew() {
       sortOrder: skill.sortOrder,
       category: skill.category || 'Combat',
       skillType: skill.skillType,
-      manaCost: skill.manaCost || 0,
-      cooldown: skill.cooldown || 0,
+      manaCost: skill.manaCost ?? 10,
+      cooldown: skill.cooldown ?? 3,
       targetType: skill.targetType || 'self',
       damageType: skill.damageType || 'physical',
       damageFormula: skill.damageFormula || '',
@@ -513,6 +513,40 @@ export default function AdminSkillsNew() {
   // ============================================================================
 
   const columns = [
+    {
+      key: 'image' as keyof SkillDefinition,
+      label: 'Icon',
+      render: (value: unknown, row: SkillDefinition) => {
+        if (!value) {
+          return (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="w-12 h-12 border-2 border-dashed border-red-300 rounded-lg flex items-center justify-center bg-red-50 dark:bg-red-950">
+                    <span className="text-xs text-red-500">No Icon</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-red-500">⚠️ Skill chưa có icon!</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        }
+        return (
+          <div className="relative w-12 h-12 border-2 border-gray-300 rounded-lg overflow-hidden bg-white">
+            <Image
+              src={resolveAssetUrl(value as string) || ''}
+              alt={row.name}
+              width={48}
+              height={48}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
+          </div>
+        );
+      },
+    },
     {
       key: 'name' as keyof SkillDefinition,
       label: 'Tên Skill',
@@ -686,24 +720,55 @@ export default function AdminSkillsNew() {
                     <Label htmlFor="skill-image" className="flex items-center gap-2">
                       🖼️ Skill Icon
                     </Label>
+                    
+                    {/* Current Image Preview (when editing) */}
                     {editingSkill?.image && (
-                      <div className="flex items-center gap-3 p-2 border rounded-lg bg-gray-50 dark:bg-gray-900">
-                        <div className="relative w-16 h-16 border-2 border-gray-300 rounded-lg overflow-hidden bg-white">
+                      <div className="flex items-center gap-3 p-3 border-2 border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950">
+                        <div className="relative w-16 h-16 border-2 border-blue-300 rounded-lg overflow-hidden bg-white shadow-md">
+                          {editingSkill.image ? (
+                            <Image
+                              src={resolveAssetUrl(editingSkill.image) || ''}
+                              alt={editingSkill.name}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-2xl font-bold">
+                              {editingSkill.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">📸 Current Image</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 truncate font-mono">{editingSkill.image}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* New Image Preview (when file selected) */}
+                    {selectedFile && (
+                      <div className="flex items-center gap-3 p-3 border-2 border-green-200 dark:border-green-800 rounded-lg bg-green-50 dark:bg-green-950">
+                        <div className="relative w-16 h-16 border-2 border-green-300 rounded-lg overflow-hidden bg-white shadow-md">
                           <Image
-                            src={resolveAssetUrl(editingSkill.image) || ''}
-                            alt={editingSkill.name}
+                            src={URL.createObjectURL(selectedFile)}
+                            alt="Preview"
                             width={64}
                             height={64}
-                            className="object-cover"
+                            className="w-full h-full object-cover"
                             unoptimized
                           />
                         </div>
                         <div className="flex-1">
-                          <p className="text-xs font-semibold">Current image</p>
-                          <p className="text-xs text-gray-500 truncate">{editingSkill.image}</p>
+                          <p className="text-xs font-semibold text-green-700 dark:text-green-300">✅ New Image Selected</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            <span className="font-semibold">{selectedFile.name}</span> ({(selectedFile.size / 1024).toFixed(1)} KB)
+                          </p>
                         </div>
                       </div>
                     )}
+
                     <Input
                       id="skill-image"
                       type="file"
@@ -711,11 +776,7 @@ export default function AdminSkillsNew() {
                       onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                       className="cursor-pointer"
                     />
-                    {selectedFile && (
-                      <p className="text-xs text-green-600 bg-green-50 dark:bg-green-950 p-2 rounded flex items-center gap-1">
-                        ✅ File selected: <span className="font-semibold">{selectedFile.name}</span> ({(selectedFile.size / 1024).toFixed(1)} KB)
-                      </p>
-                    )}
+                    
                     <p className="text-xs text-gray-500">
                       💡 Recommended: 256x256px, PNG/WebP format. Max 5MB.
                     </p>
@@ -1086,26 +1147,46 @@ export default function AdminSkillsNew() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold mb-1">
+                        ⚠️ Lưu ý: Active skills cần mana cost & cooldown
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        Nếu để 0, hệ thống sẽ tự động set: <code>manaCost=10</code>, <code>cooldown=3</code>
+                      </p>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <Label htmlFor="manaCost">💧 Mana Cost</Label>
+                        <Label htmlFor="manaCost" className="flex items-center gap-2">
+                          💧 Mana Cost <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                           id="manaCost"
                           type="number"
-                          min="0"
+                          min="1"
                           value={formData.manaCost}
-                          onChange={(e) => setFormData({ ...formData, manaCost: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => setFormData({ ...formData, manaCost: parseInt(e.target.value) || 10 })}
+                          className="font-semibold"
                         />
+                        <p className="text-xs text-gray-500">
+                          Mana tiêu tốn mỗi lần dùng skill
+                        </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="cooldown">⏱️ Cooldown (s)</Label>
+                        <Label htmlFor="cooldown" className="flex items-center gap-2">
+                          ⏱️ Cooldown (turns) <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                           id="cooldown"
                           type="number"
-                          min="0"
+                          min="1"
                           value={formData.cooldown}
-                          onChange={(e) => setFormData({ ...formData, cooldown: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => setFormData({ ...formData, cooldown: parseInt(e.target.value) || 3 })}
+                          className="font-semibold"
                         />
+                        <p className="text-xs text-gray-500">
+                          Số turn phải chờ trước khi dùng lại
+                        </p>
                       </div>
                     </div>
 

@@ -15,7 +15,7 @@ import {
   Sword, 
   Shield, 
   Crown,
-  
+  Zap,
   Trophy,
   Skull,
   CornerUpLeft
@@ -31,6 +31,9 @@ export interface CombatDetails {
   isMiss?: boolean;
   hpBefore: number;
   hpAfter: number;
+  manaBefore?: number; // Mana before action (for skills)
+  manaAfter?: number;  // Mana after action (for skills)
+  manaCost?: number;   // Mana cost of skill
   description: string;
   effects?: string[];
 }
@@ -61,6 +64,8 @@ export interface CombatResult {
       username: string;
       hp: number;
       maxHp: number;
+      currentMana?: number;
+      maxMana?: number;
     }[];
   };
   enemies?: {
@@ -101,6 +106,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
 
   // Animation states
   const [playerHp, setPlayerHp] = useState<{ [key: number]: { current: number; max: number } }>({});
+  const [playerMana, setPlayerMana] = useState<{ [key: number]: { current: number; max: number } }>({});
   const [enemyHp, setEnemyHp] = useState<{ [key: number]: { current: number; max: number } }>({});
   const [lastAction, setLastAction] = useState<string>('');
   const [damageAnimation, setDamageAnimation] = useState<{ player: boolean; enemy: boolean }>({
@@ -148,12 +154,19 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
     
     // Reset everything when NEW combat result arrives (not just when modal opens/closes)
     const initialHp: { [key: number]: { current: number; max: number } } = {};
+    const initialMana: { [key: number]: { current: number; max: number } } = {};
     // Use maxHp as the initial displayed HP so clients don't see the post-combat
     // final HP immediately (teamStats.members currently carries final HP).
     combatResult?.teamStats?.members?.forEach(member => {
       initialHp[member.userId] = { current: member.maxHp, max: member.maxHp };
+      // Initialize mana from teamStats.members
+      initialMana[member.userId] = { 
+        current: member.currentMana ?? member.maxMana ?? 0, 
+        max: member.maxMana ?? 0 
+      };
     });
     setPlayerHp(initialHp);
+    setPlayerMana(initialMana);
     
     // Initialize enemy HP using originalEnemies if available, fallback to enemies
     const initialEnemyHp: { [key: number]: { current: number; max: number } } = {};
@@ -245,6 +258,18 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
 
         return updatedEnemyHp;
       });
+      
+      // Update player mana if this was a skill action
+      if (log.action === 'skill' && typeof log.details.manaAfter === 'number') {
+        setPlayerMana(prev => ({
+          ...prev,
+          [log.userId]: {
+            ...prev[log.userId],
+            current: Math.max(0, log.details.manaAfter ?? 0),
+          }
+        }));
+      }
+      
   setDamageAnimation(prev => ({ ...prev, enemy: true }));
   // match damage animation length with playback speed (slightly longer for visibility)
   setTimeout(() => setDamageAnimation(prev => ({ ...prev, enemy: false })), Math.max(120, playbackSpeed * 1.0));
@@ -350,16 +375,38 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
                       <div key={member.userId} className="bg-gray-900/40 p-1 sm:p-2 rounded text-[12px]">
                         <div className="flex items-center justify-between">
                           <div className="text-sm font-medium truncate max-w-[70%]">{member.username}</div>
-                          <div className="text-[11px] text-gray-300">HP</div>
                         </div>
+                        {/* HP Bar */}
                         <div className="mt-1">
+                          <div className="flex items-center justify-between text-[10px] text-gray-400 mb-0.5">
+                            <span>HP</span>
+                            <span className="font-semibold">{playerHp[member.userId]?.current || member.hp}/{playerHp[member.userId]?.max || member.maxHp}</span>
+                          </div>
                           <Progress
                             value={(playerHp[member.userId]?.current || member.hp) / (playerHp[member.userId]?.max || member.maxHp) * 100}
                             className={`h-2 bg-gray-700 ${damageAnimation.player ? 'animate-pulse' : ''}`}
                             style={{ '--progress-foreground': 'rgb(34 197 94)' } as React.CSSProperties}
                           />
-                          <div className="text-[11px] text-gray-300 text-center mt-1">{playerHp[member.userId]?.current || member.hp}/{playerHp[member.userId]?.max || member.maxHp} HP</div>
                         </div>
+                        {/* Mana Bar */}
+                        {member.maxMana && member.maxMana > 0 && (
+                          <div className="mt-1">
+                            <div className="flex items-center justify-between text-[10px] text-blue-400 mb-0.5">
+                              <div className="flex items-center gap-0.5">
+                                <Zap className="h-2.5 w-2.5" />
+                                <span>Mana</span>
+                              </div>
+                              <span className="font-semibold">
+                                {playerMana[member.userId]?.current ?? member.currentMana ?? member.maxMana}/{member.maxMana}
+                              </span>
+                            </div>
+                            <Progress
+                              value={((playerMana[member.userId]?.current ?? member.currentMana ?? member.maxMana) / member.maxMana) * 100}
+                              className="h-2 bg-gray-700"
+                              style={{ '--progress-foreground': 'rgb(59 130 246)' } as React.CSSProperties}
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

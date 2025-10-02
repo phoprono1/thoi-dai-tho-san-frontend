@@ -161,7 +161,7 @@ export interface Item {
   image?: string | null;
   description: string;
   type: string;
-  rarity: string;
+  rarity: number | string; // Backend returns number (1-5), but can also be string
   level: number;
   stats: {
     attack?: number;

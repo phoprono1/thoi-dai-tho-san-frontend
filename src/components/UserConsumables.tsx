@@ -58,6 +58,8 @@ export default function UserConsumables() {
         return <Heart className="w-5 h-5 text-red-500" />;
       case ConsumableType.MP_POTION:
         return <Zap className="w-5 h-5 text-blue-500" />;
+      case ConsumableType.MANA_POTION:
+        return <Zap className="w-5 h-5 text-cyan-500" />;
       case ConsumableType.EXP_POTION:
         return <Star className="w-5 h-5 text-yellow-500" />;
       case ConsumableType.STAT_BOOST:
@@ -73,7 +75,9 @@ export default function UserConsumables() {
       case ConsumableType.HP_POTION:
         return `Khôi phục ${consumableValue} HP`;
       case ConsumableType.MP_POTION:
-        return `Khôi phục ${consumableValue} MP`;
+        return `Khôi phục ${consumableValue} MP (Stamina)`;
+      case ConsumableType.MANA_POTION:
+        return `Khôi phục ${consumableValue} Mana`;
       case ConsumableType.EXP_POTION:
         return `Nhận ${consumableValue} EXP`;
       case ConsumableType.STAT_BOOST:

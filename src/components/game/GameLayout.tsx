@@ -21,7 +21,7 @@ import { usePathname, useRouter } from 'next/navigation';
     Users,
     Coins,
     Scroll,
-    Heart
+    Heart,
   } from 'lucide-react';
   import { Menu, Mail, Settings, Calendar } from 'lucide-react';
   import MailboxModal from '@/components/ui/MailboxModal';
@@ -160,6 +160,10 @@ import DailyLoginModal from '@/components/ui/DailyLoginModal';
               </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => openModal('mailbox')}>Mailbox</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/wiki')}>
+                  <Scroll className="h-4 w-4 mr-2" />
+                  Wiki
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowGiftcodeModal(true)}>
                   <div className="flex items-center gap-2">Cài đặt</div>
                 </DropdownMenuItem>
@@ -238,6 +242,9 @@ import DailyLoginModal from '@/components/ui/DailyLoginModal';
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openModal('mailbox')}>
                         <Mail className="h-4 w-4 mr-2" /> Mailbox
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push('/wiki')}>
+                        <Scroll className="h-4 w-4 mr-2" /> Wiki
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setShowGiftcodeModal(true)}>
                         <Settings className="h-4 w-4 mr-2" /> Cài đặt

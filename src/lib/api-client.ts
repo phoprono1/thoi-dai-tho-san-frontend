@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosRequestHeaders } from 'axios';
 
 // API Base URL - sẽ được cấu hình từ environment
@@ -558,6 +559,39 @@ export const titlesApi = {
 
   checkAndUnlock: async () => {
     const response = await api.post('/titles/check-and-unlock');
+    return response.data;
+  },
+};
+
+// Wiki API - For game encyclopedia/database
+export const wikiApi = {
+  // Get all items with full details
+  getAllItems: async () => {
+    const response = await api.get('/items');
+    return response.data;
+  },
+
+  // Get all monsters with full details
+  getAllMonsters: async () => {
+    const response = await api.get('/monsters');
+    return response.data;
+  },
+
+  // Get all dungeons with full details
+  getAllDungeons: async () => {
+    const response = await api.get('/dungeons');
+    return response.data;
+  },
+
+  // Get all available skill definitions
+  getAllSkills: async () => {
+    const response = await api.get('/skills');
+    return response.data;
+  },
+
+  // Get item sets
+  getItemSets: async () => {
+    const response = await api.get('/item-sets');
     return response.data;
   },
 };

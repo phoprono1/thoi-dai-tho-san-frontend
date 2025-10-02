@@ -409,25 +409,36 @@ export default function GuildTab() {
           {members.map((member: MemberType) => (
             <Card key={member.userId}>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                {/* Mobile-first responsive layout */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Left side: Avatar + Info */}
                   <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${member.isOnline ? 'bg-green-100' : 'bg-gray-100'}`}>
+                    <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${member.isOnline ? 'bg-green-100' : 'bg-gray-100'}`}>
                       <Users className="h-5 w-5 text-gray-600" />
                     </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-medium">{member.user?.username}</h3>
-                        <Badge className={`text-xs ${member.role === 'LEADER' ? 'text-yellow-600 bg-yellow-100' : member.role === 'DEPUTY' ? 'text-blue-600 bg-blue-100' : 'text-gray-600 bg-gray-100'}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium truncate">{member.user?.username}</h3>
+                        <Badge className={`text-xs whitespace-nowrap ${member.role === 'LEADER' ? 'text-yellow-600 bg-yellow-100' : member.role === 'DEPUTY' ? 'text-blue-600 bg-blue-100' : 'text-gray-600 bg-gray-100'}`}>
                           {roleLabel(member.role)}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600">Level {member.user?.level ?? 0} • {member.contributionGold ?? 0} đóng góp</p>
+                      {/* Online status on mobile */}
+                      <div className={`text-xs sm:hidden ${member.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                        {member.isOnline ? 'Đang online' : member.lastActiveAt ?? 'Offline'}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right flex items-center space-x-2">
-                    <div className={`text-xs ${member.isOnline ? 'text-green-600' : 'text-gray-500'}`}>{member.lastActiveAt ?? ''}</div>
-                    <div className="text-sm text-gray-700">{roleLabel(member.role)}</div>
-                    {/* Leave button (can't leave if not a member or if leader - leader should transfer before leaving) */}
+
+                  {/* Right side: Actions - stacked on mobile, inline on desktop */}
+                  <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                    {/* Online status on desktop */}
+                    <div className={`hidden sm:block text-xs whitespace-nowrap ${member.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                      {member.lastActiveAt ?? ''}
+                    </div>
+
+                    {/* Leave button */}
                     {authUser?.id === member.userId ? (
                       <Button variant="outline" size="sm" onClick={() => {
                         setConfirmTitle('Rời công hội');
@@ -439,11 +450,12 @@ export default function GuildTab() {
                       }}>Rời</Button>
                     ) : null}
 
-                    {/* Assign role control: only visible to leader (or deputy could be restricted) */}
+                    {/* Assign role button (leader only) */}
                     {authUser?.id === g.leaderId && authUser?.id !== member.userId ? (
                       <Button size="sm" onClick={() => { setAssigningMember(member.userId); }}>Phân chức</Button>
                     ) : null}
-                    {/* Kick member (visible to leader or deputy) */}
+
+                    {/* Kick button (leader or deputy) */}
                     {(authUser?.id === g.leaderId || (authUser?.id && members.find(m => m.userId === authUser.id)?.role === 'DEPUTY')) && authUser?.id !== member.userId ? (
                       <Button size="sm" variant="destructive" onClick={async () => {
                         setConfirmTitle('Đuổi thành viên');
@@ -494,44 +506,44 @@ export default function GuildTab() {
             </Card>
           ))}
           {showRequestsModal ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-              <div className="bg-white p-4 rounded shadow-lg w-96">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="bg-white p-4 rounded shadow-lg w-full max-w-md mx-auto">
                 <h3 className="text-lg font-semibold mb-2">Yêu cầu tham gia</h3>
                 <div className="max-h-60 overflow-y-auto space-y-2">
                   {Array.isArray(requests) && requests.length > 0 ? (
                     (requests as { id: number; userId: number; user?: { username?: string }; joinedAt?: string }[]).map((r) => (
-                      <div key={r.id} className="flex items-center justify-between p-2 border rounded">
-                        <div>
-                          <div className="font-medium">{r.user?.username}</div>
+                      <div key={r.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 border rounded">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{r.user?.username}</div>
                           <div className="text-xs text-gray-500">Yêu cầu tham gia từ {r.joinedAt ?? ''}</div>
                         </div>
-                          <div className="space-x-2">
-                            <Button size="sm" onClick={async () => {
+                        <div className="flex gap-2">
+                          <Button size="sm" className="flex-1 sm:flex-none" onClick={async () => {
+                            try {
+                              await approveMember.mutateAsync({ guildId: g.id, userId: r.userId });
+                              toast.success('Đã duyệt');
+                              await refetchRequests();
+                            } catch (err: unknown) {
+                              const e = err as { response?: { data?: { message?: string } }; message?: string };
+                              toast.error(e?.response?.data?.message || e?.message || 'Duyệt thất bại');
+                            }
+                          }}>Duyệt</Button>
+                          <Button size="sm" variant="destructive" className="flex-1 sm:flex-none" onClick={async () => {
+                            setConfirmTitle('Từ chối yêu cầu');
+                            setConfirmMessage('Bạn có chắc muốn từ chối yêu cầu này?');
+                            setConfirmAction(async () => {
                               try {
-                                await approveMember.mutateAsync({ guildId: g.id, userId: r.userId });
-                                toast.success('Đã duyệt');
+                                await rejectMember.mutateAsync({ guildId: g.id, userId: r.userId });
+                                toast.success('Đã từ chối');
                                 await refetchRequests();
                               } catch (err: unknown) {
                                 const e = err as { response?: { data?: { message?: string } }; message?: string };
-                                toast.error(e?.response?.data?.message || e?.message || 'Duyệt thất bại');
+                                toast.error(e?.response?.data?.message || e?.message || 'Từ chối thất bại');
                               }
-                            }}>Duyệt</Button>
-                            <Button size="sm" variant="destructive" onClick={async () => {
-                              setConfirmTitle('Từ chối yêu cầu');
-                              setConfirmMessage('Bạn có chắc muốn từ chối yêu cầu này?');
-                              setConfirmAction(async () => {
-                                try {
-                                  await rejectMember.mutateAsync({ guildId: g.id, userId: r.userId });
-                                  toast.success('Đã từ chối');
-                                  await refetchRequests();
-                                } catch (err: unknown) {
-                                  const e = err as { response?: { data?: { message?: string } }; message?: string };
-                                  toast.error(e?.response?.data?.message || e?.message || 'Từ chối thất bại');
-                                }
-                              });
-                              setConfirmOpen(true);
-                            }}>Từ chối</Button>
-                          </div>
+                            });
+                            setConfirmOpen(true);
+                          }}>Từ chối</Button>
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -585,8 +597,8 @@ export default function GuildTab() {
       />
       {/* Contribution modal */}
       {contribOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded shadow-lg w-96">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="bg-white p-4 rounded shadow-lg w-full max-w-md mx-auto">
             <h3 className="text-lg font-semibold mb-2">Đóng góp vàng</h3>
             <div className="mb-3">
               <label className="block text-sm mb-1">Số vàng muốn đóng góp</label>
@@ -667,13 +679,22 @@ export function AssignRoleModal({ memberId, open, onClose, onConfirm, currentRol
   const [selected, setSelected] = useState<GuildMemberRole>(currentRole as GuildMemberRole ?? GuildMemberRole.MEMBER);
   if (!open || !memberId) return null;
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
-      <div className="bg-white p-4 rounded shadow-lg w-96">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div className="bg-white p-4 rounded shadow-lg w-full max-w-md mx-auto">
         <h3 className="text-lg font-semibold mb-2">Phân chức</h3>
         <div className="space-y-2">
-          <label className="block"><input type="radio" name="role" value={GuildMemberRole.MEMBER} checked={selected === GuildMemberRole.MEMBER} onChange={() => setSelected(GuildMemberRole.MEMBER)} /> Thành Viên</label>
-          <label className="block"><input type="radio" name="role" value={GuildMemberRole.ELDER} checked={selected === GuildMemberRole.ELDER} onChange={() => setSelected(GuildMemberRole.ELDER)} /> Lãnh Đạo</label>
-          <label className="block"><input type="radio" name="role" value={GuildMemberRole.DEPUTY} checked={selected === GuildMemberRole.DEPUTY} onChange={() => setSelected(GuildMemberRole.DEPUTY)} /> Hội Phó</label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="role" value={GuildMemberRole.MEMBER} checked={selected === GuildMemberRole.MEMBER} onChange={() => setSelected(GuildMemberRole.MEMBER)} className="cursor-pointer" />
+            <span>Thành Viên</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="role" value={GuildMemberRole.ELDER} checked={selected === GuildMemberRole.ELDER} onChange={() => setSelected(GuildMemberRole.ELDER)} className="cursor-pointer" />
+            <span>Lãnh Đạo</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="role" value={GuildMemberRole.DEPUTY} checked={selected === GuildMemberRole.DEPUTY} onChange={() => setSelected(GuildMemberRole.DEPUTY)} className="cursor-pointer" />
+            <span>Hội Phó</span>
+          </label>
         </div>
         <div className="mt-4 flex justify-end space-x-2">
           <Button variant="ghost" onClick={onClose}>Hủy</Button>
