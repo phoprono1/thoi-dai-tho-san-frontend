@@ -10,8 +10,9 @@ import { useQuery } from '@tanstack/react-query';
 import { adminApiEndpoints } from '@/lib/admin-api';
 import { toast } from 'sonner';
 import { Users, UserPlus, UserMinus, Crown, Eye, Shield, Heart, Search, Filter } from 'lucide-react';
-import { User, UserStats } from '@/types/game';
+import { User } from '@/types/game';
 import { useState, useMemo } from 'react';
+import api from '@/lib/api';
 
 export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -34,14 +35,37 @@ export default function AdminUsers() {
     },
   });
 
-  // Fetch user stats
+  // Fetch user stats with combat stats
   const { data: userStats, isLoading: isStatsLoading } = useQuery({
     queryKey: ['userStats', selectedUser?.id],
-    queryFn: async (): Promise<UserStats | null> => {
+    queryFn: async (): Promise<{
+      coreStats: {
+        str: number;
+        int: number;
+        dex: number;
+        vit: number;
+        luk: number;
+      };
+      combatStats: {
+        maxHp: number;
+        maxMana: number;
+        attack: number;
+        defense: number;
+        critRate: number;
+        critDamage: number;
+        dodgeRate: number;
+        accuracy: number;
+        lifesteal: number;
+        armorPen: number;
+        comboRate: number;
+        counterRate: number;
+      };
+    } | null> => {
       if (!selectedUser?.id) return null;
       try {
-        const response = await adminApiEndpoints.getUser(selectedUser.id);
-        return response.data?.stats || null;
+        // Fetch combat stats from new endpoint
+        const statsResponse = await api.get(`/user-stats/user/${selectedUser.id}/combat-stats`);
+        return statsResponse.data;
       } catch (error) {
         console.error('Failed to fetch user stats:', error);
         return null;
@@ -541,78 +565,93 @@ export default function AdminUsers() {
                 {/* User Stats */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Stats Chi Tiết</CardTitle>
+                    <CardTitle>Core Stats</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {isStatsLoading ? (
                       <div className="text-center py-8">Đang tải stats...</div>
                     ) : userStats ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        <div className="text-center p-3 bg-red-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">HP</p>
-                          <p className="text-xl font-bold text-red-600">
-                            {userStats.currentHp}/{userStats.maxHp}
-                          </p>
+                      <div className="space-y-6">
+                        {/* Core Stats */}
+                        <div>
+                          <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Chỉ số cơ bản</h3>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">STR</p>
+                              <p className="text-xl font-bold text-red-600">{userStats.coreStats.str}</p>
+                            </div>
+                            <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">INT</p>
+                              <p className="text-xl font-bold text-blue-600">{userStats.coreStats.int}</p>
+                            </div>
+                            <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">DEX</p>
+                              <p className="text-xl font-bold text-green-600">{userStats.coreStats.dex}</p>
+                            </div>
+                            <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">VIT</p>
+                              <p className="text-xl font-bold text-yellow-600">{userStats.coreStats.vit}</p>
+                            </div>
+                            <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">LUK</p>
+                              <p className="text-xl font-bold text-purple-600">{userStats.coreStats.luk}</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-center p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Attack</p>
-                          <p className="text-xl font-bold text-blue-600">{userStats.attack}</p>
-                        </div>
-                        <div className="text-center p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Defense</p>
-                          <p className="text-xl font-bold text-green-600">{userStats.defense}</p>
-                        </div>
-                        <div className="text-center p-3 bg-purple-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Strength</p>
-                          <p className="text-xl font-bold text-purple-600">{userStats.strength}</p>
-                        </div>
-                        <div className="text-center p-3 bg-indigo-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Intelligence</p>
-                          <p className="text-xl font-bold text-indigo-600">{userStats.intelligence}</p>
-                        </div>
-                        <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Dexterity</p>
-                          <p className="text-xl font-bold text-yellow-600">{userStats.dexterity}</p>
-                        </div>
-                        <div className="text-center p-3 bg-pink-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Vitality</p>
-                          <p className="text-xl font-bold text-pink-600">{userStats.vitality}</p>
-                        </div>
-                        <div className="text-center p-3 bg-orange-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Luck</p>
-                          <p className="text-xl font-bold text-orange-600">{userStats.luck}</p>
-                        </div>
-                        <div className="text-center p-3 bg-cyan-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Crit Rate</p>
-                          <p className="text-xl font-bold text-cyan-600">{userStats.critRate}%</p>
-                        </div>
-                        <div className="text-center p-3 bg-teal-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Crit Damage</p>
-                          <p className="text-xl font-bold text-teal-600">{userStats.critDamage}%</p>
-                        </div>
-                        <div className="text-center p-3 bg-lime-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Combo Rate</p>
-                          <p className="text-xl font-bold text-lime-600">{userStats.comboRate}%</p>
-                        </div>
-                        <div className="text-center p-3 bg-emerald-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Counter Rate</p>
-                          <p className="text-xl font-bold text-emerald-600">{userStats.counterRate}%</p>
-                        </div>
-                        <div className="text-center p-3 bg-violet-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Lifesteal</p>
-                          <p className="text-xl font-bold text-violet-600">{userStats.lifesteal}%</p>
-                        </div>
-                        <div className="text-center p-3 bg-rose-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Armor Pen</p>
-                          <p className="text-xl font-bold text-rose-600">{userStats.armorPen}%</p>
-                        </div>
-                        <div className="text-center p-3 bg-slate-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Dodge Rate</p>
-                          <p className="text-xl font-bold text-slate-600">{userStats.dodgeRate}%</p>
-                        </div>
-                        <div className="text-center p-3 bg-stone-50 rounded-lg">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Accuracy</p>
-                          <p className="text-xl font-bold text-stone-600">{userStats.accuracy}%</p>
+
+                        {/* Combat Stats */}
+                        <div>
+                          <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Combat Stats (Derived)</h3>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Max HP</p>
+                              <p className="text-xl font-bold text-red-600">{Math.floor(userStats.combatStats.maxHp)}</p>
+                            </div>
+                            <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Max Mana</p>
+                              <p className="text-xl font-bold text-blue-600">{Math.floor(userStats.combatStats.maxMana)}</p>
+                            </div>
+                            <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Attack</p>
+                              <p className="text-xl font-bold text-orange-600">{Math.floor(userStats.combatStats.attack)}</p>
+                            </div>
+                            <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Defense</p>
+                              <p className="text-xl font-bold text-green-600">{Math.floor(userStats.combatStats.defense)}</p>
+                            </div>
+                            <div className="text-center p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Crit Rate</p>
+                              <p className="text-xl font-bold text-cyan-600">{userStats.combatStats.critRate.toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Crit Damage</p>
+                              <p className="text-xl font-bold text-teal-600">{userStats.combatStats.critDamage.toFixed(0)}%</p>
+                            </div>
+                            <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Dodge Rate</p>
+                              <p className="text-xl font-bold text-purple-600">{userStats.combatStats.dodgeRate.toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Accuracy</p>
+                              <p className="text-xl font-bold text-indigo-600">{userStats.combatStats.accuracy.toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center p-3 bg-rose-50 dark:bg-rose-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Lifesteal</p>
+                              <p className="text-xl font-bold text-rose-600">{userStats.combatStats.lifesteal.toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center p-3 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Armor Pen</p>
+                              <p className="text-xl font-bold text-pink-600">{userStats.combatStats.armorPen.toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center p-3 bg-lime-50 dark:bg-lime-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Combo Rate</p>
+                              <p className="text-xl font-bold text-lime-600">{userStats.combatStats.comboRate.toFixed(1)}%</p>
+                            </div>
+                            <div className="text-center p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Counter Rate</p>
+                              <p className="text-xl font-bold text-emerald-600">{userStats.combatStats.counterRate.toFixed(1)}%</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ) : (

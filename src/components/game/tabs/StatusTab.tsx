@@ -6,7 +6,7 @@ import SkillsSection from '@/components/game/SkillsSection';
 import PetCompanionCard from '@/components/game/PetCompanionCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart, Crown, Hand, Footprints } from 'lucide-react';
+import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart, Crown, Hand, Footprints, Eye } from 'lucide-react';
 import { useUserStatusStore } from '@/stores/user-status.store';
 import { useUserStatus } from '@/hooks/use-user-status';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { ClassAdvancementModal } from '../modals/ClassAdvancementModal';
 import { resolveAssetUrl } from '@/lib/asset';
+import { CombatStatsModal } from './CombatStatsModal';
 
 // Add CSS animations for title effects
 const titleAnimationStyles = `
@@ -333,6 +334,9 @@ const StatusTab: React.FC = () => {
 
   // Class advancement modal state
   const [showClassAdvancementModal, setShowClassAdvancementModal] = React.useState(false);
+
+  // Combat stats modal state
+  const [showCombatStatsModal, setShowCombatStatsModal] = React.useState(false);
 
   // Attribute allocation state
   const [pendingAllocations, setPendingAllocations] = React.useState<Record<'STR' | 'INT' | 'DEX' | 'VIT' | 'LUK', number>>({
@@ -672,6 +676,17 @@ const StatusTab: React.FC = () => {
             </div>
             <span className="text-sm font-bold text-[var(--chart-1)]">{user.gold?.toLocaleString() || 0}</span>
           </div>
+
+          {/* Button xem chi tiết combat stats */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2"
+            onClick={() => setShowCombatStatsModal(true)}
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            Xem chi tiết chỉ số
+          </Button>
         </CardContent>
       </Card>
 
@@ -970,6 +985,11 @@ const StatusTab: React.FC = () => {
         open={showClassAdvancementModal} 
         onOpenChange={(v) => setShowClassAdvancementModal(Boolean(v))}
         currentClass={characterClass}
+      />
+      <CombatStatsModal
+        open={showCombatStatsModal}
+        onOpenChange={(v) => setShowCombatStatsModal(Boolean(v))}
+        userId={user.id}
       />
     </div>
   );

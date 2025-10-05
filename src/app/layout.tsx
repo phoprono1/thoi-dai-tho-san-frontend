@@ -1,25 +1,7 @@
-'use client';
-
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import dynamic from 'next/dynamic';
-
-// Dynamically import client components to avoid SSR issues
-const QueryProvider = dynamic(() => import('@/components/providers/QueryProvider'), {
-  ssr: false,
-  loading: () => <div className="min-h-screen flex items-center justify-center">Loading...</div>
-});
-
-const AuthProvider = dynamic(() => import('@/components/providers/AuthProvider').then(mod => ({ default: mod.AuthProvider })), {
-  ssr: false,
-  loading: () => <div className="min-h-screen flex items-center justify-center">Loading...</div>
-});
-
-
-const ThemeProviderClient = dynamic(() => import('@/components/providers/ThemeProviderClient'), { ssr: false });
-
-// Persistent guild socket manager (client-only)
-const GuildSocketManager = dynamic(() => import('@/components/chat/GuildSocketManager').then(mod => ({ default: mod.default })), { ssr: false });
+import type { Metadata } from 'next';
+import { ClientLayout } from './ClientLayout';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +13,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const metadata: Metadata = {
+  title: {
+    default: 'Thời Đại Thợ Săn - Game RPG Idle',
+    template: '%s | Thời Đại Thợ Săn'
+  },
+  description: 'Game RPG Idle - Khám phá thế giới săn bắn, chiến đấu với quái vật, nâng cấp kỹ năng và trở thành thợ săn huyền thoại!',
+  icons: {
+    icon: [
+      {
+        url: 'game-logo.png',
+        href: 'game-logo.png',
+      }
+    ]
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,21 +39,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProviderClient>
-          <QueryProvider>
-            <AuthProvider>
-              {/* Persistent guild socket manager keeps guild listeners mounted while user is logged-in */}
-              <GuildSocketManager />
-              {/* Top-wide marquee banner (clickable) */}
-              <div className="top-marquee-banner">
-                <div className="marquee-inner bg-accent text-accent-foreground rounded-md mx-auto inline-block">
-                  <a href="https://discord.gg/guQEEr6G" target="_blank" rel="noopener noreferrer">Tham gia Discord của chúng tôi — Click để vào: https://discord.gg/DKQAM5Nf</a>
-                </div>
-              </div>
-              {children}
-            </AuthProvider>
-          </QueryProvider>
-        </ThemeProviderClient>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );
