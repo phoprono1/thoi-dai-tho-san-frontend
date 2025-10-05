@@ -105,7 +105,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Auto play
   // Increase playback speed to ~6x (about 167ms per log) as requested
-  const [playbackSpeed] = useState(400); // ~4x speed
+  const [playbackSpeed] = useState(200); // ~4x speed
   const [showResult, setShowResult] = useState(false);
 
   // Animation states
