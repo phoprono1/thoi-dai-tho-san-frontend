@@ -42,10 +42,26 @@ interface Enemy extends Player {
   isEnemy?: boolean;
 }
 
+interface CombatLogDetails {
+  actor?: 'player' | 'enemy' | 'pet';
+  actorName?: string;
+  petId?: number;
+  targetName?: string;
+  targetId?: string | number;
+  damage?: number;
+  damageType?: string;
+  hpBefore?: number;
+  hpAfter?: number;
+  manaAfter?: number;
+  description?: string;
+  message?: string;
+  text?: string;
+}
+
 interface CombatDetails {
   winner: string;
   turns: number;
-  logs: Array<string | { message?: string; description?: string; text?: string }>;
+  logs: Array<string | CombatLogDetails>;
   finalPlayers?: Player[];
   finalEnemies?: Enemy[];
 }
@@ -57,7 +73,7 @@ interface CombatResultData {
   combatResult?: CombatDetails;
   result?: string;
   turns?: number;
-  logs?: Array<string | { message?: string; description?: string; text?: string }>;
+  logs?: Array<string | CombatLogDetails>;
   finalPlayers?: Player[];
   finalEnemies?: Enemy[];
   // Direct combat engine result structure
@@ -65,7 +81,7 @@ interface CombatResultData {
     result: string;
     finalPlayers: Player[];
     finalEnemies: Enemy[];
-    logs: Array<string | { message?: string; description?: string; text?: string }>;
+    logs: Array<string | CombatLogDetails>;
     turns: number;
   };
 }
@@ -194,7 +210,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
     
     const log = logs[index];
     let logText = '';
-    let logDetails: Record<string, unknown> | null = null;
+    let logDetails: CombatLogDetails | null = null;
     
     try {
       if (typeof log === 'string') {
@@ -202,7 +218,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
       } else if (log && typeof log === 'object') {
         logText = log.message || log.description || log.text || JSON.stringify(log);
         // Try to extract details from log object
-        logDetails = (log as Record<string, unknown>).details as Record<string, unknown> || log as Record<string, unknown>;
+        logDetails = log as CombatLogDetails;
       } else {
         logText = String(log);
       }
@@ -213,7 +229,7 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
     // Xử lý HP và Mana changes từ log details
     if (logDetails) {
       const targetId = logDetails.targetId; // ID của người bị tấn công
-      const actorId = logDetails.actorId; // ID của người tấn công
+      const actor = logDetails.actor; // 'player', 'enemy', or 'pet'
       
       // Update HP nếu có hpAfter - dựa vào targetId để xác định ai bị ảnh hưởng
       if (typeof logDetails.hpAfter === 'number' && targetId !== undefined) {
@@ -239,9 +255,9 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
         });
       }
       
-      // Update Mana nếu có manaAfter - dựa vào actorId (người dùng skill)
-      if (typeof logDetails.manaAfter === 'number' && actorId !== undefined) {
-        const actorIdStr = String(actorId);
+      // Update Mana nếu có manaAfter - chỉ cho player/enemy actions (not pet)
+      if (typeof logDetails.manaAfter === 'number' && actor !== 'pet' && targetId !== undefined) {
+        const actorIdStr = String(targetId);
         
         setPlayerMana(prev => {
           if (prev[actorIdStr]) {
@@ -573,13 +589,25 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
               {/* Current Action Log */}
               <div className="bg-gray-800/70 p-3 rounded-lg border border-gray-700">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-sm">Tiến trình chiến đấu</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-sm">Tiến trình chiến đấu</h4>
+                    {/* Show pet ability indicator if current log is from a pet */}
+                    {logs && logs[currentLogIndex] && typeof logs[currentLogIndex] === 'object' && (logs[currentLogIndex] as CombatLogDetails).actor === 'pet' && (
+                      <span className="text-xs px-2 py-0.5 bg-purple-500/30 text-purple-300 rounded-full font-medium">
+                        🐉 Pet Ability
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-gray-400">
                     Action {currentLogIndex + 1}/{logs?.length || 0}
                   </span>
                 </div>
                 
-                <div className="bg-gray-900/60 p-3 rounded min-h-[60px] flex items-center animate-pulse">
+                <div className={`p-3 rounded min-h-[60px] flex items-center animate-pulse ${
+                  logs && logs[currentLogIndex] && typeof logs[currentLogIndex] === 'object' && (logs[currentLogIndex] as CombatLogDetails).actor === 'pet'
+                    ? 'bg-gradient-to-r from-purple-900/60 to-pink-900/60 border border-purple-500/30'
+                    : 'bg-gray-900/60'
+                }`}>
                   <p className="text-white text-sm break-words">{getCurrentLogText()}</p>
                 </div>
               </div>
@@ -737,11 +765,16 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                       logs.map((log, index) => {
                         // Convert log to string if it's an object
                         let logText = '';
+                        let isPetAction = false;
+                        let petName = '';
                         try {
                           if (typeof log === 'string') {
                             logText = log;
                           } else if (log && typeof log === 'object') {
-                            logText = log.message || log.description || log.text || JSON.stringify(log);
+                            const logDetails = log as CombatLogDetails;
+                            isPetAction = logDetails.actor === 'pet';
+                            petName = logDetails.actorName || '';
+                            logText = logDetails.message || logDetails.description || logDetails.text || JSON.stringify(log);
                           } else {
                             logText = String(log);
                           }
@@ -753,11 +786,15 @@ export function CombatDialog({ open, onOpenChange, combatResult, currentUserId }
                           <div 
                             key={index} 
                             className={`p-2 rounded text-xs sm:text-sm break-words ${
+                              isPetAction ? 'bg-purple-50 text-purple-700 border border-purple-200' :
                               logText.includes('gây') ? 'bg-red-50 text-red-700' :
                               logText.includes('hồi') ? 'bg-green-50 text-green-700' :
                               'bg-gray-50 text-gray-700'
                             }`}
                           >
+                            {isPetAction && (
+                              <span className="font-semibold text-purple-600">🐉 {petName}: </span>
+                            )}
                             {logText}
                           </div>
                         );

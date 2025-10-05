@@ -22,11 +22,14 @@ import {
 } from 'lucide-react';
 
 export interface CombatDetails {
-  actor: 'player' | 'enemy';
+  actor: 'player' | 'enemy' | 'pet';
   actorName: string;
+  petId?: number; // Pet ID when actor is 'pet'
+  petName?: string; // Pet name when actor is 'pet' (fallback if actorName is owner name)
   targetName: string;
   targetIndex?: number; // For multiple enemies with same name
   damage?: number;
+  damageType?: string; // physical, magic, true
   isCritical?: boolean;
   isMiss?: boolean;
   hpBefore: number;
@@ -36,6 +39,7 @@ export interface CombatDetails {
   manaCost?: number;   // Mana cost of skill
   description: string;
   effects?: string[];
+  abilityIcon?: string; // Pet ability icon
 }
 
 export interface CombatLogEntry {
@@ -43,7 +47,7 @@ export interface CombatLogEntry {
   userId: number;
   turn: number;
   actionOrder: number;
-  action: 'attack' | 'defend' | 'skill' | 'item' | 'escape';
+  action: 'attack' | 'defend' | 'skill' | 'item' | 'escape' | 'pet_ability';
   details: CombatDetails;
 }
 
@@ -101,7 +105,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Auto play
   // Increase playback speed to ~6x (about 167ms per log) as requested
-  const [playbackSpeed] = useState(167); // ~6x speed
+  const [playbackSpeed] = useState(400); // ~4x speed
   const [showResult, setShowResult] = useState(false);
 
   // Animation states
@@ -109,6 +113,7 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   const [playerMana, setPlayerMana] = useState<{ [key: number]: { current: number; max: number } }>({});
   const [enemyHp, setEnemyHp] = useState<{ [key: number]: { current: number; max: number } }>({});
   const [lastAction, setLastAction] = useState<string>('');
+  const [currentAction, setCurrentAction] = useState<'attack' | 'skill' | 'pet_ability' | null>(null);
   const [damageAnimation, setDamageAnimation] = useState<{ player: boolean; enemy: boolean }>({
     player: false,
     enemy: false
@@ -151,6 +156,17 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
   useEffect(() => {
     if (!combatResult) return;
     
+    // DEBUG: Log combat result to check pet ability logs
+    console.log('[COMBAT MODAL DEBUG] Full combat result:', {
+      totalLogs: combatResult.logs?.length,
+      logs: combatResult.logs?.map(log => ({
+        turn: log.turn,
+        action: log.action,
+        actor: log.details.actor,
+        actorName: log.details.actorName,
+        description: log.details.description,
+      })),
+    });
     
     // Reset everything when NEW combat result arrives (not just when modal opens/closes)
     const initialHp: { [key: number]: { current: number; max: number } } = {};
@@ -205,8 +221,8 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
 
 
     // Update HP based on log
-    if (log.details.actor === 'player') {
-      // Player attacks enemy - prefer details.targetIndex, otherwise attempt
+    if (log.details.actor === 'player' || log.details.actor === 'pet') {
+      // Player or Pet attacks enemy - prefer details.targetIndex, otherwise attempt
       // to resolve by targetName (fallback) so UI still updates correctly.
       setEnemyHp(prev => {
         const updatedEnemyHp = { ...prev };
@@ -253,13 +269,13 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
             current: Math.max(0, log.details.hpAfter || 0),
           };
         } else {
-          console.warn('No enemy found to apply player action:', log.details.targetName, 'idx:', targetIndex);
+          console.warn('No enemy found to apply player/pet action:', log.details.targetName, 'idx:', targetIndex);
         }
 
         return updatedEnemyHp;
       });
       
-      // Update player mana if this was a skill action
+      // Update player mana if this was a skill action (not pet ability)
       if (log.action === 'skill' && typeof log.details.manaAfter === 'number') {
         setPlayerMana(prev => ({
           ...prev,
@@ -287,6 +303,8 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
     }
 
     setLastAction(log.details.description);
+    // Check actor type to determine if this is a pet ability (backend normalizes pet_ability -> skill)
+    setCurrentAction(log.details.actor === 'pet' ? 'pet_ability' : log.action as 'attack' | 'skill' | 'pet_ability' | null);
     setCurrentLogIndex(prev => prev + 1);
   }, [combatResult?.logs, currentLogIndex, playbackSpeed, combatResult?.enemies, combatResult?.originalEnemies]);
 
@@ -593,10 +611,28 @@ export default function CombatModal({ isOpen, onClose, combatResult, dungeonName
                   return `Turn ${displayTurn} - Action ${displayAction} / ${total}`;
                 })()}
               </span>
+              {currentAction === 'pet_ability' && (
+                <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium flex items-center gap-1">
+                  🐉 Pet Ability
+                </span>
+              )}
+              {currentAction === 'skill' && (
+                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+                  ⚡ Skill
+                </span>
+              )}
             </div>
-            <div className="bg-white rounded p-3 min-h-[60px] flex items-center">
+            <div className={`rounded p-3 min-h-[60px] flex items-center ${
+              currentAction === 'pet_ability' 
+                ? 'bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200' 
+                : 'bg-white'
+            }`}>
               {lastAction ? (
-                <p className="text-gray-800 break-words">{lastAction}</p>
+                <p className={`break-words ${
+                  currentAction === 'pet_ability'
+                    ? 'text-purple-900 font-medium'
+                    : 'text-gray-800'
+                }`}>{lastAction}</p>
               ) : (
                 <p className="text-gray-500 italic">Trận chiến sẽ bắt đầu...</p>
               )}

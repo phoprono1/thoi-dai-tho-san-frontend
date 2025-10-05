@@ -26,12 +26,13 @@ export interface WorldBossCombatResult {
   isBossDead: boolean;
   combatLogs?: Array<{
     turn: number;
-    actor: 'player' | 'boss';
+    actor: 'player' | 'boss' | 'pet';
     action: string;
     damage?: number;
     isCritical?: boolean;
     isMiss?: boolean;
     description: string;
+    petName?: string; // Pet name when actor is 'pet'
   }>;
   currentPhase?: number;
   totalDamageReceived?: number;
@@ -298,15 +299,20 @@ export function WorldBossCombatModal({
                     {combatResult.combatLogs.map((log, index) => (
                       <div 
                         key={index}
-                        className={`p-2 rounded-md text-sm ${log.actor === 'player' ? 'bg-blue-900/40 text-blue-200' : 'bg-red-900/40 text-red-200'}`}
+                        className={`p-2 rounded-md text-sm ${log.actor === 'player' ? 'bg-blue-900/40 text-blue-200' : log.actor === 'pet' ? 'bg-purple-900/40 text-purple-200' : 'bg-red-900/40 text-red-200'}`}
                       >
                         <div className="flex items-center gap-2">
                           {log.actor === 'player' ? (
                             <Sword className="h-3 w-3" />
+                          ) : log.actor === 'pet' ? (
+                            <span>🐉</span>
                           ) : (
                             <Crown className="h-3 w-3" />
                           )}
                           <span className="font-medium">Turn {log.turn}</span>
+                          {log.actor === 'pet' && log.petName && (
+                            <span className="text-purple-300 text-xs">({log.petName})</span>
+                          )}
                         </div>
                         <div className="mt-1">
                           {log.description}
@@ -338,6 +344,10 @@ export function WorldBossCombatModal({
                       <span className="font-medium">Turn {currentLog.turn}</span>
                     </div>
                     <div className="mt-2 text-lg font-medium">
+                      {/* Show pet indicator for pet abilities */}
+                      {currentLog.actor === 'pet' && (
+                        <span className="text-purple-400 font-semibold">🐉 {currentLog.petName || 'Pet'}: </span>
+                      )}
                       {currentLog.description}
                       {currentLog.damage && (
                         <span className={`ml-2 font-bold ${currentLog.isCritical ? 'text-amber-400' : 'text-white'}`}>
