@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf, Hammer } from 'lucide-react';
+import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf, Hammer, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 
@@ -68,6 +68,16 @@ export default function ExploreTab() {
         >
           <Hammer className="h-8 w-8 text-amber-600" />
           <span className="font-medium">Chế tạo</span>
+        </Button>
+
+        {/* Pet Gacha Button */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-pink-50 hover:border-pink-300"
+          onClick={() => router.push('/game/explore/gacha-pet')}
+        >
+          <Sparkles className="h-8 w-8 text-pink-600" />
+          <span className="font-medium">Thú Cưng</span>
         </Button>
 
         {/* World Boss Button */}

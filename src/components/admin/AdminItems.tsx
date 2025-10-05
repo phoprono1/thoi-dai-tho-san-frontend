@@ -641,6 +641,10 @@ export default function AdminItems() {
                       <SelectItem value={ItemType.GLOVES}>🧤 Gloves (Găng tay)</SelectItem>
                       <SelectItem value={ItemType.BOOTS}>👢 Boots (Giày)</SelectItem>
                       <SelectItem value={ItemType.ACCESSORY}>💍 Accessory (Phụ kiện)</SelectItem>
+                      <SelectItem value={ItemType.PET_COLLAR}>🎀 Vòng cổ Pet</SelectItem>
+                      <SelectItem value={ItemType.PET_ARMOR}>🛡️ Áo giáp Pet</SelectItem>
+                      <SelectItem value={ItemType.PET_ACCESSORY}>💍 Phụ kiện Pet</SelectItem>
+                      <SelectItem value={ItemType.PET_WEAPON}>⚔️ Vũ khí Pet</SelectItem>
                       <SelectItem value={ItemType.CONSUMABLE}>🧪 Consumable</SelectItem>
                       <SelectItem value={ItemType.MATERIAL}>📦 Material</SelectItem>
                       <SelectItem value={ItemType.QUEST}>📜 Quest</SelectItem>

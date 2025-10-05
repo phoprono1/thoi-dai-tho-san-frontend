@@ -1,0 +1,769 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Button,
+} from '@/components/ui/button';
+import {
+  Input,
+} from '@/components/ui/input';
+import {
+  Label,
+} from '@/components/ui/label';
+import {
+  Textarea,
+} from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Badge,
+} from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { 
+  Plus,
+  Edit2,
+  Trash2,
+  Upload,
+  Star,
+  Shield,
+  Heart,
+  Target,
+  Package,
+  TrendingUp,
+  Lock,
+  Unlock,
+  Zap,
+  Image as ImageIcon,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { adminApiEndpoints } from '@/lib/admin-api';
+
+interface PetEquipment {
+  id: number;
+  name: string;
+  slot: 'collar' | 'armor' | 'accessory' | 'weapon';
+  rarity: number;
+  statBoosts: Array<{
+    stat: string;
+    value: number;
+    isPercentage: boolean;
+  }>;
+  setBonus: Record<string, unknown> | null;
+  compatibleElements: string[];
+  image: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const EQUIPMENT_SLOTS = [
+  { value: 'collar', label: '🔗 Collar', icon: '🔗', description: 'Basic equipment for pet neck' },
+  { value: 'armor', label: '🛡️ Armor', icon: '🛡️', description: 'Protective equipment for pet body' },
+  { value: 'accessory', label: '💍 Accessory', icon: '💍', description: 'Special accessories for bonuses' },
+  { value: 'weapon', label: '⚔️ Weapon', icon: '⚔️', description: 'Combat equipment for attack' },
+];
+
+const RARITIES = [
+  { value: 1, label: '⭐ Common', color: 'bg-gray-500' },
+  { value: 2, label: '⭐⭐ Uncommon', color: 'bg-green-500' },
+  { value: 3, label: '⭐⭐⭐ Rare', color: 'bg-blue-500' },
+  { value: 4, label: '⭐⭐⭐⭐ Epic', color: 'bg-purple-500' },
+  { value: 5, label: '⭐⭐⭐⭐⭐ Legendary', color: 'bg-yellow-500' },
+];
+
+const STAT_TYPES = [
+  { value: 'attack', label: 'Attack', icon: Target },
+  { value: 'defense', label: 'Defense', icon: Shield },
+  { value: 'hp', label: 'HP', icon: Heart },
+  { value: 'critRate', label: 'Crit Rate', icon: TrendingUp },
+  { value: 'critDamage', label: 'Crit Damage', icon: Zap },
+  { value: 'special', label: 'Special', icon: Star },
+];
+
+export default function AdminPetEquipment() {
+  const [equipment, setEquipment] = useState<PetEquipment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<PetEquipment | null>(null);
+
+  // Equipment Form State
+  const [equipmentForm, setEquipmentForm] = useState({
+    name: '',
+    description: '',
+    slot: 'collar' as 'collar' | 'armor' | 'accessory' | 'weapon',
+    rarity: 1,
+    statBoosts: [] as Array<{ stat: string; value: number; isPercentage: boolean }>,
+    specialEffects: [] as Array<{ name: string; description: string; value: number; condition?: string }>,
+    requiredPetLevel: 1,
+    petTypeRestriction: null as string | null,
+    petRarityRestriction: null as number | null,
+    maxUpgradeLevel: 5,
+    isObtainable: true,
+    sortOrder: 0,
+  });
+
+  useEffect(() => {
+    fetchEquipment();
+  }, []);
+
+  const fetchEquipment = async () => {
+    try {
+      setLoading(true);
+      const response = await adminApiEndpoints.getPetEquipment();
+      // Backend returns { data: PetEquipment[], pagination: {...} }
+      setEquipment(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+      toast.error('Failed to fetch equipment');
+      setEquipment([]); // Set empty array on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateEquipment = async () => {
+    try {
+      setLoading(true);
+      await adminApiEndpoints.createPetEquipment(equipmentForm);
+      
+      toast.success('Equipment created successfully');
+      fetchEquipment();
+      resetForm();
+    } catch (error) {
+      console.error('Error creating equipment:', error);
+      toast.error('Failed to create equipment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateEquipment = async () => {
+    if (!editingEquipment) return;
+    
+    try {
+      setLoading(true);
+      await adminApiEndpoints.updatePetEquipment(editingEquipment.id, equipmentForm);
+      
+      toast.success('Equipment updated successfully');
+      fetchEquipment();
+      setEditingEquipment(null);
+      resetForm();
+    } catch (error) {
+      console.error('Error updating equipment:', error);
+      toast.error('Failed to update equipment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteEquipment = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this equipment? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await adminApiEndpoints.deletePetEquipment(id);
+      
+      toast.success('Equipment deleted successfully');
+      fetchEquipment();
+    } catch (error) {
+      console.error('Error deleting equipment:', error);
+      toast.error('Failed to delete equipment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (file: File, equipmentId: number) => {
+    try {
+      const formData = new FormData();
+      formData.append('icon', file);
+
+      const response = await fetch(`/api/uploads/pets/equipment/${equipmentId}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to upload equipment icon');
+
+      toast.success('Equipment icon uploaded successfully');
+      fetchEquipment();
+    } catch (error) {
+      console.error('Error uploading equipment icon:', error);
+      toast.error('Failed to upload equipment icon');
+    }
+  };
+
+  const resetForm = () => {
+    setEquipmentForm({
+      name: '',
+      description: '',
+      slot: 'collar',
+      rarity: 1,
+      statBoosts: [],
+      specialEffects: [],
+      requiredPetLevel: 1,
+      petTypeRestriction: null,
+      petRarityRestriction: null,
+      maxUpgradeLevel: 5,
+      isObtainable: true,
+      sortOrder: 0,
+    });
+  };
+
+  const addStatBoost = () => {
+    setEquipmentForm({
+      ...equipmentForm,
+      statBoosts: [...equipmentForm.statBoosts, { stat: 'attack', value: 10, isPercentage: false }]
+    });
+  };
+
+  const removeStatBoost = (index: number) => {
+    setEquipmentForm({
+      ...equipmentForm,
+      statBoosts: equipmentForm.statBoosts.filter((_, i) => i !== index)
+    });
+  };
+
+  const updateStatBoost = (index: number, stat: string, value: number, isPercentage: boolean) => {
+    const updated = [...equipmentForm.statBoosts];
+    updated[index] = { stat, value, isPercentage };
+    setEquipmentForm({
+      ...equipmentForm,
+      statBoosts: updated
+    });
+  };
+
+  const addSpecialEffect = () => {
+    setEquipmentForm({
+      ...equipmentForm,
+      specialEffects: [...equipmentForm.specialEffects, { name: '', description: '', value: 0 }]
+    });
+  };
+
+  const removeSpecialEffect = (index: number) => {
+    setEquipmentForm({
+      ...equipmentForm,
+      specialEffects: equipmentForm.specialEffects.filter((_, i) => i !== index)
+    });
+  };
+
+  const updateSpecialEffect = (index: number, name: string, description: string, value: number, condition?: string) => {
+    const updated = [...equipmentForm.specialEffects];
+    updated[index] = { name, description, value, condition };
+    setEquipmentForm({
+      ...equipmentForm,
+      specialEffects: updated
+    });
+  };
+
+  const getSlotInfo = (slot: string) => {
+    return EQUIPMENT_SLOTS.find(s => s.value === slot) || EQUIPMENT_SLOTS[0];
+  };
+
+  const getRarityInfo = (rarity: number) => {
+    return RARITIES.find(r => r.value === rarity) || RARITIES[0];
+  };
+
+  const getStatIcon = (stat: string) => {
+    const statInfo = STAT_TYPES.find(s => s.value === stat);
+    return statInfo?.icon || Target;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Pet Equipment Management</h2>
+          <p className="text-muted-foreground">
+            Create and manage pet equipment, accessories, and upgrade materials
+          </p>
+        </div>
+        <Button onClick={fetchEquipment} variant="outline">
+          <Package className="h-4 w-4 mr-2" />
+          Refresh Equipment
+        </Button>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Equipment Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              {editingEquipment ? 'Edit Equipment' : 'Create New Equipment'}
+            </CardTitle>
+            <CardDescription>
+              {editingEquipment ? 'Modify existing equipment' : 'Add new equipment for pets to use'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Basic Info */}
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="equipmentName">Equipment Name</Label>
+                <Input
+                  id="equipmentName"
+                  placeholder="Dragon Scale Collar"
+                  value={equipmentForm.name}
+                  onChange={(e) => setEquipmentForm({ ...equipmentForm, name: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="equipmentDescription">Description</Label>
+                <Textarea
+                  id="equipmentDescription"
+                  placeholder="A powerful collar made from ancient dragon scales..."
+                  value={equipmentForm.description}
+                  onChange={(e) => setEquipmentForm({ ...equipmentForm, description: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="equipmentSlot">Equipment Slot</Label>
+                  <Select
+                    value={equipmentForm.slot}
+                    onValueChange={(value: 'collar' | 'armor' | 'accessory' | 'weapon') => 
+                      setEquipmentForm({ ...equipmentForm, slot: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EQUIPMENT_SLOTS.map((slot) => (
+                        <SelectItem key={slot.value} value={slot.value}>
+                          {slot.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="equipmentRarity">Rarity</Label>
+                  <Select
+                    value={equipmentForm.rarity.toString()}
+                    onValueChange={(value) => setEquipmentForm({ ...equipmentForm, rarity: parseInt(value) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RARITIES.map((rarity) => (
+                        <SelectItem key={rarity.value} value={rarity.value.toString()}>
+                          {rarity.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Stat Boosts */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">Stat Boosts</Label>
+                <Button size="sm" variant="outline" onClick={addStatBoost}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Stat
+                </Button>
+              </div>
+              
+              <div className="space-y-2">
+                {equipmentForm.statBoosts.map((boost, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 border rounded">
+                    <Select
+                      value={boost.stat}
+                      onValueChange={(value) => updateStatBoost(index, value, boost.value, boost.isPercentage)}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STAT_TYPES.map((stat) => (
+                          <SelectItem key={stat.value} value={stat.value}>
+                            {stat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Input
+                      type="number"
+                      placeholder="Value"
+                      className="w-20"
+                      value={boost.value}
+                      onChange={(e) => updateStatBoost(index, boost.stat, parseInt(e.target.value) || 0, boost.isPercentage)}
+                    />
+
+                    <Button
+                      size="sm"
+                      variant={boost.isPercentage ? "default" : "outline"}
+                      onClick={() => updateStatBoost(index, boost.stat, boost.value, !boost.isPercentage)}
+                    >
+                      {boost.isPercentage ? '%' : '#'}
+                    </Button>
+                    
+                    <Button size="sm" variant="destructive" onClick={() => removeStatBoost(index)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                
+                {equipmentForm.statBoosts.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No stat boosts. Add stats that this equipment will boost.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Special Effects */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">Special Effects</Label>
+                <Button size="sm" variant="outline" onClick={addSpecialEffect}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Effect
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {equipmentForm.specialEffects.map((effect, index) => (
+                  <div key={index} className="p-3 border rounded space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Effect name"
+                        value={effect.name}
+                        onChange={(e) => updateSpecialEffect(index, e.target.value, effect.description, effect.value, effect.condition)}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Value"
+                        className="w-20"
+                        value={effect.value}
+                        onChange={(e) => updateSpecialEffect(index, effect.name, effect.description, parseInt(e.target.value) || 0, effect.condition)}
+                      />
+                      <Button size="sm" variant="destructive" onClick={() => removeSpecialEffect(index)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    
+                    <Textarea
+                      placeholder="Effect description"
+                      value={effect.description}
+                      onChange={(e) => updateSpecialEffect(index, effect.name, e.target.value, effect.value, effect.condition)}
+                    />
+                    
+                    <Input
+                      placeholder="Activation condition (optional)"
+                      value={effect.condition || ''}
+                      onChange={(e) => updateSpecialEffect(index, effect.name, effect.description, effect.value, e.target.value)}
+                    />
+                  </div>
+                ))}
+                
+                {equipmentForm.specialEffects.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No special effects. Add unique abilities this equipment provides.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Requirements & Upgrades */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="requiredLevel">Required Pet Level</Label>
+                <Input
+                  id="requiredLevel"
+                  type="number"
+                  min="1"
+                  value={equipmentForm.requiredPetLevel}
+                  onChange={(e) => setEquipmentForm({ ...equipmentForm, requiredPetLevel: parseInt(e.target.value) || 1 })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="maxUpgradeLevel">Max Upgrade Level</Label>
+                <Input
+                  id="maxUpgradeLevel"
+                  type="number"
+                  min="0"
+                  value={equipmentForm.maxUpgradeLevel}
+                  onChange={(e) => setEquipmentForm({ ...equipmentForm, maxUpgradeLevel: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="petTypeRestriction">Pet Type Restriction (optional)</Label>
+              <Input
+                id="petTypeRestriction"
+                placeholder="fire, water, earth..."
+                value={equipmentForm.petTypeRestriction || ''}
+                onChange={(e) => setEquipmentForm({ 
+                  ...equipmentForm, 
+                  petTypeRestriction: e.target.value || null 
+                })}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="isObtainable"
+                checked={equipmentForm.isObtainable}
+                onCheckedChange={(checked) => setEquipmentForm({ ...equipmentForm, isObtainable: checked })}
+              />
+              <Label htmlFor="isObtainable">Obtainable by players</Label>
+            </div>
+
+            <Button 
+              onClick={editingEquipment ? handleUpdateEquipment : handleCreateEquipment}
+              disabled={loading || !equipmentForm.name}
+              className="w-full"
+            >
+              {loading ? 'Processing...' : editingEquipment ? 'Update Equipment' : 'Create Equipment'}
+            </Button>
+
+            {editingEquipment && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setEditingEquipment(null);
+                  resetForm();
+                }}
+                className="w-full"
+              >
+                Cancel Edit
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Equipment List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Equipment List
+            </CardTitle>
+            <CardDescription>
+              Manage existing pet equipment
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[800px]">
+              <div className="space-y-4">
+                {loading ? (
+                  <div className="flex justify-center items-center h-32">
+                    <div className="text-muted-foreground">Loading equipment...</div>
+                  </div>
+                ) : equipment.length === 0 ? (
+                  <div className="flex justify-center items-center h-32">
+                    <div className="text-muted-foreground">No equipment found</div>
+                  </div>
+                ) : (
+                  equipment.map((item) => {
+                    const slotInfo = getSlotInfo(item.slot);
+                    const rarityInfo = getRarityInfo(item.rarity);
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className="border rounded-lg p-4 space-y-3 hover:bg-muted/50"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold">{item.name}</h4>
+                            <Badge variant="outline" className={`${rarityInfo.color} text-white`}>
+                              {rarityInfo.label}
+                            </Badge>
+                            <Badge variant="secondary">
+                              {slotInfo.label}
+                            </Badge>
+                            {!item.isObtainable && (
+                              <Badge variant="destructive">
+                                <Lock className="h-3 w-3 mr-1" />
+                                Locked
+                              </Badge>
+                            )}
+                            {item.isObtainable && (
+                              <Badge variant="outline">
+                                <Unlock className="h-3 w-3 mr-1" />
+                                Available
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{item.description}</p>
+                        </div>
+                        
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingEquipment(item);
+                              setEquipmentForm({
+                                name: item.name,
+                                description: item.description,
+                                slot: item.slot,
+                                rarity: item.rarity,
+                                statBoosts: item.statBoosts,
+                                specialEffects: item.specialEffects,
+                                requiredPetLevel: item.requiredPetLevel,
+                                petTypeRestriction: item.petTypeRestriction,
+                                petRarityRestriction: item.petRarityRestriction,
+                                maxUpgradeLevel: item.maxUpgradeLevel,
+                                isObtainable: item.isObtainable,
+                                sortOrder: item.sortOrder,
+                              });
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button size="sm" variant="outline">
+                                <Upload className="h-3 w-3" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Upload Equipment Icon</DialogTitle>
+                                <DialogDescription>
+                                  Upload an icon for {item.name}. Recommended size: 64x64px
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      handleImageUpload(file, item.id);
+                                    }
+                                  }}
+                                />
+                                {item.iconImage && (
+                                  <div>
+                                    <p className="text-sm font-medium mb-2">Current Icon:</p>
+                                    <Image
+                                      src={`/api${item.iconImage}`}
+                                      alt={item.name}
+                                      width={64}
+                                      height={64}
+                                      className="w-16 h-16 object-cover rounded border"
+                                    />
+                                  </div>
+                                )}
+                                {!item.iconImage && (
+                                  <div className="h-16 w-16 border-2 border-dashed border-muted rounded flex items-center justify-center">
+                                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                          
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleDeleteEquipment(item.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Equipment Stats */}
+                      <div className="space-y-2">
+                        {item.statBoosts.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Stat Boosts:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {item.statBoosts.map((boost, index) => {
+                                const StatIcon = getStatIcon(boost.stat);
+                                return (
+                                  <Badge key={index} variant="outline" className="text-xs">
+                                    <StatIcon className="h-3 w-3 mr-1" />
+                                    {boost.stat} +{boost.value}{boost.isPercentage ? '%' : ''}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {item.specialEffects.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Special Effects:</p>
+                            <div className="space-y-1">
+                              {item.specialEffects.map((effect, index) => (
+                                <div key={index} className="text-xs bg-muted/50 rounded p-2">
+                                  <div className="font-medium">{effect.name} ({effect.value})</div>
+                                  <div className="text-muted-foreground">{effect.description}</div>
+                                  {effect.condition && (
+                                    <div className="text-xs italic">Condition: {effect.condition}</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>Req. Level: {item.requiredPetLevel}</span>
+                          <span>Max Upgrade: +{item.maxUpgradeLevel}</span>
+                          {item.petTypeRestriction && (
+                            <span>Type: {item.petTypeRestriction}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }))
+                }
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

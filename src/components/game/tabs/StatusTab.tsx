@@ -3,6 +3,7 @@
 
 import React from 'react';
 import SkillsSection from '@/components/game/SkillsSection';
+import PetCompanionCard from '@/components/game/PetCompanionCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { User, Zap, Shield, Sword, Coins, Star, TrendingUp, Heart, Crown, Hand, Footprints } from 'lucide-react';
@@ -13,6 +14,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { characterClassesApi, userAttributesApi, titlesApi } from '@/lib/api-client';
+import { apiService } from '@/lib/api-service';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { ClassAdvancementModal } from '../modals/ClassAdvancementModal';
@@ -416,6 +418,18 @@ const StatusTab: React.FC = () => {
     enabled: !!userId,
   });
 
+  // Fetch user pets (backend will auto-activate first pet if none active)
+  // Only fetch first 10 pets for performance (active pet will be first)
+  const { data: userPets = [] } = useQuery({
+    queryKey: ['user-pets', userId],
+    queryFn: () => apiService.getUserPets(true), // includeInactive=true to get all pets
+    enabled: !!userId,
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+  // Get first pet (will be active pet due to backend auto-activation and ordering)
+  const displayPet = userPets.length > 0 ? userPets[0] : null;
+
   // Calculate remaining points after pending allocations
   const remainingPoints = (userAttributes?.unspentAttributePoints || 0) - Object.values(pendingAllocations).reduce((sum, val) => sum + val, 0);
   const hasPendingChanges = Object.values(pendingAllocations).some(val => val > 0);
@@ -565,27 +579,29 @@ const StatusTab: React.FC = () => {
 
   return (
     <div className="space-y-3 p-3">
-      {/* Thông tin nhân vật chính */}
-      <Card>
-        <CardHeader className="pb-0">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              <div className="flex flex-col">
-                <div className="font-semibold text-sm">{user.username}</div>
+      {/* Character & Pet Companion Section - 2 columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Thông tin nhân vật chính */}
+        <Card>
+          <CardHeader className="pb-0">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                <div className="flex flex-col">
+                  <div className="font-semibold text-sm">{user.username}</div>
+                </div>
               </div>
-            </div>
 
-            <div className="ml-auto flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs py-0.5 px-2">Cấp {currentLevel.level}</Badge>
-              <div className="flex items-center gap-1 px-1 py-0.5 rounded-md bg-[linear-gradient(90deg,#fef3c7,#fed7aa)] text-black font-semibold text-xs border border-[rgba(0,0,0,0.06)]">
-                <Sword className="h-3 w-3 text-[rgba(0,0,0,0.6)]" />
-                <span className="leading-none text-xs">{combatPower.toLocaleString()}</span>
+              <div className="ml-auto flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs py-0.5 px-2">Cấp {currentLevel.level}</Badge>
+                <div className="flex items-center gap-1 px-1 py-0.5 rounded-md bg-[linear-gradient(90deg,#fef3c7,#fed7aa)] text-black font-semibold text-xs border border-[rgba(0,0,0,0.06)]">
+                  <Sword className="h-3 w-3 text-[rgba(0,0,0,0.6)]" />
+                  <span className="leading-none text-xs">{combatPower.toLocaleString()}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
+          </CardHeader>
+          <CardContent className="space-y-2">
           {/* Lớp nhân vật */}
           <div className="flex items-center gap-2 text-[var(--foreground)]">
             <Star className="h-3 w-3 text-[var(--chart-5)]" />
@@ -658,6 +674,10 @@ const StatusTab: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+        {/* Pet Companion Card */}
+        <PetCompanionCard pet={displayPet} />
+      </div>
 
       {/* Thuộc tính (gộp chung) */}
       <Card>

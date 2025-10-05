@@ -278,7 +278,7 @@ export default function AdminSkillsNew() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminSkills'] });
-      toast.success('🗑️ Đã xóa skill thành công!');
+      toast.success('🗑️ Đã xóa skill và gỡ khỏi tất cả người chơi!');
     },
     onError: (error: Error) => {
       toast.error(`❌ Lỗi xóa skill: ${error.message}`);
@@ -467,7 +467,11 @@ export default function AdminSkillsNew() {
   };
 
   const handleDeleteSkill = (skill: SkillDefinition) => {
-    if (!confirm(`⚠️ Bạn có chắc muốn xóa skill "${skill.name}"?\n\nHành động này không thể hoàn tác!`)) return;
+    if (!confirm(`⚠️ Bạn có chắc muốn xóa skill "${skill.name}"?\n\n🚨 CẢNH BÁO: Skill này sẽ bị xóa khỏi TẤT CẢ NGƯỜI CHƠI!\n\nHành động này không thể hoàn tác!`)) return;
+    
+    // Show loading toast
+    toast.info('🔄 Đang xóa skill và gỡ khỏi người chơi...');
+    
     deleteMutation.mutate(skill.id);
   };
 

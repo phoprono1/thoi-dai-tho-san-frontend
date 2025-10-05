@@ -386,6 +386,82 @@ class ApiService {
   async getItems(): Promise<Item[]> {
     return this.request<Item[]>('/items');
   }
+
+  // Pet APIs
+  async getUserPets(
+    includeInactive = false, 
+    limit?: number, 
+    offset?: number
+  ): Promise<any[]> {
+    let url = `/pets/my-pets?includeInactive=${includeInactive}`;
+    if (limit) url += `&limit=${limit}`;
+    if (offset) url += `&offset=${offset}`;
+    return this.request<any[]>(url);
+  }
+
+  async getActivePet(): Promise<any | null> {
+    return this.request<any>(`/pets/active-pet`);
+  }
+
+  async setActivePet(petId: number): Promise<any> {
+    return this.request<any>(`/pets/active-pet/${petId}`, {
+      method: 'PUT',
+    });
+  }
+
+  async getPetDetail(petId: number): Promise<any> {
+    return this.request<any>(`/pets/my-pets/${petId}`);
+  }
+
+  async getAvailableEvolutions(petId: number): Promise<any[]> {
+    return this.request<any[]>(`/pets/my-pets/${petId}/evolutions`);
+  }
+
+  async getUpgradeRequirements(petId: number): Promise<any> {
+    return this.request<any>(`/pets/${petId}/upgrade-requirements`);
+  }
+
+  async upgradePet(petId: number): Promise<any> {
+    return this.request<any>(`/pets/${petId}/upgrade`, {
+      method: 'POST',
+    });
+  }
+
+  async canEvolvePet(petId: number, evolutionId: number): Promise<any> {
+    return this.request<any>(`/pets/my-pets/${petId}/can-evolve/${evolutionId}`);
+  }
+
+  async evolvePet(petId: number, evolutionId: number, sacrificePetIds?: number[]): Promise<any> {
+    return this.request<any>(`/pets/my-pets/${petId}/evolve`, {
+      method: 'POST',
+      body: JSON.stringify({ evolutionId, sacrificePetIds }),
+    });
+  }
+
+  async changePetSkin(petId: number, skinIndex: number): Promise<any> {
+    return this.request<any>(`/pets/my-pets/${petId}/skin`, {
+      method: 'PATCH',
+      body: JSON.stringify({ skinIndex }),
+    });
+  }
+
+  // Pet Equipment Management
+  async getPetEquipment(petId: number): Promise<Record<string, any>> {
+    return this.request<Record<string, any>>(`/pets/my-pets/${petId}/equipment`);
+  }
+
+  async equipPetItem(petId: number, itemId: number, slot: string): Promise<any> {
+    return this.request<any>(`/pets/my-pets/${petId}/equip`, {
+      method: 'POST',
+      body: JSON.stringify({ itemId, slot }),
+    });
+  }
+
+  async unequipPetItem(petId: number, slot: string): Promise<any> {
+    return this.request<any>(`/pets/my-pets/${petId}/unequip/${slot}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService();

@@ -239,6 +239,46 @@ export const adminApiEndpoints = {
   getUserGachaInstances: () => adminApi.get('/me/gacha/instances'),
   awardUserGachaInstance: (data: any) => adminApi.post('/me/gacha/instances', data),
   openUserGachaInstance: (id: number) => adminApi.post(`/me/gacha/instances/${id}/open`),
+
+  // Pet Admin APIs
+  getPetDefinitions: () => adminApi.get('/admin/pets/definitions'),
+  getPetDefinition: (id: number) => adminApi.get(`/admin/pets/definitions/${id}`),
+  createPetDefinition: (data: any) => adminApi.post('/admin/pets/definitions', data),
+  updatePetDefinition: (id: number, data: any) => adminApi.put(`/admin/pets/definitions/${id}`, data),
+  deletePetDefinition: (id: number) => adminApi.delete(`/admin/pets/definitions/${id}`),
+
+  getPetBanners: () => adminApi.get('/admin/pets/banners'),
+  getPetBanner: (id: number) => adminApi.get(`/admin/pets/banners/${id}`),
+  createPetBanner: (data: any) => adminApi.post('/admin/pets/banners', data),
+  updatePetBanner: (id: number, data: any) => adminApi.put(`/admin/pets/banners/${id}`, data),
+  deletePetBanner: (id: number) => adminApi.delete(`/admin/pets/banners/${id}`),
+
+  getPetEquipment: () => adminApi.get('/admin/pets/equipment'),
+  getPetEquipmentItem: (id: string | number) => adminApi.get(`/admin/pets/equipment/${id}`),
+  createPetEquipment: (data: any) => adminApi.post('/admin/pets/equipment', data),
+  updatePetEquipment: (id: string | number, data: any) => adminApi.put(`/admin/pets/equipment/${id}`, data),
+  deletePetEquipment: (id: string | number) => adminApi.delete(`/admin/pets/equipment/${id}`),
+
+  // Pet Image Uploads
+  uploadPetDefinitionImage: (id: number, formData: FormData) => adminApi.post(`/uploads/pets/definitions/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  uploadPetBannerImage: (bannerId: number, formData: FormData) => adminApi.post(`/uploads/pets/banners/${bannerId}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  uploadPetEquipmentImage: (equipmentId: string | number, formData: FormData) => adminApi.post(`/uploads/pets/equipment/${equipmentId}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+
+  // Pet Image Management
+  deletePetImage: (petId: number, imageIndex: number) => adminApi.delete(`/admin/pets/${petId}/images/${imageIndex}`),
+
+  // Pet Evolution Management
+  getPetEvolutions: (petId: string) => adminApi.get(`/admin/pets/${petId}/evolutions`),
+  createPetEvolution: (data: any) => adminApi.post('/admin/pets/evolutions', data),
+  updatePetEvolution: (id: number, data: any) => adminApi.put(`/admin/pets/evolutions/${id}`, data),
+  deletePetEvolution: (id: number) => adminApi.delete(`/admin/pets/evolutions/${id}`),
+
+  // Pet Abilities Management
+  getPetAbilities: () => adminApi.get('/admin/pet-abilities'),
+  getPetAbility: (id: number) => adminApi.get(`/admin/pet-abilities/${id}`),
+  createPetAbility: (data: any) => adminApi.post('/admin/pet-abilities', data),
+  updatePetAbility: (id: number, data: any) => adminApi.patch(`/admin/pet-abilities/${id}`, data),
+  deletePetAbility: (id: number) => adminApi.delete(`/admin/pet-abilities/${id}`),
 };
 
 export default adminApi;
