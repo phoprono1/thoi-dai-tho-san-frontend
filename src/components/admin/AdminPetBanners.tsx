@@ -162,7 +162,15 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
   const handleCreateBanner = async () => {
     try {
       setLoading(true);
-      await adminApiEndpoints.createPetBanner(bannerForm);
+      
+      // Convert local datetime to UTC ISO string for backend
+      const bannerData = {
+        ...bannerForm,
+        startDate: new Date(bannerForm.startDate).toISOString(),
+        endDate: new Date(bannerForm.endDate).toISOString(),
+      };
+      
+      await adminApiEndpoints.createPetBanner(bannerData);
       
       toast.success('Banner created successfully');
       fetchBanners();
@@ -180,7 +188,15 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
     
     try {
       setLoading(true);
-      await adminApiEndpoints.updatePetBanner(editingBanner.id, bannerForm);
+      
+      // Convert local datetime to UTC ISO string for backend
+      const bannerData = {
+        ...bannerForm,
+        startDate: new Date(bannerForm.startDate).toISOString(),
+        endDate: new Date(bannerForm.endDate).toISOString(),
+      };
+      
+      await adminApiEndpoints.updatePetBanner(editingBanner.id, bannerData);
       
       toast.success('Banner updated successfully');
       fetchBanners();
@@ -639,6 +655,19 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
                             variant="outline"
                             onClick={() => {
                               setEditingBanner(banner);
+                              
+                              // Convert UTC ISO strings to local datetime format for datetime-local input
+                              // Format: "YYYY-MM-DDTHH:mm" (without timezone)
+                              const formatForInput = (isoString: string) => {
+                                const date = new Date(isoString);
+                                const year = date.getFullYear();
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const hours = String(date.getHours()).padStart(2, '0');
+                                const minutes = String(date.getMinutes()).padStart(2, '0');
+                                return `${year}-${month}-${day}T${hours}:${minutes}`;
+                              };
+                              
                               setBannerForm({
                                 name: banner.name,
                                 description: banner.description,
@@ -648,8 +677,8 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
                                 guaranteedPullCount: banner.guaranteedPullCount,
                                 featuredPets: banner.featuredPets,
                                 dropRates: banner.dropRates,
-                                startDate: banner.startDate,
-                                endDate: banner.endDate,
+                                startDate: formatForInput(banner.startDate),
+                                endDate: formatForInput(banner.endDate),
                                 isActive: banner.isActive,
                                 sortOrder: banner.sortOrder,
                               });
