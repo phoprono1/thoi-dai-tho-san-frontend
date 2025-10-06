@@ -58,6 +58,7 @@ const adminQueryClient = new QueryClient({
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: Home },
+  { name: 'Security', href: '/admin/security', icon: Shield },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Items', href: '/admin/items', icon: Sword },
   { name: 'Pets', href: '/admin/pets', icon: PawPrint },

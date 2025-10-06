@@ -121,13 +121,21 @@ if (typeof window !== 'undefined') {
 
 // Auth API
 export const authApi = {
-  login: async (username: string, password: string) => {
-    const response = await api.post('/auth/login', { username, password });
+  login: async (username: string, password: string, deviceFingerprint?: string) => {
+    const response = await api.post('/auth/login', { 
+      username, 
+      password,
+      deviceFingerprint,
+    });
     return response.data;
   },
 
-  register: async (username: string, password: string) => {
-    const response = await api.post('/auth/register', { username, password });
+  register: async (username: string, password: string, deviceFingerprint?: string) => {
+    const response = await api.post('/auth/register', { 
+      username, 
+      password,
+      deviceFingerprint,
+    });
     return response.data;
   },
 
