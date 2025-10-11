@@ -2,6 +2,7 @@
 'use client';
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useUserStatusStore } from '@/stores/user-status.store';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { characterClassesApi } from '@/lib/api-client';
-import { adminApi } from '@/lib/admin-api';
 import { toast } from 'sonner';
 
 interface ClassAdvancementModalProps {
@@ -27,6 +27,7 @@ export function ClassAdvancementModal({
   const [isProcessing, setIsProcessing] = React.useState(false);
   // randomResult not used in this component; kept for future use
   const queryClient = useQueryClient();
+  const currentUserId = useUserStatusStore((s) => s.user?.id);
 
   // Check for pending advancement
   const { data: pendingAdvancement } = useQuery({
@@ -36,20 +37,64 @@ export function ClassAdvancementModal({
   });
 
   // Fetch available advancement paths for current class
-  const { data: advancementPaths, isLoading: pathsLoading } = useQuery({
+  // NOTE: queryFn now returns an object { choosablePaths, hiddenPaths }
+  const { data: advancementCandidates, isLoading: pathsLoading } = useQuery<{ choosablePaths: any[]; hiddenPaths: any[] } | null>({
     queryKey: ['class-advancement-paths', currentClass?.id],
     queryFn: async () => {
-      if (!currentClass?.id) return [];
-      const response = await adminApi.get(`/admin/character-class-mappings/${currentClass.id}`);
-      console.log('Advancement paths response:', response.data);
-      return response.data;
+      if (!currentClass?.id) return { choosablePaths: [], hiddenPaths: [] };
+      // Players must not call admin endpoints. Use public API that returns
+      // available advancement classes for the authenticated user.
+      // The public endpoint returns an object that includes available classes
+      // already filtered/validated by the server. Map those into a shape the
+      // component expects (minimal mapping info).
+        const res = await characterClassesApi.getAvailableAdvancements();
+
+        // If backend returns `candidates` provide richer metadata to the UI so
+        // the client can render locked choices with missingRequirements.
+        if (res?.candidates && Array.isArray(res.candidates)) {
+          const all = res.candidates
+            .filter((c: any) => c.mapping) // ignore unmapped classes
+            .map((c: any) => ({
+              id: c.mapping.id || c.class.id,
+              fromClassId: currentClass.id,
+              toClassId: c.class.id,
+              allowPlayerChoice: !!c.mapping.allowPlayerChoice,
+              isAwakening: !!c.mapping.isAwakening,
+              levelRequired: c.mapping.levelRequired || c.class.requiredLevel || 0,
+              requirements: c.mapping.requirements || c.class.advancementRequirements || {},
+              // Extra: server-provided diagnostics
+              canAdvance: !!c.canAdvance,
+              missingRequirements: c.missingRequirements || {},
+              mapping: c.mapping,
+              classInfo: c.class,
+            }));
+
+          const choosable = all.filter((p: any) => p.allowPlayerChoice);
+          const hidden = all.filter((p: any) => !p.allowPlayerChoice);
+
+          return { choosablePaths: choosable, hiddenPaths: hidden };
+        }
+
+        // Fallback: older server shape with availableClasses only
+        const available = res?.availableClasses || [];
+        const mapped = available.map((cls: any) => ({
+          id: cls.id, // reuse class id as mapping id placeholder
+          fromClassId: currentClass.id,
+          toClassId: cls.id,
+          allowPlayerChoice: true,
+          isAwakening: cls.tier === 0 || cls.tier === 1 ? false : false,
+          levelRequired: cls.requiredLevel || 0,
+          requirements: cls.advancementRequirements || {},
+        }));
+
+        // Older server shape: treat all as choosable
+        return { choosablePaths: mapped, hiddenPaths: [] };
     },
     enabled: open && !!currentClass?.id,
   });
-
-  // Filter paths based on allowPlayerChoice
-  const choosablePaths = advancementPaths?.filter((path: any) => path.allowPlayerChoice) || [];
-  const hiddenPaths = advancementPaths?.filter((path: any) => !path.allowPlayerChoice) || [];
+  // Normalize returned value (backwards-compatible)
+  const choosablePaths = (advancementCandidates && advancementCandidates.choosablePaths) || [];
+  const hiddenPaths = (advancementCandidates && advancementCandidates.hiddenPaths) || [];
 
   const [advancementChecks, setAdvancementChecks] = React.useState<Record<number, any>>({});
 
@@ -60,6 +105,21 @@ export function ClassAdvancementModal({
     classIds.forEach((id) => {
       // avoid refetching if already present
       if (advancementChecks[id]) return;
+
+      // If server already provided candidate diagnostics for this class,
+      // reuse them to avoid an extra API call.
+      const candidate = [...choosablePaths, ...hiddenPaths].find((p: any) => p.toClassId === id);
+      if (candidate && (typeof candidate.canAdvance !== 'undefined' || candidate.missingRequirements)) {
+        // normalize shape to match checkAdvancementRequirements response
+        const normalized = {
+          canAdvance: !!candidate.canAdvance,
+          missingRequirements: candidate.missingRequirements || {},
+        };
+        setAdvancementChecks((s) => ({ ...s, [id]: normalized }));
+        return;
+      }
+
+      // Fallback: request server to compute requirements for this target class
       characterClassesApi.checkAdvancementRequirements(id)
         .then((res) => setAdvancementChecks((s) => ({ ...s, [id]: res })))
         .catch(() => {
@@ -146,9 +206,26 @@ export function ClassAdvancementModal({
       const result = await characterClassesApi.performAdvancement(0, targetClassId); // userId will be handled by backend
       toast.success(`Chuyển chức thành công: ${result.newClass?.name || 'Lớp mới'}`);
       
-      // Refresh user data
-      queryClient.invalidateQueries({ queryKey: ['user-status'] });
-      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+      // Update client zustand store immediately so UI reflects new class without waiting
+      try {
+        if (result?.newClass) {
+          useUserStatusStore.getState().setCharacterClass(result.newClass);
+        }
+      } catch (e) {
+        // non-fatal
+        console.debug('Failed to set character class in store:', e);
+      }
+
+      // Refresh user-specific caches (include userId in queryKey)
+      if (currentUserId) {
+        queryClient.invalidateQueries({ queryKey: ['user-status', currentUserId] });
+        queryClient.invalidateQueries({ queryKey: ['user-stats', currentUserId] });
+        queryClient.invalidateQueries({ queryKey: ['user', currentUserId] });
+      } else {
+        // fallback: invalidate generic keys (best effort)
+        queryClient.invalidateQueries({ queryKey: ['user-status'] });
+        queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+      }
       onOpenChange(false);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Không đủ điều kiện chuyển chức';
@@ -209,9 +286,25 @@ export function ClassAdvancementModal({
         // Direct advancement for hidden class
         const result = await characterClassesApi.performAdvancement(0, selectedPath.toClassId);
         toast.success(`Chuyển chức thành công: ${result.newClass?.name || classDetails?.[selectedPath.toClassId]?.name}`);
-        
-        queryClient.invalidateQueries({ queryKey: ['user-status'] });
-        queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+
+        // Update store and invalidate user-scoped caches
+        try {
+          if (result?.newClass) {
+            useUserStatusStore.getState().setCharacterClass(result.newClass);
+          }
+        } catch (e) {
+          console.debug('Failed to set character class in store:', e);
+        }
+
+        if (currentUserId) {
+          queryClient.invalidateQueries({ queryKey: ['user-status', currentUserId] });
+          queryClient.invalidateQueries({ queryKey: ['user-stats', currentUserId] });
+          queryClient.invalidateQueries({ queryKey: ['user', currentUserId] });
+        } else {
+          queryClient.invalidateQueries({ queryKey: ['user-status'] });
+          queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        }
+
         onOpenChange(false);
       }
     } catch (error: any) {
