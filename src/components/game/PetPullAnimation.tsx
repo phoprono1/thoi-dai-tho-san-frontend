@@ -132,7 +132,7 @@ function MultiPullAnimation({ results, onComplete }: { results: PullResult[]; on
                     <div className="absolute inset-0 backface-hidden rotate-y-180">
                       <div className={`w-full h-full rounded-lg bg-gradient-to-br ${getRarityColor(rarity)} p-0.5 ${isRevealed ? getRarityGlow(rarity) : ''} ${isRevealing ? 'animate-bounce' : ''}`}>
                         <div className="w-full h-full rounded-lg bg-gradient-to-b from-gray-900 to-black flex flex-col items-center justify-center p-2 relative overflow-hidden">
-                          {isHighRarity && isRevealed && (
+                          {rarity === 5 && isRevealed && (
                             <>
                               <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 opacity-20 animate-pulse" />
                               <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/10 to-transparent animate-shimmer" />
