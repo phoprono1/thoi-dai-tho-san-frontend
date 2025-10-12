@@ -307,7 +307,7 @@ export default function BannerDetailPage() {
                                 />
                               ))}
                             </div>
-                            <span className="font-semibold">{value}%</span>
+                            <span className="font-semibold">{value * 100}%</span>
                           </div>
                         );
                       })}
@@ -363,7 +363,7 @@ export default function BannerDetailPage() {
                                   />
                                 ))}
                               </div>
-                              <h4 className="font-semibold text-sm line-clamp-1">
+                              <h4 className="font-semibold text-sm md:text-base text-center break-words whitespace-normal">
                                 {pet.name}
                               </h4>
                               {pet.element && (
@@ -435,7 +435,7 @@ export default function BannerDetailPage() {
                               </div>
                               <div className="flex-1">
                                 <div className="font-medium text-sm">
-                                  {result.userPet.name}
+                    <span className="break-words whitespace-normal">{result.userPet.name}</span>
                                 </div>
                                 <div className="flex items-center gap-0.5 mt-0.5">
                                   {Array.from({ length: result.userPet.rarity }).map((_, i) => (

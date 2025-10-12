@@ -33,8 +33,8 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
           {/* Top-wide marquee banner (clickable) */}
           <div className="top-marquee-banner">
             <div className="marquee-inner bg-accent text-accent-foreground rounded-md mx-auto inline-block">
-              <a href="https://discord.gg/guQEEr6G" target="_blank" rel="noopener noreferrer">
-                Tham gia Discord của chúng tôi — Click để vào: https://discord.gg/DKQAM5Nf
+              <a href="https://discord.gg/vChpjYTuCJ" target="_blank" rel="noopener noreferrer">
+                Tham gia Discord của chúng tôi — Click để vào: https://discord.gg/vChpjYTuCJ
               </a>
             </div>
           </div>

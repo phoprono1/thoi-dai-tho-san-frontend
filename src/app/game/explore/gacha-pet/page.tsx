@@ -166,7 +166,7 @@ export default function PetGachaPage() {
 
                 <CardHeader>
                   <CardTitle className="flex items-start justify-between gap-2">
-                    <span className="line-clamp-2">{banner.name}</span>
+                    <span className="text-sm md:text-base font-semibold break-words whitespace-normal max-w-[75%] text-center">{banner.name}</span>
                     {banner.guaranteedRarity && (
                       <div className="flex items-center gap-0.5 flex-shrink-0">
                         {Array.from({ length: banner.guaranteedRarity }).map((_, i) => (
@@ -182,7 +182,7 @@ export default function PetGachaPage() {
 
                 <CardContent className="space-y-3">
                   {/* Description */}
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-sm text-muted-foreground break-words whitespace-normal text-center">
                     {banner.description || 'Triệu hồi thú cưng mạnh mẽ!'}
                   </p>
 

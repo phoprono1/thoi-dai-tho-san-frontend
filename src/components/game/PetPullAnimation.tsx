@@ -153,7 +153,7 @@ function MultiPullAnimation({ results, onComplete }: { results: PullResult[]; on
                               <Sparkles className="h-12 w-12 text-white/50" />
                             )}
                           </div>
-                          <p className="text-[10px] font-semibold text-white text-center line-clamp-2 relative z-10">{result.userPet.name}</p>
+                          <p className="text-[10px] md:text-xs lg:text-sm font-semibold text-white text-center break-words whitespace-normal px-1 relative z-10">{result.userPet.name}</p>
                         </div>
                       </div>
                     </div>
@@ -250,8 +250,8 @@ function SinglePullAnimation({ result, onComplete }: { result: PullResult; onCom
                   </div>
                 )}
               </div>
-              <h2 className="text-2xl font-bold text-white text-center mb-2">{result.userPet.name}</h2>
-              <p className="text-sm text-gray-400 mb-6">ID: {result.userPet.petId}</p>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white text-center mb-2 break-words">{result.userPet.name}</h2>
+              <p className="text-sm md:text-base text-gray-400 mb-6 break-words">ID: {result.userPet.petId}</p>
               {!revealing && (
                 <Button size="lg" className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold" onClick={handleReveal}>
                   Hoàn thành
