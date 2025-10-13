@@ -88,6 +88,9 @@ interface PetBanner {
     rarity5: number;
   };
   pityThresholds?: Array<{ rarity: number; pullCount: number }>;
+  // Optional ticket-based cost
+  costItemId?: number | null;
+  costItemQuantity?: number;
   startDate: string;
   endDate: string;
   isActive: boolean;
@@ -141,12 +144,27 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
     startDate: '',
     endDate: '',
     isActive: true,
+    // Ticket cost support
+    costItemId: null as number | null,
+    costItemQuantity: 1,
     sortOrder: 0,
   });
 
+  const [items, setItems] = useState<Array<{ id: number; name: string }>>([]);
+
   useEffect(() => {
     fetchBanners();
+    fetchItems();
   }, []);
+
+  const fetchItems = async () => {
+    try {
+      const resp = await adminApiEndpoints.getItems();
+      setItems(resp.data || []);
+    } catch (err) {
+      console.error('Failed to load items for admin UI', err);
+    }
+  };
 
   const fetchBanners = async () => {
     try {
@@ -179,6 +197,8 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
           : [{ rarity: bannerForm.guaranteedRarity, pullCount: bannerForm.guaranteedPullCount }],
         startDate: new Date(bannerForm.startDate).toISOString(),
         endDate: new Date(bannerForm.endDate).toISOString(),
+        costItemId: bannerForm.costItemId,
+        costItemQuantity: bannerForm.costItemQuantity,
       };
 
       await adminApiEndpoints.createPetBanner(bannerData);
@@ -213,8 +233,15 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
           : [{ rarity: bannerForm.guaranteedRarity, pullCount: bannerForm.guaranteedPullCount }],
         startDate: new Date(bannerForm.startDate).toISOString(),
         endDate: new Date(bannerForm.endDate).toISOString(),
+        costItemId: bannerForm.costItemId,
+        costItemQuantity: bannerForm.costItemQuantity,
       };
 
+      // Debug: log payload being sent to backend for debugging costItemId persistence
+      try {
+        // eslint-disable-next-line no-console
+        console.debug('Admin: updating banner payload', bannerData);
+      } catch {}
       await adminApiEndpoints.updatePetBanner(editingBanner.id, bannerData);
 
       toast.success('Banner updated successfully');
@@ -283,6 +310,9 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
       startDate: '',
       endDate: '',
       isActive: true,
+      // ticket cost defaults
+      costItemId: null,
+      costItemQuantity: 1,
       sortOrder: 0,
     });
   };
@@ -470,6 +500,40 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
                     type="number"
                     value={bannerForm.costPerPull}
                     onChange={(e) => setBannerForm({ ...bannerForm, costPerPull: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+
+              {/* Ticket cost fields */}
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="costItemId">Ticket Item (optional)</Label>
+                  <Select
+                    value={bannerForm.costItemId != null ? String(bannerForm.costItemId) : '__none'}
+                    onValueChange={(value) => setBannerForm({ ...bannerForm, costItemId: value && value !== '__none' ? parseInt(value) : null })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select item or leave blank for gold" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">-- None (gold) --</SelectItem>
+                      {items.map(it => (
+                        <SelectItem key={it.id} value={String(it.id)}>{it.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    If set, the banner will prefer consuming this item as a ticket per pull. If the user lacks enough tickets, the banner will use gold for the remaining pulls unless Cost Per Pull is set to 0 (ticket-only).
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="costItemQuantity">Tickets per Pull</Label>
+                  <Input
+                    id="costItemQuantity"
+                    type="number"
+                    value={bannerForm.costItemQuantity}
+                    onChange={(e) => setBannerForm({ ...bannerForm, costItemQuantity: parseInt(e.target.value) || 1 })}
                   />
                 </div>
               </div>
@@ -821,6 +885,9 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
                                 endDate: formatForInput(banner.endDate),
                                 isActive: banner.isActive,
                                 sortOrder: banner.sortOrder,
+                                // ticket cost fields
+                                costItemId: banner.costItemId ?? null,
+                                costItemQuantity: banner.costItemQuantity ?? 1,
                                                         // Use existing pityThresholds if present, otherwise create from legacy fields
                                                         pityThresholds: normalizePityThresholds(
                                                           banner.pityThresholds && banner.pityThresholds.length > 0
@@ -894,7 +961,13 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3" />
-                            <span>Cost: {banner.costPerPull} gold</span>
+                            {!banner.costItemId ? (
+                              <span>Cost: {banner.costPerPull} gold</span>
+                            ) : (
+                              <span>
+                                Cost: {banner.costItemQuantity ?? 1} x {items.find(i => i.id === banner.costItemId)?.name || `Item#${banner.costItemId}`}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <Target className="h-3 w-3" />

@@ -30,6 +30,10 @@ import {
   type PullResult,
 } from '@/lib/pet-banner-api';
 import { resolveAssetUrl } from '@/lib/asset';
+import { apiService } from '@/lib/api-service';
+import { useAuth } from '@/components/providers/AuthProvider';
+import type { Item, UserItem } from '@/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import PetPullAnimation from '@/components/game/PetPullAnimation';
 
 export default function BannerDetailPage() {
@@ -44,15 +48,65 @@ export default function BannerDetailPage() {
   const [pulling, setPulling] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
   const [pullResults, setPullResults] = useState<PullResult[]>([]);
+  const { user: authUser } = useAuth();
+  const [catalogItems, setCatalogItems] = useState<Item[]>([]);
+  const [userItems, setUserItems] = useState<UserItem[]>([]);
+
+  // Confirmation modal state for fallback-to-gold
+  const [showFallbackModal, setShowFallbackModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | { type: 'single' | 'multi' }> (null);
+  const [fallbackInfo, setFallbackInfo] = useState<{ available: number; required: number; goldNeeded: number } | null>(null);
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (bannerId) {
-      loadBannerData();
-    }
-  }, [bannerId]);
+  // Normalization helpers for pull history entries (server may return different shapes)
+  type RawHistory = {
+    userPet?: Record<string, unknown>;
+    pet?: Record<string, unknown>;
+    petObtainedId?: number;
+    isNew?: boolean;
+  };
 
-  const loadBannerData = async () => {
+  const normalizeEntryToPullResult = React.useCallback((entry: RawHistory): PullResult => {
+    if (entry.userPet && typeof entry.userPet === 'object') {
+      const up = entry.userPet as Record<string, unknown>;
+      return {
+        userPet: {
+          id: (typeof up.id === 'number' ? up.id : 0),
+          petDefinitionId: (typeof up.petDefinitionId === 'number' ? up.petDefinitionId : 0),
+          petId: (typeof up.petId === 'string' ? up.petId : ''),
+          name: (typeof up.name === 'string' ? up.name : 'Unknown'),
+          level: (typeof up.level === 'number' ? up.level : 1),
+          rarity: (typeof up.rarity === 'number' ? up.rarity : 1),
+          imageUrl: typeof up.imageUrl === 'string' ? up.imageUrl : undefined,
+        },
+        isNew: Boolean(entry.isNew),
+      };
+    }
+
+    if (entry.pet && typeof entry.pet === 'object') {
+      const pet = entry.pet as Record<string, unknown>;
+      const images = Array.isArray(pet.images) ? pet.images : undefined;
+      const firstImage = images && images.length > 0 && typeof images[0] === 'string' ? images[0] as string : undefined;
+      const img = firstImage ?? (typeof pet.image === 'string' ? pet.image : undefined);
+      return {
+        userPet: {
+          id: (typeof pet.id === 'number' ? pet.id : 0),
+          petDefinitionId: typeof entry.petObtainedId === 'number' ? entry.petObtainedId : 0,
+          petId: (typeof pet.petId === 'string' ? pet.petId : ''),
+          name: (typeof pet.name === 'string' ? pet.name : 'Unknown'),
+          level: 1,
+          rarity: (typeof pet.rarity === 'number' ? pet.rarity : 1),
+          imageUrl: img,
+        },
+        isNew: Boolean(entry.isNew),
+      };
+    }
+
+    return { userPet: { id: 0, petDefinitionId: 0, petId: '', name: 'Unknown', level: 1, rarity: 1 }, isNew: Boolean(entry.isNew) };
+  }, []);
+
+  // load banner when id changes
+  const loadBannerData = React.useCallback(async () => {
     try {
       setLoading(true);
       const [bannerData, petsData, historyData] = await Promise.all([
@@ -60,98 +114,198 @@ export default function BannerDetailPage() {
         getFeaturedPets(bannerId),
         getPullHistory(20),
       ]);
-      
       setBanner(bannerData);
       setFeaturedPets(petsData);
-      
-      // Map history data to match PullResult structure
-      const mappedHistory = historyData.map((item: any) => ({
-        userPet: {
-          id: item.pet?.id || 0,
-          petDefinitionId: item.petObtainedId,
-          petId: item.pet?.petId || '',
-          name: item.pet?.name || 'Unknown',
-          level: 1,
-          rarity: item.pet?.rarity || 1,
-          imageUrl: item.pet?.images?.[0] || null,
-        },
-        isNew: false, // History items are not new
-      }));
-      
-      setPullHistory(mappedHistory);
+
+      // Normalize history defensively using the top-level helper (server may return multiple shapes)
+      const normalized = (historyData as RawHistory[]).map((h) => normalizeEntryToPullResult(h));
+      setPullHistory(normalized);
     } catch (error) {
       console.error('Failed to load banner data:', error);
       toast.error('Không thể tải thông tin banner');
     } finally {
       setLoading(false);
     }
+  }, [bannerId, normalizeEntryToPullResult]);
+
+  useEffect(() => {
+    if (bannerId) loadBannerData();
+  }, [bannerId, loadBannerData]);
+
+  useEffect(() => {
+    // load item catalog
+    apiService.getItems().then((it) => setCatalogItems(it)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (authUser && authUser.id) {
+      apiService.getUserItems(authUser.id).then((ui) => setUserItems(ui)).catch(() => {});
+    }
+  }, [authUser]);
+
+  const performPendingAction = async () => {
+    if (!pendingAction || !banner) return;
+    setShowFallbackModal(false);
+    try {
+      setPulling(true);
+      if (pendingAction.type === 'single') {
+        const result = await pullPet(banner.id);
+        setPullResults([result]);
+      } else {
+        const result = await pullMultiplePets(banner.id, 10);
+        setPullResults(result.results);
+      }
+
+      // refresh history and user items
+  const historyData = await getPullHistory(20);
+  setPullHistory((historyData as RawHistory[]).map((h) => normalizeEntryToPullResult(h)));
+      if (authUser) {
+        const ui = await apiService.getUserItems(authUser.id);
+        setUserItems(ui);
+      }
+      queryClient.invalidateQueries({ queryKey: ['user-pets'] });
+      queryClient.invalidateQueries({ queryKey: ['all-user-pets'] });
+      setShowAnimation(true);
+    } catch (error: unknown) {
+      const msg = extractMessage(error);
+      toast.error(msg);
+    } finally {
+      setPulling(false);
+      setPendingAction(null);
+      setFallbackInfo(null);
+    }
   };
 
+  // removed duplicate loadBannerData (use useCallback version above)
+
   const handleSinglePull = async () => {
+    if (!banner) return;
+    const perPullQty = banner.costItemQuantity ?? 1;
+    let available = 0;
+    if (banner.costItemId) {
+      // Always reload userItems before checking
+      if (authUser && authUser.id) {
+        const uiList = await apiService.getUserItems(authUser.id);
+        setUserItems(uiList);
+        const ui = uiList.find((u) => u.itemId === banner.costItemId);
+        available = ui?.quantity ?? 0;
+      } else {
+        const ui = userItems.find((u) => u.itemId === banner.costItemId);
+        available = ui?.quantity ?? 0;
+      }
+      if (available >= perPullQty) {
+        // enough tickets -> proceed
+      } else if (banner.costPerPull === 0) {
+        // ticket-only and not enough
+        toast.error('Không đủ vé để triệu hồi');
+        return;
+      } else {
+        // show fallback modal: will use gold for the pull
+        setPendingAction({ type: 'single' });
+        const goldNeeded = banner.costPerPull;
+        setFallbackInfo({ available, required: perPullQty, goldNeeded });
+        setShowFallbackModal(true);
+        return;
+      }
+    }
+
     try {
       setPulling(true);
       const result = await pullPet(bannerId);
       setPullResults([result]);
       setShowAnimation(true);
-      
-  // Reload history after pull
+
+      // Reload history after pull
       const historyData = await getPullHistory(20);
-      const mappedHistory = historyData.map((item: any) => ({
-        userPet: {
-          id: item.pet?.id || 0,
-          petDefinitionId: item.petObtainedId,
-          petId: item.pet?.petId || '',
-          name: item.pet?.name || 'Unknown',
-          level: 1,
-          rarity: item.pet?.rarity || 1,
-          imageUrl: item.pet?.images?.[0] || null,
-        },
-        isNew: false,
-      }));
-      setPullHistory(mappedHistory);
-  // Invalidate user pets so UI updates (counts, switch modal)
-  queryClient.invalidateQueries({ queryKey: ['user-pets'] });
-  queryClient.invalidateQueries({ queryKey: ['all-user-pets'] });
-    } catch (error: any) {
+      setPullHistory((historyData as RawHistory[]).map((h) => normalizeEntryToPullResult(h)));
+      // Invalidate user pets so UI updates (counts, switch modal)
+      queryClient.invalidateQueries({ queryKey: ['user-pets'] });
+      queryClient.invalidateQueries({ queryKey: ['all-user-pets'] });
+      // Reload userItems after pull
+      if (authUser && authUser.id) {
+        const uiList = await apiService.getUserItems(authUser.id);
+        setUserItems(uiList);
+      }
+    } catch (error: unknown) {
       console.error('Failed to pull:', error);
-      toast.error(error.response?.data?.message || 'Triệu hồi thất bại');
+      toast.error(extractMessage(error));
     } finally {
       setPulling(false);
     }
   };
 
   const handleMultiPull = async () => {
+    if (!banner) return;
+    const perPullQty = banner.costItemQuantity ?? 1;
+    let available = 0;
+    if (banner.costItemId) {
+      // Always reload userItems before checking
+      if (authUser && authUser.id) {
+        const uiList = await apiService.getUserItems(authUser.id);
+        setUserItems(uiList);
+        const ui = uiList.find((u) => u.itemId === banner.costItemId);
+        available = ui?.quantity ?? 0;
+      } else {
+        const ui = userItems.find((u) => u.itemId === banner.costItemId);
+        available = ui?.quantity ?? 0;
+      }
+      const totalRequired = perPullQty * 10;
+      if (available >= totalRequired) {
+        // enough tickets -> proceed
+      } else if (banner.costPerPull === 0) {
+        // ticket-only and not enough tickets
+        toast.error('Không đủ vé để triệu hồi 10x');
+        return;
+      } else {
+        // show fallback modal detailing how many tickets and gold will be used
+        const availableFullPulls = Math.floor(available / perPullQty);
+        const ticketsConsumed = availableFullPulls * perPullQty;
+        const remainingPulls = 10 - availableFullPulls;
+        const goldNeeded = remainingPulls * banner.costPerPull;
+        setPendingAction({ type: 'multi' });
+        setFallbackInfo({ available: ticketsConsumed, required: totalRequired, goldNeeded });
+        setShowFallbackModal(true);
+        return;
+      }
+    }
+
     try {
       setPulling(true);
       const result = await pullMultiplePets(bannerId, 10);
       setPullResults(result.results);
       setShowAnimation(true);
-      
+
       // Reload history after pull
       const historyData = await getPullHistory(20);
-      const mappedHistory = historyData.map((item: any) => ({
-        userPet: {
-          id: item.pet?.id || 0,
-          petDefinitionId: item.petObtainedId,
-          petId: item.pet?.petId || '',
-          name: item.pet?.name || 'Unknown',
-          level: 1,
-          rarity: item.pet?.rarity || 1,
-          imageUrl: item.pet?.images?.[0] || null,
-        },
-        isNew: false,
-      }));
-      setPullHistory(mappedHistory);
-    // Invalidate user pets so UI updates (counts, switch modal)
-    queryClient.invalidateQueries({ queryKey: ['user-pets'] });
-    queryClient.invalidateQueries({ queryKey: ['all-user-pets'] });
-    } catch (error: any) {
+      setPullHistory((historyData as RawHistory[]).map((h) => normalizeEntryToPullResult(h)));
+      // Invalidate user pets so UI updates (counts, switch modal)
+      queryClient.invalidateQueries({ queryKey: ['user-pets'] });
+      queryClient.invalidateQueries({ queryKey: ['all-user-pets'] });
+      // Reload userItems after pull
+      if (authUser && authUser.id) {
+        const uiList = await apiService.getUserItems(authUser.id);
+        setUserItems(uiList);
+      }
+    } catch (error: unknown) {
       console.error('Failed to pull:', error);
-      toast.error(error.response?.data?.message || 'Triệu hồi thất bại');
+      toast.error(extractMessage(error));
     } finally {
       setPulling(false);
     }
   };
+
+  function extractMessage(err: unknown): string {
+    if (typeof err === 'object' && err !== null) {
+      const e = err as Record<string, unknown>;
+      const resp = e.response as Record<string, unknown> | undefined;
+      if (resp && typeof resp === 'object') {
+        const data = resp.data as Record<string, unknown> | undefined;
+        if (data && typeof data.message === 'string') return data.message;
+      }
+      if (typeof e.message === 'string') return e.message;
+    }
+    return 'Triệu hồi thất bại';
+  }
 
   const formatTimeRemaining = (endDate: string) => {
     const end = new Date(endDate);
@@ -262,7 +416,11 @@ export default function BannerDetailPage() {
                     <Sparkles className="h-4 w-4 mr-2" />
                     Triệu hồi x1
                     <Badge variant="secondary" className="ml-auto">
-                      {banner.costPerPull} 💰
+                      {banner.costItemId ? (
+                        <>{banner.costItemQuantity ?? 1} × {catalogItems.find(i => i.id === banner.costItemId)?.name || `Item#${banner.costItemId}`}</>
+                      ) : (
+                        <>{banner.costPerPull} 💰</>
+                      )}
                     </Badge>
                   </Button>
 
@@ -276,7 +434,11 @@ export default function BannerDetailPage() {
                     <Sparkles className="h-4 w-4 mr-2" />
                     Triệu hồi x10
                     <Badge variant="secondary" className="ml-auto">
-                      {banner.costPerPull * 10} 💰
+                      {banner.costItemId ? (
+                        <>{(banner.costItemQuantity ?? 1) * 10} × {catalogItems.find(i => i.id === banner.costItemId)?.name || `Item#${banner.costItemId}`}</>
+                      ) : (
+                        <>{banner.costPerPull * 10} 💰</>
+                      )}
                     </Badge>
                   </Button>
 
@@ -493,6 +655,30 @@ export default function BannerDetailPage() {
           }}
         />
       )}
+
+      {/* Fallback confirmation modal */}
+      <Dialog open={showFallbackModal} onOpenChange={(open) => setShowFallbackModal(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận sử dụng vàng</DialogTitle>
+          </DialogHeader>
+          <DialogDescription asChild>
+            {fallbackInfo ? (
+              <div>
+                <p>Bạn có <strong>{fallbackInfo.available}</strong> vé, nhưng cần <strong>{fallbackInfo.required}</strong>.</p>
+                <p>Phần thiếu sẽ được trừ bằng vàng: <strong>{fallbackInfo.goldNeeded}</strong> 💰.</p>
+                <p>Bạn có muốn tiếp tục?</p>
+              </div>
+            ) : (
+              <p>Không đủ vé, hệ thống sẽ sử dụng vàng để hoàn tất lượt triệu hồi.</p>
+            )}
+          </DialogDescription>
+          <div className="mt-4 flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => { setShowFallbackModal(false); setPendingAction(null); setFallbackInfo(null); }}>Hủy</Button>
+            <Button onClick={() => performPendingAction()} disabled={pulling}>{pulling ? 'Đang xử lý...' : 'Xác nhận'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

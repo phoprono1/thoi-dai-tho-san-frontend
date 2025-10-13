@@ -30,6 +30,9 @@ export interface PetBanner {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+  // Optional ticket cost configuration
+  costItemId?: number | null;
+  costItemQuantity?: number;
 }
 
 export interface PetDefinition {

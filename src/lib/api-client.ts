@@ -612,4 +612,9 @@ export const wikiApi = {
     const response = await api.get('/item-sets');
     return response.data;
   },
+  // Get all pet definitions (requires auth)
+  getAllPets: async () => {
+    const response = await api.get('/pets/definitions');
+    return response.data;
+  },
 };

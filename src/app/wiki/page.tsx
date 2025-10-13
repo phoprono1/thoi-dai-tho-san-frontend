@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BookOpen, Sword, Users, Skull, Sparkles } from 'lucide-react';
+import { BookOpen, Sword, Users, Skull, Sparkles, Package, Star } from 'lucide-react';
 import WikiItemsTab from '@/components/wiki/WikiItemsTab';
 import WikiMonstersTab from '@/components/wiki/WikiMonstersTab';
 import WikiDungeonsTab from '@/components/wiki/WikiDungeonsTab';
 import WikiSkillsTab from '@/components/wiki/WikiSkillsTab';
+import WikiItemSetsTab from '@/components/wiki/WikiItemSetsTab';
+import WikiPetsTab from '@/components/wiki/WikiPetsTab';
 
 export default function WikiPage() {
   const [activeTab, setActiveTab] = useState('items');
@@ -38,7 +40,7 @@ export default function WikiPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-slate-700/50">
+              <TabsList className="grid w-full grid-cols-6 bg-slate-700/50">
                 <TabsTrigger 
                   value="items" 
                   className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
@@ -67,6 +69,20 @@ export default function WikiPage() {
                   <Sparkles className="h-4 w-4 mr-2" />
                   Kỹ năng
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="item-sets"
+                  className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Bộ đồ
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="pets"
+                  className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Pet
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="items" className="mt-6">
@@ -83,6 +99,14 @@ export default function WikiPage() {
 
               <TabsContent value="skills" className="mt-6">
                 <WikiSkillsTab />
+              </TabsContent>
+
+              <TabsContent value="item-sets" className="mt-6">
+                <WikiItemSetsTab />
+              </TabsContent>
+
+              <TabsContent value="pets" className="mt-6">
+                <WikiPetsTab />
               </TabsContent>
             </Tabs>
           </CardContent>
