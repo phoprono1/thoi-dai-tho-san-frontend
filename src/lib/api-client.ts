@@ -508,6 +508,16 @@ export const giftcodeApi = {
     const response = await api.post('/giftcode/redeem', { code });
     return response.data;
   },
+  // Admin actions
+  deactivate: async (id: number) => {
+    const response = await api.patch(`/giftcode/deactivate/${id}`);
+    return response.data;
+  },
+
+  remove: async (id: number) => {
+    const response = await api.delete(`/giftcode/${id}`);
+    return response.data;
+  },
 };
 
 // Daily Login API

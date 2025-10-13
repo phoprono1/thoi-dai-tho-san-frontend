@@ -176,6 +176,30 @@ export default function AdminGiftcodesPage() {
                       <div className="text-sm text-muted-foreground">Uses remaining: {c.usesRemaining ?? '∞'}</div>
                       <div className="text-sm text-muted-foreground">Expires: {c.expiresAt ?? 'Never'}</div>
                       <div className="text-sm">Rewards: {JSON.stringify(c.rewards)}</div>
+                      <div className="mt-2 flex gap-2">
+                        <button className="px-2 py-1 text-sm border rounded" onClick={async () => {
+                          if (!confirm('Deactive this giftcode? This will prevent future redeems.')) return;
+                          try {
+                            await giftcodeApi.deactivate(c.id);
+                            toast.success('Giftcode deactivated');
+                            qc.invalidateQueries({ queryKey: ['adminGiftcodes'] });
+                          } catch (e) {
+                            console.error('Failed to deactivate', e);
+                            toast.error('Failed to deactivate giftcode');
+                          }
+                        }}>Deactivate</button>
+                        <button className="px-2 py-1 text-sm border rounded text-red-600" onClick={async () => {
+                          if (!confirm('Permanently delete this giftcode? This action cannot be undone.')) return;
+                          try {
+                            await giftcodeApi.remove(c.id);
+                            toast.success('Giftcode removed');
+                            qc.invalidateQueries({ queryKey: ['adminGiftcodes'] });
+                          } catch (e) {
+                            console.error('Failed to remove', e);
+                            toast.error('Failed to remove giftcode');
+                          }
+                        }}>Delete</button>
+                      </div>
                     </div>
                   ))
                 ) : (

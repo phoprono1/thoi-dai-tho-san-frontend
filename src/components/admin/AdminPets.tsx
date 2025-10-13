@@ -53,7 +53,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
+import {
   Plus,
   Edit2,
   Trash2,
@@ -241,7 +241,7 @@ export default function AdminPets() {
     try {
       setLoading(true);
       await adminApiEndpoints.createPetDefinition(definitionForm);
-      
+
       toast.success('Pet definition created successfully');
       fetchPetDefinitions();
       setDefinitionForm({
@@ -272,11 +272,11 @@ export default function AdminPets() {
 
   const handleUpdateDefinition = async () => {
     if (!editingDefinition) return;
-    
+
     try {
       setLoading(true);
       await adminApiEndpoints.updatePetDefinition(editingDefinition.id, definitionForm);
-      
+
       toast.success('Pet definition updated successfully');
       fetchPetDefinitions();
       setEditingDefinition(null);
@@ -292,7 +292,7 @@ export default function AdminPets() {
     try {
       setLoading(true);
       await adminApiEndpoints.deletePetDefinition(id);
-      
+
       toast.success('Pet definition deleted successfully');
       fetchPetDefinitions();
     } catch (error) {
@@ -390,7 +390,7 @@ export default function AdminPets() {
                     <p className="text-xs text-muted-foreground">Auto-generated from Pet Name</p>
                   )}
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="petName">Pet Name</Label>
                   <Input
@@ -405,8 +405,8 @@ export default function AdminPets() {
                         .replace(/[^a-z0-9\s]/g, '') // Remove special chars
                         .trim()
                         .replace(/\s+/g, '_'); // Replace spaces with underscore
-                      setDefinitionForm({ 
-                        ...definitionForm, 
+                      setDefinitionForm({
+                        ...definitionForm,
                         name,
                         petId: editingDefinition ? definitionForm.petId : generatedPetId // Only auto-generate for new pets
                       });
@@ -593,7 +593,7 @@ export default function AdminPets() {
                   <Label htmlFor="isActive">Active</Label>
                 </div>
 
-                <Button 
+                <Button
                   onClick={editingDefinition ? handleUpdateDefinition : handleCreateDefinition}
                   disabled={loading || !definitionForm.petId || !definitionForm.name}
                   className="w-full"
@@ -602,8 +602,8 @@ export default function AdminPets() {
                 </Button>
 
                 {editingDefinition && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setEditingDefinition(null);
                       setDefinitionForm({
@@ -644,33 +644,36 @@ export default function AdminPets() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[600px]">
+                <ScrollArea className="h-[800px]">
                   <div className="space-y-2">
                     {petDefinitions.map((pet) => (
                       <div
                         key={pet.id}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                        className="flex flex-col p-3 border rounded-lg hover:bg-muted/50"
                       >
-                        <div className="space-y-1">
+                        <div className="flex-1 min-w-0 space-y-1 pr-0 overflow-hidden">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold">{pet.name}</h4>
-                            <Badge variant="outline">{getRarityDisplay(pet.rarity)}</Badge>
-                            <Badge variant="secondary">{getElementDisplay(pet.element)}</Badge>
+                            <h4 className="font-semibold truncate" title={pet.name}>{pet.name}</h4>
+
                             {!pet.isActive && <Badge variant="destructive">Inactive</Badge>}
                           </div>
-                          <p className="text-sm text-muted-foreground">ID: {pet.petId}</p>
-                          <div className="flex gap-4 text-xs text-muted-foreground">
-                            <span>STR: {pet.baseStats.strength}</span>
-                            <span>INT: {pet.baseStats.intelligence}</span>
-                            <span>DEX: {pet.baseStats.dexterity}</span>
-                            <span>VIT: {pet.baseStats.vitality}</span>
-                            <span>LUK: {pet.baseStats.luck}</span>
+                          <p className="text-sm text-muted-foreground truncate">ID: {pet.petId}</p>
+                          <Badge variant="outline">{getRarityDisplay(pet.rarity)}</Badge>
+                          <Badge variant="secondary">{getElementDisplay(pet.element)}</Badge>
+                          <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+                            <span className="truncate">STR: {pet.baseStats.strength}</span>
+                            <span className="truncate">INT: {pet.baseStats.intelligence}</span>
+                            <span className="truncate">DEX: {pet.baseStats.dexterity}</span>
+                            <span className="truncate">VIT: {pet.baseStats.vitality}</span>
+                            <span className="truncate">LUK: {pet.baseStats.luck}</span>
                           </div>
                           {pet.images.length > 0 && (
-                            <p className="text-xs text-green-600">{pet.images.length} image(s) uploaded</p>
+                            <p className="text-xs text-green-600 truncate">{pet.images.length} image(s) uploaded</p>
                           )}
                         </div>
-                        <div className="flex gap-1">
+
+                        {/* Actions row: edit, upload, delete */}
+                        <div className="mt-3 flex gap-2">
                           <Button
                             size="sm"
                             variant="outline"
@@ -692,6 +695,7 @@ export default function AdminPets() {
                           >
                             <Edit2 className="h-3 w-3" />
                           </Button>
+
                           <Dialog>
                             <DialogTrigger asChild>
                               <Button size="sm" variant="outline">
@@ -715,8 +719,9 @@ export default function AdminPets() {
                               />
                             </DialogContent>
                           </Dialog>
-                          <Button 
-                            size="sm" 
+
+                          <Button
+                            size="sm"
                             variant="destructive"
                             onClick={() => {
                               if (confirm(`Are you sure you want to delete "${pet.name}"? This action cannot be undone.`)) {
@@ -813,7 +818,7 @@ export default function AdminPets() {
                 <p className="text-sm text-muted-foreground">
                   Để tạo trang bị pet, hãy chuyển sang tab <strong>Items</strong> và chọn loại trang bị pet tương ứng.
                 </p>
-                <Button 
+                <Button
                   onClick={() => {
                     // Switch to items tab - you may need to adjust this based on your routing
                     const itemsTab = document.querySelector('[value="items"]') as HTMLElement;
@@ -848,7 +853,7 @@ export default function AdminPets() {
                 </p>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Active Banners</CardTitle>
@@ -900,7 +905,7 @@ export default function AdminPets() {
                 {RARITIES.map((rarity) => {
                   const count = petDefinitions.filter(p => p.rarity === rarity.value).length;
                   const percentage = petDefinitions.length > 0 ? (count / petDefinitions.length) * 100 : 0;
-                  
+
                   return (
                     <div key={rarity.value} className="flex items-center gap-4">
                       <div className="w-24 text-sm">{rarity.label}</div>

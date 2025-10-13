@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,7 @@ export default function BannerDetailPage() {
   const [pulling, setPulling] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
   const [pullResults, setPullResults] = useState<PullResult[]>([]);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (bannerId) {
@@ -92,7 +94,7 @@ export default function BannerDetailPage() {
       setPullResults([result]);
       setShowAnimation(true);
       
-      // Reload history after pull
+  // Reload history after pull
       const historyData = await getPullHistory(20);
       const mappedHistory = historyData.map((item: any) => ({
         userPet: {
@@ -107,6 +109,9 @@ export default function BannerDetailPage() {
         isNew: false,
       }));
       setPullHistory(mappedHistory);
+  // Invalidate user pets so UI updates (counts, switch modal)
+  queryClient.invalidateQueries({ queryKey: ['user-pets'] });
+  queryClient.invalidateQueries({ queryKey: ['all-user-pets'] });
     } catch (error: any) {
       console.error('Failed to pull:', error);
       toast.error(error.response?.data?.message || 'Triệu hồi thất bại');
@@ -137,6 +142,9 @@ export default function BannerDetailPage() {
         isNew: false,
       }));
       setPullHistory(mappedHistory);
+    // Invalidate user pets so UI updates (counts, switch modal)
+    queryClient.invalidateQueries({ queryKey: ['user-pets'] });
+    queryClient.invalidateQueries({ queryKey: ['all-user-pets'] });
     } catch (error: any) {
       console.error('Failed to pull:', error);
       toast.error(error.response?.data?.message || 'Triệu hồi thất bại');
@@ -272,13 +280,26 @@ export default function BannerDetailPage() {
                     </Badge>
                   </Button>
 
-                  {banner.guaranteedRarity && banner.guaranteedPullCount && (
+                  {/* Show pity thresholds: prefer new multi-threshold config, fall back to legacy guaranteedRarity/guaranteedPullCount */}
+                  {((banner.pityThresholds && banner.pityThresholds.length > 0) || (banner.guaranteedRarity && banner.guaranteedPullCount)) && (
                     <div className="text-xs bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 rounded p-3 border border-yellow-500/20">
                       <p className="font-semibold mb-1">🎁 Đảm bảo may mắn</p>
-                      <p>
-                        Đảm bảo nhận {banner.guaranteedRarity}★ sau{' '}
-                        {banner.guaranteedPullCount} lượt
-                      </p>
+                      <div className="space-y-1">
+                        {banner.pityThresholds && banner.pityThresholds.length > 0 ? (
+                          // sort thresholds by rarity desc (show highest rarity first), then by pullCount asc
+                          [...banner.pityThresholds]
+                            .sort((a, b) => b.rarity - a.rarity || a.pullCount - b.pullCount)
+                            .map((t, i) => (
+                              <p key={i}>
+                                Đảm bảo nhận {t.rarity}★ sau {t.pullCount} lượt
+                              </p>
+                            ))
+                        ) : (
+                          <p>
+                            Đảm bảo nhận {banner.guaranteedRarity}★ sau {banner.guaranteedPullCount} lượt
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>

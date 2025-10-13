@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -295,12 +295,37 @@ function SwitchPetModal({ open, onOpenChange, currentPet }: SwitchPetModalProps)
   const [switching, setSwitching] = useState(false);
 
   // Fetch all user pets
-  const { data: allPets = [], isLoading } = useQuery({
-    queryKey: ['all-user-pets', authUser?.id],
-    queryFn: () => apiService.getUserPets(true),
+  const PAGE_SIZE = 24;
+  const [page, setPage] = useState(0);
+  const [elementFilter, setElementFilter] = useState<string | undefined>(undefined);
+  const [minRarityFilter, setMinRarityFilter] = useState<number | undefined>(undefined);
+  const [maxRarityFilter, setMaxRarityFilter] = useState<number | undefined>(undefined);
+  const [sortOption, setSortOption] = useState<'rarity_desc' | 'rarity_asc' | 'newest' | 'oldest' | undefined>(undefined);
+
+  const { data: allPets = [], isLoading } = useQuery<any[]>({
+    queryKey: ['all-user-pets', authUser?.id, page, elementFilter, minRarityFilter, maxRarityFilter, sortOption],
+    queryFn: () =>
+      apiService.getUserPets(true, PAGE_SIZE, page * PAGE_SIZE, {
+        element: elementFilter,
+        minRarity: minRarityFilter,
+        maxRarity: maxRarityFilter,
+        sort: sortOption,
+      }),
     enabled: !!authUser?.id && open,
   });
 
+  // Log pet count for debugging (helps check counts before/after multi-pulls)
+  useEffect(() => {
+    if (!open) return;
+    if (typeof window !== 'undefined') {
+      try {
+        const count = Array.isArray(allPets) ? allPets.length : 0;
+        console.log(`[SwitchPetModal] userId=${authUser?.id} allPetsCount=${count}`);
+      } catch {
+        // ignore logging errors
+      }
+    }
+  }, [open, authUser?.id, allPets]);
   const handleSwitchPet = async (petId: number) => {
     if (petId === currentPet.id) {
       toast.info('Pet này đã được chọn rồi!');
@@ -337,45 +362,124 @@ function SwitchPetModal({ open, onOpenChange, currentPet }: SwitchPetModalProps)
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {allPets.map((pet: PlayerPet) => (
-              <button
-                key={pet.id}
-                onClick={() => handleSwitchPet(pet.id)}
-                disabled={switching || pet.id === currentPet.id}
-                className={`relative p-3 rounded-lg border-2 transition-all ${pet.id === currentPet.id
+          <>
+            {/* Filters Row */}
+            <div className="mb-3 flex flex-wrap gap-2 items-center">
+              <select
+                value={elementFilter ?? ''}
+                onChange={(e) => { setPage(0); setElementFilter(e.target.value || undefined); }}
+                className="px-2 py-1 rounded border"
+                aria-label="Element filter"
+              >
+                <option value="">Tất cả hệ</option>
+                <option value="fire">Hỏa</option>
+                <option value="water">Thủy</option>
+                <option value="earth">Địa</option>
+                <option value="wind">Phong</option>
+                <option value="light">Ánh</option>
+                <option value="dark">Bóng</option>
+              </select>
+
+              <select
+                value={minRarityFilter ?? ''}
+                onChange={(e) => { setPage(0); setMinRarityFilter(e.target.value ? parseInt(e.target.value, 10) : undefined); }}
+                className="px-2 py-1 rounded border"
+                aria-label="Min rarity"
+              >
+                <option value="">Min sao</option>
+                <option value="1">1★</option>
+                <option value="2">2★</option>
+                <option value="3">3★</option>
+                <option value="4">4★</option>
+                <option value="5">5★</option>
+              </select>
+
+              <select
+                value={maxRarityFilter ?? ''}
+                onChange={(e) => { setPage(0); setMaxRarityFilter(e.target.value ? parseInt(e.target.value, 10) : undefined); }}
+                className="px-2 py-1 rounded border"
+                aria-label="Max rarity"
+              >
+                <option value="">Max sao</option>
+                <option value="1">1★</option>
+                <option value="2">2★</option>
+                <option value="3">3★</option>
+                <option value="4">4★</option>
+                <option value="5">5★</option>
+              </select>
+
+              <select
+                value={sortOption ?? ''}
+                onChange={(e) => { setPage(0); setSortOption(e.target.value ? (e.target.value as any) : undefined); }}
+                className="px-2 py-1 rounded border"
+                aria-label="Sort"
+              >
+                <option value="">Sắp xếp</option>
+                <option value="rarity_desc">Sao: Cao → Thấp</option>
+                <option value="rarity_asc">Sao: Thấp → Cao</option>
+                <option value="newest">Mới nhất</option>
+                <option value="oldest">Cũ nhất</option>
+              </select>
+
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  className="px-2 py-1 rounded border"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  Prev
+                </button>
+                <div className="px-2">Trang {page + 1}</div>
+                <button
+                  className="px-2 py-1 rounded border"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={Array.isArray(allPets) ? allPets.length < PAGE_SIZE : false}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {(allPets as any[]).map((pet: PlayerPet) => (
+                <button
+                  key={pet.id}
+                  onClick={() => handleSwitchPet(pet.id)}
+                  disabled={switching || pet.id === currentPet.id}
+                  className={`relative p-3 rounded-lg border-2 transition-all ${pet.id === currentPet.id
                     ? 'border-primary bg-primary/10 cursor-default'
                     : 'border-muted hover:border-primary cursor-pointer'
-                  } ${switching ? 'opacity-50' : ''}`}
-              >
-                <div className="aspect-square rounded-lg bg-muted/50 flex items-center justify-center mb-2 overflow-hidden p-2">
-                  {pet.imageUrl ? (
-                    <img
-                      src={resolveAssetUrl(pet.imageUrl)}
-                      alt={pet.name}
-                      className="max-w-full max-h-full object-contain"
-                    />
-                  ) : (
-                    <Shield className="h-12 w-12 text-muted-foreground opacity-50" />
+                    } ${switching ? 'opacity-50' : ''}`}
+                >
+                  <div className="aspect-square rounded-lg bg-muted/50 flex items-center justify-center mb-2 overflow-hidden p-2">
+                    {pet.imageUrl ? (
+                      <img
+                        src={resolveAssetUrl(pet.imageUrl)}
+                        alt={pet.name}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : (
+                      <Shield className="h-12 w-12 text-muted-foreground opacity-50" />
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-sm mb-1">{pet.name}</div>
+                    <div className="flex items-center justify-center gap-0.5 mb-1">
+                      {Array.from({ length: pet.rarity }).map((_, i) => (
+                        <Star key={i} className="h-2.5 w-2.5 fill-yellow-500 text-yellow-500" />
+                      ))}
+                    </div>
+                    <Badge variant="outline" className="text-xs">Lv.{pet.level}</Badge>
+                  </div>
+                  {pet.id === currentPet.id && (
+                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                      <Star className="h-3 w-3 fill-current" />
+                    </div>
                   )}
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-sm mb-1">{pet.name}</div>
-                  <div className="flex items-center justify-center gap-0.5 mb-1">
-                    {Array.from({ length: pet.rarity }).map((_, i) => (
-                      <Star key={i} className="h-2.5 w-2.5 fill-yellow-500 text-yellow-500" />
-                    ))}
-                  </div>
-                  <Badge variant="outline" className="text-xs">Lv.{pet.level}</Badge>
-                </div>
-                {pet.id === currentPet.id && (
-                  <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
-                    <Star className="h-3 w-3 fill-current" />
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

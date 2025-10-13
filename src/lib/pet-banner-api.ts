@@ -12,6 +12,8 @@ export interface PetBanner {
   bannerType: 'standard' | 'rate_up' | 'limited';
   bannerImage?: string;
   costPerPull: number;
+  // New: support multi-threshold pity configuration coming from backend
+  pityThresholds?: { rarity: number; pullCount: number }[];
   guaranteedRarity?: number;
   guaranteedPullCount?: number;
   featuredPets: number[]; // Pet definition IDs
@@ -102,8 +104,7 @@ export async function pullPet(bannerId: number): Promise<PullResult> {
  * Pull multiple pets from banner
  */
 export async function pullMultiplePets(
-  bannerId: number,
-  count: number = 10
+  bannerId: number
 ): Promise<MultiPullResult> {
   const response = await api.post(`/pets/banners/${bannerId}/pull-10`);
   return response.data;

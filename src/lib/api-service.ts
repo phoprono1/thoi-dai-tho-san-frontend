@@ -389,13 +389,23 @@ class ApiService {
 
   // Pet APIs
   async getUserPets(
-    includeInactive = false, 
-    limit?: number, 
-    offset?: number
+    includeInactive = false,
+    limit?: number,
+    offset?: number,
+    options?: {
+      element?: string;
+      minRarity?: number;
+      maxRarity?: number;
+      sort?: 'rarity_desc' | 'rarity_asc' | 'newest' | 'oldest';
+    },
   ): Promise<any[]> {
     let url = `/pets/my-pets?includeInactive=${includeInactive}`;
     if (limit) url += `&limit=${limit}`;
     if (offset) url += `&offset=${offset}`;
+    if (options?.element) url += `&element=${encodeURIComponent(options.element)}`;
+    if (options?.minRarity !== undefined) url += `&minRarity=${options.minRarity}`;
+    if (options?.maxRarity !== undefined) url += `&maxRarity=${options.maxRarity}`;
+    if (options?.sort) url += `&sort=${options.sort}`;
     return this.request<any[]>(url);
   }
 

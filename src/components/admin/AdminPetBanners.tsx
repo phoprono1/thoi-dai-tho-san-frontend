@@ -87,6 +87,7 @@ interface PetBanner {
     rarity4: number;
     rarity5: number;
   };
+  pityThresholds?: Array<{ rarity: number; pullCount: number }>;
   startDate: string;
   endDate: string;
   isActive: boolean;
@@ -128,6 +129,7 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
     costPerPull: 100,
     guaranteedRarity: 4,
     guaranteedPullCount: 10,
+  pityThresholds: [{ rarity: 4, pullCount: 10 }],
     featuredPets: [] as Array<{ petId: string; rateUpMultiplier: number }>,
     dropRates: {
       rarity1: 0.50,
@@ -160,18 +162,27 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
   };
 
   const handleCreateBanner = async () => {
+    const { valid, errors, normalized } = validateBannerForm();
+    if (!valid) {
+      toast.error(errors.join('; '));
+      return;
+    }
+
     try {
       setLoading(true);
-      
+
       // Convert local datetime to UTC ISO string for backend
       const bannerData = {
         ...bannerForm,
+        pityThresholds: (normalized && normalized.length > 0)
+          ? normalized
+          : [{ rarity: bannerForm.guaranteedRarity, pullCount: bannerForm.guaranteedPullCount }],
         startDate: new Date(bannerForm.startDate).toISOString(),
         endDate: new Date(bannerForm.endDate).toISOString(),
       };
-      
+
       await adminApiEndpoints.createPetBanner(bannerData);
-      
+
       toast.success('Banner created successfully');
       fetchBanners();
       resetForm();
@@ -185,19 +196,27 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
 
   const handleUpdateBanner = async () => {
     if (!editingBanner) return;
-    
+    const { valid, errors, normalized } = validateBannerForm();
+    if (!valid) {
+      toast.error(errors.join('; '));
+      return;
+    }
+
     try {
       setLoading(true);
-      
+
       // Convert local datetime to UTC ISO string for backend
       const bannerData = {
         ...bannerForm,
+        pityThresholds: (normalized && normalized.length > 0)
+          ? normalized
+          : [{ rarity: bannerForm.guaranteedRarity, pullCount: bannerForm.guaranteedPullCount }],
         startDate: new Date(bannerForm.startDate).toISOString(),
         endDate: new Date(bannerForm.endDate).toISOString(),
       };
-      
+
       await adminApiEndpoints.updatePetBanner(editingBanner.id, bannerData);
-      
+
       toast.success('Banner updated successfully');
       fetchBanners();
       setEditingBanner(null);
@@ -252,7 +271,8 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
       costPerPull: 100,
       guaranteedRarity: 4,
       guaranteedPullCount: 10,
-      featuredPets: [],
+  pityThresholds: [{ rarity: 4, pullCount: 10 }],
+  featuredPets: [],
       dropRates: {
         rarity1: 0.50,
         rarity2: 0.30,
@@ -317,6 +337,58 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
   };
 
   const totalDropRate = Object.values(bannerForm.dropRates).reduce((sum, rate) => sum + rate, 0);
+
+  // Helper: normalize, dedupe and sort pity thresholds before sending to backend
+  const normalizePityThresholds = (thresholds?: Array<{ rarity: number; pullCount: number }>) => {
+    if (!thresholds || thresholds.length === 0) return [];
+
+    // Map by rarity - keep smallest pullCount if duplicates provided
+    const map = new Map<number, number>();
+    thresholds.forEach(t => {
+      const pull = Math.max(1, Math.floor(t.pullCount || 1));
+      if (!map.has(t.rarity) || (map.get(t.rarity) || 0) > pull) {
+        map.set(t.rarity, pull);
+      }
+    });
+
+    const normalized = Array.from(map.entries()).map(([rarity, pullCount]) => ({ rarity, pullCount }));
+    // Sort by rarity asc (lower -> higher) so backend sees deterministic order
+    normalized.sort((a, b) => a.rarity - b.rarity);
+    return normalized;
+  };
+
+  // Validation for the form
+  const validateBannerForm = () => {
+    const errors: string[] = [];
+
+    if (!bannerForm.name || bannerForm.name.trim().length === 0) {
+      errors.push('Banner name is required');
+    }
+
+    if (totalDropRate !== 1) {
+      errors.push('Total drop rates must equal 100% (1.0)');
+    }
+
+    const normalized = normalizePityThresholds(bannerForm.pityThresholds);
+    // Check duplicates after normalization (map removed duplicates)
+    if (normalized.length === 0) {
+      // fallback to guaranteed fields is allowed but ensure guaranteedPullCount >= 1
+      if (!bannerForm.guaranteedPullCount || bannerForm.guaranteedPullCount < 1) {
+        errors.push('Guaranteed pull count must be at least 1');
+      }
+    } else {
+      for (const t of normalized) {
+        if (!t.pullCount || t.pullCount < 1) {
+          errors.push(`Pity threshold for ${t.rarity}⭐ must have pull count >= 1`);
+        }
+        if (!t.rarity || t.rarity < 1) {
+          errors.push('Pity threshold must specify a valid rarity');
+        }
+      }
+    }
+
+    return { valid: errors.length === 0, errors, normalized };
+  };
 
   return (
     <div className="space-y-6">
@@ -437,6 +509,74 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
                     onChange={(e) => setBannerForm({ ...bannerForm, guaranteedPullCount: parseInt(e.target.value) || 1 })}
                   />
                 </div>
+              </div>
+
+              <div className="mt-4">
+                <Label className="text-sm font-medium mb-2">Pity Thresholds</Label>
+                <div className="space-y-2">
+                  {(bannerForm.pityThresholds || []).map((t, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Select
+                        value={String(t.rarity)}
+                        onValueChange={(value) => {
+                          const updated = [...(bannerForm.pityThresholds || [])];
+                          updated[idx] = { ...updated[idx], rarity: parseInt(value) };
+                          setBannerForm({ ...bannerForm, pityThresholds: updated });
+                        }}
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RARITIES.map(r => (
+                            <SelectItem key={r.value} value={r.value.toString()}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Input
+                        type="number"
+                        className="w-32"
+                        value={t.pullCount}
+                        onChange={(e) => {
+                          const updated = [...(bannerForm.pityThresholds || [])];
+                          updated[idx] = { ...updated[idx], pullCount: parseInt(e.target.value) || 1 };
+                          setBannerForm({ ...bannerForm, pityThresholds: updated });
+                        }}
+                      />
+
+                      <Button size="sm" variant="destructive" onClick={() => {
+                        const updated = (bannerForm.pityThresholds || []).filter((_, i) => i !== idx);
+                        setBannerForm({ ...bannerForm, pityThresholds: updated });
+                      }}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const updated = [...(bannerForm.pityThresholds || []), { rarity: 4, pullCount: 10 }];
+                    setBannerForm({ ...bannerForm, pityThresholds: updated });
+                  }}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Threshold
+                  </Button>
+                </div>
+              </div>
+
+              {/* Inline validation summary for pity/drop rates */}
+              <div className="mt-2">
+                {(() => {
+                  const { valid, errors } = validateBannerForm();
+                  if (valid) return null;
+                  return (
+                    <div className="p-2 rounded border border-red-200 bg-red-50 text-sm text-red-700">
+                      <strong>Form issues:</strong>
+                      <ul className="list-disc ml-5 mt-1">
+                        {errors.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -583,7 +723,7 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
 
             <Button 
               onClick={editingBanner ? handleUpdateBanner : handleCreateBanner}
-              disabled={loading || !bannerForm.name || totalDropRate !== 1}
+              disabled={loading || !bannerForm.name || !validateBannerForm().valid}
               className="w-full"
             >
               {loading ? 'Processing...' : editingBanner ? 'Update Banner' : 'Create Banner'}
@@ -675,12 +815,18 @@ export default function AdminPetBanners({ petDefinitions }: AdminPetBannersProps
                                 costPerPull: banner.costPerPull,
                                 guaranteedRarity: banner.guaranteedRarity,
                                 guaranteedPullCount: banner.guaranteedPullCount,
-                                featuredPets: banner.featuredPets,
+                                                        featuredPets: banner.featuredPets,
                                 dropRates: banner.dropRates,
                                 startDate: formatForInput(banner.startDate),
                                 endDate: formatForInput(banner.endDate),
                                 isActive: banner.isActive,
                                 sortOrder: banner.sortOrder,
+                                                        // Use existing pityThresholds if present, otherwise create from legacy fields
+                                                        pityThresholds: normalizePityThresholds(
+                                                          banner.pityThresholds && banner.pityThresholds.length > 0
+                                                            ? banner.pityThresholds
+                                                            : [{ rarity: banner.guaranteedRarity, pullCount: banner.guaranteedPullCount }]
+                                                        ),
                               });
                             }}
                           >
