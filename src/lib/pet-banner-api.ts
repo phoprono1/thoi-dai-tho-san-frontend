@@ -104,9 +104,11 @@ export async function pullPet(bannerId: number): Promise<PullResult> {
  * Pull multiple pets from banner
  */
 export async function pullMultiplePets(
-  bannerId: number
+  bannerId: number,
+  count: number = 10
 ): Promise<MultiPullResult> {
-  const response = await api.post(`/pets/banners/${bannerId}/pull-10`);
+  // include count in the request body so the parameter is used (avoids unused-parameter errors)
+  const response = await api.post(`/pets/banners/${bannerId}/pull-10`, { count });
   return response.data;
 }
 
