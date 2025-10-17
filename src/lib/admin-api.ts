@@ -68,6 +68,9 @@ export const adminApiEndpoints = {
   updateItem: (id: number, data: any) => adminApi.put(`/items/${id}`, data),
   deleteItem: (id: number) => adminApi.delete(`/items/${id}`),
   uploadItemImage: (id: number, formData: FormData) => adminApi.post(`/uploads/items/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  // Story editor images
+  // Accept an optional axios config (e.g., onUploadProgress) to allow progress tracking
+  uploadStoryImage: (formData: FormData, config?: any) => adminApi.post('/uploads/story', formData, { headers: { 'Content-Type': 'multipart/form-data' }, ...(config || {}) }),
   exportItemsTemplate: () => adminApi.get('/admin/export/template/items', { responseType: 'blob' }),
   importItems: (formData: FormData) => adminApi.post('/admin/import/items', formData),
   exportItems: () => adminApi.get('/admin/export/items', { responseType: 'blob' }),
@@ -279,6 +282,25 @@ export const adminApiEndpoints = {
   createPetAbility: (data: any) => adminApi.post('/admin/pet-abilities', data),
   updatePetAbility: (id: number, data: any) => adminApi.patch(`/admin/pet-abilities/${id}`, data),
   deletePetAbility: (id: number) => adminApi.delete(`/admin/pet-abilities/${id}`),
+
+  // Story Events Management
+  getStoryEvents: () => adminApi.get('/story-events'),
+  getAllStoryEvents: () => adminApi.get('/story-events/admin/all'),
+  getStoryEvent: (id: number) => adminApi.get(`/story-events/${id}`),
+  createStoryEvent: (data: any) => adminApi.post('/story-events/admin', data),
+  updateStoryEvent: (id: number, data: any) => adminApi.put(`/story-events/admin/${id}`, data),
+  deleteStoryEvent: (id: number) => adminApi.delete(`/story-events/admin/${id}`),
+  hardDeleteStoryEvent: (id: number) => adminApi.delete(`/story-events/admin/${id}/hard`),
+  contributeStoryEventItem: (eventId: number, body: { userId: number; itemId: number; quantity?: number }) => adminApi.post(`/story-events/${eventId}/contribute-item`, body),
+  getStoryEventLeaderboard: (eventId: number, limit?: number, offset?: number) => adminApi.get(`/story-events/${eventId}/leaderboard`, { params: { limit, offset } }),
+  getStoryEventGlobalProgress: (eventId: number) => adminApi.get(`/story-events/${eventId}/global-progress`),
+  distributeStoryEventRewards: (eventId: number, spec: any) => adminApi.post(`/story-events/${eventId}/distribute`, spec),
 };
+
+// Convenience wrapper for uploads with progress
+export async function uploadStoryImage(formData: FormData, config?: any) {
+  const resp = await adminApiEndpoints.uploadStoryImage(formData, config);
+  return resp.data;
+}
 
 export default adminApi;

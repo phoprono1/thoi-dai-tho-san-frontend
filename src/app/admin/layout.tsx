@@ -73,6 +73,7 @@ const navigation = [
   { name: 'Character Classes', href: '/admin/character-classes', icon: UserCheck },
   { name: 'Combat Results', href: '/admin/combat', icon: Crosshair },
   { name: 'Quests', href: '/admin/quests', icon: Target },
+  { name: 'Story Events', href: '/admin/story-events', icon: Crown },
   { name: 'Guilds', href: '/admin/guilds', icon: Building },
   { name: 'Titles', href: '/admin/titles', icon: Crown },
   { name: 'PVP', href: '/admin/pvp', icon: Trophy },

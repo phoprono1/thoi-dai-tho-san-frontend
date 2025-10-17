@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/lib/api-service';
+import { storyEventsService, type LeaderboardRow } from '@/services/storyEvents';
 import { Dungeon, Item } from '@/types';
 
 // Local lightweight type for reward items which may be stored as objects
@@ -46,6 +47,9 @@ import { toast } from 'sonner';
 import { UserQuest, QuestStatus, UserItem, User } from '@/types';
 import useQuestStore from '@/stores/useQuestStore';
 import { useUserStatusStore } from '@/stores/user-status.store';
+import { sanitizeHtml } from '@/components/admin/story-events/sanitize';
+import { useCallback } from 'react';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 
 
 export default function QuestTab() {
@@ -292,7 +296,7 @@ export default function QuestTab() {
           <TabsTrigger value="main" className="truncate">Chính</TabsTrigger>
           <TabsTrigger value="side" className="truncate">Phụ</TabsTrigger>
           <TabsTrigger value="daily" className="truncate">Hàng ngày</TabsTrigger>
-          <TabsTrigger value="achievement" className="truncate">Thành tựu</TabsTrigger>
+          <TabsTrigger value="story" className="truncate">Cốt truyện</TabsTrigger>
         </TabsList>
 
         <div className="flex items-center justify-end mb-3 space-x-2">
@@ -389,6 +393,10 @@ export default function QuestTab() {
             />
           ))}
         </TabsContent>
+
+        <TabsContent value="story" className="space-y-3">
+          <StoryTab />
+        </TabsContent>
       </Tabs>
         {detailQuest && (
           <QuestDetailsModal
@@ -401,6 +409,850 @@ export default function QuestTab() {
         )}
       </div>
     );
+}
+
+function StoryTab() {
+  const [events, setEvents] = useState<Array<Record<string, unknown>> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
+  const [cinema, setCinema] = useState<Record<string, unknown> | null>(null);
+  const [progressMap, setProgressMap] = useState<Record<number, { completed: number; required?: number }> | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<Record<string, unknown> | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const resp = showHistory 
+        ? await apiService.getStoryEventsHistory()
+        : await apiService.getStoryEvents();
+      // filter visible events
+      const visible = Array.isArray(resp) ? resp.filter((e) => (e.visibilityMode || e.visibility) !== 'hidden') : [];
+      setEvents(visible);
+    } catch (err) {
+      console.error('Failed to load story events', err);
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [showHistory]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // load progress after events load
+  useEffect(() => {
+    if (!events || events.length === 0) return;
+    (async () => {
+      const map: Record<number, { completed: number; required?: number }> = {};
+      for (const e of events) {
+        const id = Number(e?.id || 0);
+        if (!id) continue;
+        try {
+          const p = await apiService.getStoryEventGlobalProgress(id);
+          // compute required total from requirements
+          const req = e['requirements'] as Record<string, unknown> | undefined;
+          const requiredDungeon = req && Array.isArray(req['completeDungeons'])
+            ? (req['completeDungeons'] as Array<Record<string, unknown>>).reduce((s: number, x) => s + (Number(x['count']) || 0), 0)
+            : 0;
+          const requiredEnemies = req && Array.isArray(req['killEnemies'])
+            ? (req['killEnemies'] as Array<Record<string, unknown>>).reduce((s: number, x) => s + (Number(x['count']) || 0), 0)
+            : 0;
+          const requiredItems = req && Array.isArray(req['collectItems'])
+            ? (req['collectItems'] as Array<Record<string, unknown>>).reduce((s: number, x) => s + (Number(x['quantity']) || 0), 0)
+            : 0;
+          const required = requiredDungeon + requiredEnemies + requiredItems || undefined;
+          const completed = Number(p.totalDungeonClears || 0) + Number(p.totalEnemyKills || 0) + Number(p.totalItemsContributed || 0);
+          map[id] = { completed, required };
+        } catch (err) {
+          console.error('progress fetch failed for event', id, err);
+          map[id] = { completed: 0 };
+        }
+      }
+      setProgressMap(map);
+    })();
+  }, [events]);
+
+  return (
+    <div>
+      {/* Toggle buttons for Active/History */}
+      <div className="flex space-x-2 mb-4">
+        <Button 
+          variant={!showHistory ? "default" : "outline"} 
+          onClick={() => setShowHistory(false)}
+          className="flex-1"
+        >
+          Đang diễn ra
+        </Button>
+        <Button 
+          variant={showHistory ? "default" : "outline"} 
+          onClick={() => setShowHistory(true)}
+          className="flex-1"
+        >
+          Lịch sử
+        </Button>
+      </div>
+
+      {loading && <div>Đang tải...</div>}
+      {!loading && (!events || events.length === 0) && <div className="text-sm text-gray-500">Hiện không có cốt truyện nào</div>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {events && events.map((ev) => {
+          const id = Number(ev?.id || 0);
+          const title = String(ev?.title || ev?.name || '');
+          const descRaw = String(ev?.descriptionHtml || ev?.description || '');
+          const short = descRaw.replace(/<[^>]+>/g, '').slice(0, 120);
+          const start = ev?.eventStart ? String(ev.eventStart) : null;
+          const prog = progressMap ? progressMap[id] : undefined;
+          const completed = prog ? prog.completed : 0;
+          const required = prog ? prog.required || 0 : 0;
+          const percent = required && required > 0 ? Math.min(100, Math.round((completed / required) * 100)) : 0;
+          return (
+            <Card key={id}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+                    <CardDescription className="text-xs text-gray-500">{short}</CardDescription>
+                  </div>
+                  <div className="text-sm text-gray-400">{start ? new Date(start).toLocaleDateString() : '—'}</div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-3">
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span>Tiến độ cộng đồng</span>
+                    <span className="text-xs text-gray-500">{required ? `${completed}/${required}` : `${completed}`}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div className="bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-400 h-3 transition-all" style={{ width: `${percent}%` }} />
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button variant="outline" onClick={() => setDetail(ev)}>Chi tiết</Button>
+                  <Button variant="outline" onClick={() => setLeaderboard(ev)}>Bảng xếp hạng</Button>
+                  <Button onClick={() => setCinema(ev)}>Xem cốt truyện</Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {selected && <StoryViewer ev={selected} onClose={() => setSelected(null)} />}
+      {detail && <StoryDetailModal ev={detail} onClose={() => setDetail(null)} />}
+      {cinema && <CinematicModal ev={cinema} onClose={() => setCinema(null)} />}
+      {leaderboard && <StoryLeaderboardModal ev={leaderboard} onClose={() => setLeaderboard(null)} />}
+    </div>
+  );
+}
+
+  // Story detail modal: shows descriptionHtml, requirements, rewards
+function StoryDetailModal({ ev, onClose }: { ev: Record<string, unknown> | null; onClose: () => void }) {
+  // compute id even if ev is null so hooks can be called reliably
+  const id = ev ? Number(ev['id'] || 0) || undefined : undefined;
+
+
+  // Fetch catalogs so we can resolve names for itemId/dungeonId
+  const { data: itemsData = [] } = useQuery<Item[]>({
+    queryKey: ['story-items'],
+    queryFn: async () => {
+      try {
+        return await apiService.getItems();
+      } catch (err) {
+        console.error('Failed to load items for story detail', err);
+        return [] as Item[];
+      }
+    },
+    enabled: true,
+  });
+
+  const { data: dungeonsData = [] } = useQuery<Dungeon[]>({
+    queryKey: ['story-dungeons'],
+    queryFn: async () => {
+      try {
+        return await apiService.getDungeons();
+      } catch (err) {
+        console.error('Failed to load dungeons for story detail', err);
+        return [] as Dungeon[];
+      }
+    },
+    enabled: true,
+  });
+
+  // The public API provides only aggregated totals for the event; use that as a community-level "current" value.
+  const { data: globalProg } = useQuery({
+    queryKey: ['story-event-global-progress', id],
+    queryFn: async () => {
+      if (!id) return null;
+      try {
+        return await apiService.getStoryEventGlobalProgress(id);
+      } catch (err) {
+        console.error('Failed to load story event global progress', err);
+        return null;
+      }
+    },
+    enabled: !!id,
+  });
+
+  // Hooks and helpers must be declared before any early return to preserve hook order
+  const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+
+  // helper lookups
+  const findItemName = (itemId?: number) => {
+    if (!itemId && itemId !== 0) return `#${itemId ?? ''}`;
+    const it = itemsData.find((x) => Number(x.id) === Number(itemId));
+    return it ? String(it.name || `Item #${itemId}`) : `Item #${itemId}`;
+  };
+  const findDungeonName = (dungeonId?: number) => {
+    if (!dungeonId && dungeonId !== 0) return `#${dungeonId ?? ''}`;
+    const d = dungeonsData.find((x) => Number(x.id) === Number(dungeonId));
+    return d ? String(d.name || `Dungeon #${dungeonId}`) : `Dungeon #${dungeonId}`;
+  };
+
+  // Contribution state and mutation (per-item contributions)
+  const [contribQtyByItem, setContribQtyByItem] = useState<Record<number, number>>({});
+
+  const contributeMutation = useMutation<
+    unknown,
+    unknown,
+    { eventId: number; itemId: number; quantity: number; userId?: number },
+    unknown
+  >({
+    mutationFn: async ({ eventId, itemId, quantity, userId }: { eventId: number; itemId: number; quantity: number; userId?: number }) => {
+      return apiService.contributeToStoryEvent(eventId, { itemId, quantity, userId });
+    },
+    onSuccess: async () => {
+      // refresh the global progress for this event (use object form to satisfy types)
+      if (id) await queryClient.invalidateQueries({ queryKey: ['story-event-global-progress', id] });
+      toast.success('Đã cống hiến. Cảm ơn bạn!');
+    },
+    onError: (err: unknown) => {
+      console.error('Contribute failed', err);
+      const msg = err instanceof Error ? err.message : String(err ?? 'Không thể cống hiến');
+      toast.error(msg);
+    },
+  });
+
+  if (!ev) return null;
+
+  const title = String(ev['title'] || ev['name'] || '');
+  const desc = sanitizeHtml(String(ev['descriptionHtml'] || ev['description'] || ''));
+
+  // Process HTML to add target="_blank" and rel for external links
+  const processHtml = (html: string) => {
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    // Find all links and add target="_blank" and rel attributes
+    const links = tempDiv.querySelectorAll('a');
+    links.forEach(link => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+    });
+
+    return tempDiv.innerHTML;
+  };
+
+  const processedDesc = processHtml(desc);
+  const req = ev['requirements'] as Record<string, unknown> | undefined;
+  const rewards = ev['rewardConfig'] as Record<string, unknown> | undefined;
+
+  
+
+  return (
+    <div className="fixed inset-0 bg-[rgba(0,0,0,0.6)] z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-[var(--card)] text-[var(--card-foreground)] max-w-2xl w-full p-6 rounded" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">{title}</h3>
+          <button onClick={onClose} className="text-sm">✕</button>
+        </div>
+
+        <div className="tiptap max-h-[40vh] overflow-auto mb-4" dangerouslySetInnerHTML={{ __html: processedDesc }} />
+
+        <div className="mb-4">
+          <h4 className="font-medium">Yêu cầu</h4>
+          <div className="text-sm text-gray-700 space-y-1">
+            {req?.defeatBoss ? <div>- Đánh bại boss</div> : null}
+
+            {Array.isArray(req?.killEnemies) && (req?.killEnemies as Array<{ enemyType?: string; count?: number }>).length > 0 && (
+              <div>
+                {(req?.killEnemies as Array<{ enemyType?: string; count?: number }>).map((k, i) => {
+                  const required = Number(k.count || 0);
+                  const community = globalProg ? Number(globalProg.totalEnemyKills || 0) : undefined;
+                  return (
+                    <div key={i}>- Tiêu diệt {String(k.enemyType || 'enemy')}: {required} {community != null ? (<span className="text-xs text-gray-500">(Cộng đồng: {community})</span>) : null}</div>
+                  );
+                })}
+              </div>
+            )}
+
+            {Array.isArray(req?.collectItems) && (req?.collectItems as Array<{ itemId?: number; quantity?: number }>).length > 0 && (
+              <div className="space-y-2">
+                {(req?.collectItems as Array<{ itemId?: number; quantity?: number }>).map((it, i) => {
+                  const required = Number(it.quantity || 0);
+                  const itemIdNum = Number(it.itemId || 0);
+                  const name = findItemName(itemIdNum);
+                  const community = globalProg ? Number(globalProg.totalItemsContributed || 0) : undefined;
+                  const inputVal = contribQtyByItem[itemIdNum] ?? 1;
+                  const isEventActive = Boolean(ev?.isActive);
+                  
+                  return (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="text-sm text-gray-700">- Thu thập <span className="font-medium">{name}</span>: {required} {community != null ? (<span className="text-xs text-gray-500">(Cộng đồng: {community})</span>) : null}</div>
+                      {isEventActive ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={required}
+                            value={inputVal}
+                            onChange={(e) => {
+                              const v = Math.max(1, Number(e.target.value) || 1);
+                              setContribQtyByItem((prev) => ({ ...prev, [itemIdNum]: Math.min(v, required) }));
+                            }}
+                            className="w-20 text-sm px-2 py-1 border rounded bg-white text-black"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={contributeMutation.status === 'pending' || !id || !authUser?.id}
+                            onClick={() => {
+                              const qty = contribQtyByItem[itemIdNum] ?? 1;
+                              if (!id || !authUser?.id) return;
+                              contributeMutation.mutate({ eventId: id, itemId: itemIdNum, quantity: qty, userId: authUser.id });
+                            }}
+                          >Cống hiến</Button>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500 italic">Event đã kết thúc</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {Array.isArray(req?.completeDungeons) && (req?.completeDungeons as Array<{ dungeonId?: number; count?: number }>).length > 0 && (
+              <div>
+                {(req?.completeDungeons as Array<{ dungeonId?: number; count?: number }>).map((d, i) => {
+                  const required = Number(d.count || 0);
+                  const name = findDungeonName(Number(d.dungeonId));
+                  const community = globalProg ? Number(globalProg.totalDungeonClears || 0) : undefined;
+                  return (
+                    <div key={i}>- Hoàn thành {name}: {required} {community != null ? (<span className="text-xs text-gray-500">(Cộng đồng: {community})</span>) : null}</div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!req && <div className="text-sm text-gray-500">Không có yêu cầu đặc biệt</div>}
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-medium">Phần thưởng</h4>
+          <div className="text-sm text-gray-700">
+            {rewards?.gold ? <div>- Vàng: {String(rewards.gold)}</div> : null}
+            {Array.isArray(rewards?.itemPools) && (rewards?.itemPools as Array<{ itemId?: number; qty?: number }>).map((it, i) => {
+              const name = findItemName(Number(it.itemId));
+              return <div key={i}>- Vật phẩm {name}: {it.qty || ''}</div>;
+            })}
+            {!rewards && <div className="text-sm text-gray-500">Không có phần thưởng</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Parse contentHtml into segments: headings (H1/H2/H3 + following content until next H1/2/3 or image), image blocks, paragraphs
+function parseContentToSegments(html: string): Array<{ type: 'heading' | 'paragraph' | 'image'; level?: number; title?: string; contentHtml?: string; src?: string }> {
+  const container = document.createElement('div');
+  container.innerHTML = html || '';
+  const segments: Array<{ type: 'heading' | 'paragraph' | 'image'; level?: number; title?: string; contentHtml?: string; src?: string }> = [];
+  // Use element children traversal to avoid text-node noise and ensure order
+  const elems = Array.from(container.children) as HTMLElement[];
+  for (let i = 0; i < elems.length; i++) {
+    const el = elems[i];
+    if (/^H[123]$/.test(el.tagName)) {
+      const level = Number(el.tagName.charAt(1));
+      const title = el.textContent || '';
+      // gather following sibling elements until next H1/2/3 or IMG
+      const buffer: string[] = [];
+      let j = i + 1;
+      while (j < elems.length) {
+        const e2 = elems[j];
+        if (/^H[123]$/.test(e2.tagName) || e2.tagName === 'IMG') break;
+        buffer.push(e2.outerHTML || e2.textContent || '');
+        j++;
+      }
+      segments.push({ type: 'heading', level, title, contentHtml: buffer.join('') });
+      // continue from the element before j (the loop will increment i)
+      i = j - 1;
+      continue;
+    }
+    if (el.tagName === 'IMG') {
+      const imgEl = el as HTMLImageElement;
+      segments.push({ type: 'image', src: imgEl.src, contentHtml: imgEl.alt || '' });
+      continue;
+    }
+    // fallback: paragraph or other block
+    segments.push({ type: 'paragraph', contentHtml: el.outerHTML });
+  }
+  return segments;
+}
+
+function CinematicModal({ ev, onClose }: { ev: Record<string, unknown> | null; onClose: () => void }) {
+  // Compute html even if ev is null so hooks can be called in stable order
+  const html = String(ev ? (ev['contentHtml'] || ev['descriptionHtml'] || '') : '');
+
+  // Process HTML to add target="_blank" and rel for external links
+  const processHtml = (html: string) => {
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    // Find all links and add target="_blank" and rel attributes
+    const links = tempDiv.querySelectorAll('a');
+    links.forEach(link => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+    });
+
+    return tempDiv.innerHTML;
+  };
+
+  // Hooks must be at top-level and called in the same order
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(true); // autoplay by default
+  const [visible, setVisible] = useState(false); // for entry animation
+
+  const segments = useMemo(() => parseContentToSegments(html) as Array<{ type: 'heading' | 'paragraph' | 'image'; level?: number; title?: string; contentHtml?: string; src?: string }>, [html]);
+
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  // modal container ref used for focusing and focus-trap
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  // remember previously focused element to return focus on close
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+  // live region ref for announcements
+  const liveRef = useRef<HTMLDivElement | null>(null);
+  // progress timer ref for pause/resume handling
+  const progressStartRef = useRef<number | null>(null);
+  const remainingMsRef = useRef<number | null>(null);
+  // touch swipe state
+  const touchStartX = useRef<number | null>(null);
+
+  const getDurationForSegment = (s: { type?: string; level?: number } | null) => {
+    if (!s) return 3500;
+    if (s.type === 'image') return 4500;
+    if (s.type === 'heading') {
+      // headings get longer if H1
+      return s.level === 1 ? 4800 : s.level === 2 ? 3800 : 3200;
+    }
+    return 3000; // paragraph
+  };
+
+  // animate visible on each new segment
+  useEffect(() => {
+    setVisible(false);
+    const enter = window.setTimeout(() => setVisible(true), 40);
+    return () => window.clearTimeout(enter);
+  }, [index, segments.length]);
+
+  // staggered reveal for inner content elements
+  useEffect(() => {
+    if (!visible || !contentRef.current) return;
+    const parent = contentRef.current;
+    const elems = Array.from(parent.querySelectorAll('p, li, h2, h3, blockquote')) as HTMLElement[];
+    const timeouts: number[] = [];
+    elems.forEach((el, i) => {
+      // set initial state
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(8px)';
+      el.style.transition = 'opacity 420ms ease, transform 420ms ease';
+      const t = window.setTimeout(() => {
+        el.style.opacity = '1';
+        el.style.transform = 'translateY(0)';
+      }, i * 120 + 80);
+      timeouts.push(t);
+    });
+    return () => {
+      timeouts.forEach((t) => window.clearTimeout(t));
+      // reset styles
+      elems.forEach((el) => {
+        el.style.opacity = '';
+        el.style.transform = '';
+        el.style.transition = '';
+      });
+    };
+  }, [visible, index, segments.length]);
+
+  useEffect(() => {
+    // Removed simple duplicate autoplay timer — progress timer effect below handles timing
+  }, [playing, index, segments, segments.length]);
+
+  // Focus the modal on mount and trap focus / handle keyboard controls
+  useEffect(() => {
+    const node = modalRef.current;
+    // save previously focused element
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    if (node) {
+      node.tabIndex = -1;
+      node.focus();
+    }
+
+  const handleKey = (e: KeyboardEvent) => {
+      // Escape closes
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      // Left / Right navigation
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setPlaying(false);
+        remainingMsRef.current = null;
+        progressStartRef.current = null;
+        setIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setPlaying(false);
+        remainingMsRef.current = null;
+        progressStartRef.current = null;
+        setIndex((i) => Math.min(segments.length - 1, i + 1));
+        return;
+      }
+
+      // Space toggles play/pause (prevent page scroll)
+      if (e.code === 'Space' || e.key === ' ') {
+        // only toggle when focus is inside modal
+        if (!modalRef.current || !modalRef.current.contains(document.activeElement)) return;
+        e.preventDefault();
+        setPlaying((p) => !p);
+        return;
+      }
+
+      // Focus trap: handle Tab navigation within modal
+      if (e.key === 'Tab') {
+        const root = modalRef.current;
+        if (!root) return;
+        const focusable = Array.from(root.querySelectorAll<HTMLElement>(
+          'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
+        )).filter((el) => !el.hasAttribute('disabled'));
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+        const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+        let nextIndex = currentIndex;
+        if (e.shiftKey) nextIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+        else nextIndex = currentIndex === focusable.length - 1 ? 0 : currentIndex + 1;
+        e.preventDefault();
+        focusable[nextIndex].focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      // return focus to previously focused element
+      try {
+        previouslyFocused.current?.focus();
+      } catch {
+        // ignore
+      }
+    };
+  }, [onClose, segments.length]);
+
+  // Announce active segment for screen readers with richer descriptions
+  useEffect(() => {
+    if (!liveRef.current) return;
+    const seg = segments[index];
+    if (!seg) {
+      liveRef.current.textContent = '';
+      return;
+    }
+    let announcement = `${index + 1} trên ${segments.length}. `;
+    if (seg.type === 'heading') {
+      const title = String(seg.title || '').trim();
+      announcement += title ? `Tiêu đề: ${title}.` : 'Tiêu đề.';
+    } else if (seg.type === 'image') {
+      const alt = String(seg.contentHtml || '').trim();
+      announcement += alt ? `Hình ảnh: ${alt}.` : 'Hình ảnh.';
+    } else if (seg.type === 'paragraph') {
+      // read a short preview of the paragraph (first 80 chars)
+      const text = (seg.contentHtml || '').replace(/<[^>]+>/g, '').trim();
+      const preview = text.length > 80 ? text.slice(0, 77) + '...' : text;
+      announcement += preview ? `Đoạn văn: ${preview}` : 'Đoạn văn.';
+    }
+    liveRef.current.textContent = announcement;
+  }, [index, segments]);
+
+  // Touch handlers for swipe navigation (mobile)
+  useEffect(() => {
+    const root = modalRef.current;
+    if (!root) return;
+    const onTouchStart: EventListener = (ev) => {
+      const t = (ev as TouchEvent).touches?.[0];
+      touchStartX.current = t ? t.clientX : null;
+    };
+    const onTouchEnd: EventListener = (ev) => {
+      const start = touchStartX.current;
+      const end = (ev as TouchEvent).changedTouches?.[0]?.clientX ?? null;
+      if (start == null || end == null) return;
+      const delta = end - start;
+      if (Math.abs(delta) < 40) return; // ignore small moves
+      if (delta > 0) { // swipe right -> prev
+        setPlaying(false);
+        remainingMsRef.current = null;
+        progressStartRef.current = null;
+        setIndex((i) => Math.max(0, i - 1));
+      } else { // swipe left -> next
+        setPlaying(false);
+        remainingMsRef.current = null;
+        progressStartRef.current = null;
+        setIndex((i) => Math.min(segments.length - 1, i + 1));
+      }
+      touchStartX.current = null;
+    };
+    root.addEventListener('touchstart', onTouchStart, { passive: true });
+    root.addEventListener('touchend', onTouchEnd as EventListener);
+    return () => {
+      root.removeEventListener('touchstart', onTouchStart as EventListener);
+      root.removeEventListener('touchend', onTouchEnd as EventListener);
+    };
+  }, [segments.length]);
+
+  // progress timer management: start timer when playing and clear on pause/slide change
+  useEffect(() => {
+    if (!playing) {
+      // compute remaining
+      if (progressStartRef.current != null) {
+        const elapsed = Date.now() - progressStartRef.current;
+        const duration = getDurationForSegment(segments[index]) || 3000;
+        remainingMsRef.current = Math.max(0, duration - elapsed);
+      }
+      return;
+    }
+    const duration = remainingMsRef.current ?? (getDurationForSegment(segments[index]) || 3000);
+    progressStartRef.current = Date.now();
+    const t = window.setTimeout(() => {
+      setIndex((i) => Math.min(segments.length - 1, i + 1));
+      remainingMsRef.current = null;
+    }, duration);
+    return () => {
+      window.clearTimeout(t);
+      // leave remainingMsRef as-is for resume
+    };
+  }, [playing, index, segments]);
+
+  const seg = segments[index] || null;
+  const rawHtml = seg?.contentHtml ? String(seg.contentHtml) : '';
+  const processedRawHtml = processHtml(rawHtml);
+  const safeHtml = processedRawHtml ? sanitizeHtml(processedRawHtml) : '';
+
+  return (
+    <div className="fixed inset-0 bg-[rgba(0,0,0,0.95)] z-50 flex items-center justify-center" onClick={onClose}>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={String(ev?.title || ev?.name || 'Cốt truyện')}
+        className="bg-black text-white max-w-4xl w-full p-6 rounded shadow-2xl outline-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4">
+          <div className="text-sm text-gray-400">{ev ? String(ev['title'] || '') : ''}</div>
+        </div>
+        <div className="min-h-[240px] flex items-center justify-center relative">
+          {/* play overlay */}
+          {!playing && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-black/40 rounded-full p-4 pointer-events-auto">
+                <div className="text-2xl font-bold">Paused</div>
+              </div>
+            </div>
+          )}
+
+          <div ref={contentRef} role="document" className={`w-full transition-opacity duration-600 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="relative">
+              {seg?.type === 'image' ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={String(seg.src)} alt="story" className="mx-auto max-h-[60vh] object-contain rounded" />
+              ) : seg?.type === 'heading' ? (
+                <div className="text-center px-4">
+                  <h1 className={`mb-4 ${seg.level === 1 ? 'text-5xl' : seg.level === 2 ? 'text-4xl' : 'text-3xl'} font-extrabold leading-tight`}>{String(seg.title)}</h1>
+                  <div className="tiptap text-white mx-auto max-w-3xl" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+                </div>
+              ) : (
+                <div className="tiptap text-white mx-auto max-w-3xl px-4" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* per-segment progress bar */}
+        <div className="h-2 bg-white/10 rounded mt-4 overflow-hidden">
+          <div
+            className="bg-gradient-to-r from-indigo-500 via-pink-500 to-yellow-400 h-2 transition-all"
+            style={{ width: `${((index + (playing ? 0.5 : 0)) / Math.max(1, segments.length)) * 100}%` }}
+            aria-hidden
+          />
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Button onClick={() => { setPlaying(false); remainingMsRef.current = null; progressStartRef.current = null; setIndex((i)=> Math.max(0, i-1)); }}>Prev</Button>
+            <Button onClick={() => { setPlaying(false); remainingMsRef.current = null; progressStartRef.current = null; setIndex((i)=> Math.min(segments.length-1, i+1)); }}>Next</Button>
+            <Button variant="outline" onClick={() => setPlaying((p) => !p)} aria-pressed={!playing}>{playing ? 'Pause' : 'Play'}</Button>
+            <Button variant="ghost" onClick={() => { remainingMsRef.current = null; progressStartRef.current = null; setIndex(0); setPlaying(true); }}>Restart</Button>
+          </div>
+          <div className="text-sm text-gray-300">{index+1}/{segments.length}</div>
+        </div>
+        {/* ARIA live region for SR announcements */}
+        <div ref={liveRef} className="sr-only" aria-live="polite" aria-atomic="true" />
+      </div>
+    </div>
+  );
+}
+
+function StoryLeaderboardModal({ ev, onClose }: { ev: Record<string, unknown> | null; onClose: () => void }) {
+  const id = ev ? Number(ev['id'] || 0) : undefined;
+
+  // Fetch leaderboard data for this story event
+  const { data: leaderboardData, isLoading, error } = useQuery({
+    queryKey: ['story-leaderboard', id],
+    queryFn: async () => {
+      if (!id) return null;
+      try {
+        return await storyEventsService.leaderboard(id);
+      } catch (err) {
+        console.error('Failed to load story leaderboard', err);
+        return null;
+      }
+    },
+    enabled: !!id,
+  });
+
+  if (!ev) return null;
+
+  const title = String(ev['title'] || ev['name'] || '');
+
+  return (
+    <div className="fixed inset-0 bg-[rgba(0,0,0,0.6)] z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-[var(--card)] text-[var(--card-foreground)] max-w-4xl w-full p-6 rounded max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Bảng xếp hạng - {title}</h3>
+          <button onClick={onClose} className="text-sm">✕</button>
+        </div>
+
+        <div className="overflow-auto max-h-[60vh]">
+          {isLoading && <div className="text-center py-8">Đang tải...</div>}
+
+          {error && (
+            <div className="text-center py-8 text-red-500">
+              Không thể tải bảng xếp hạng
+            </div>
+          )}
+
+          {!isLoading && !error && leaderboardData && Array.isArray(leaderboardData) && leaderboardData.length > 0 && (
+            <div className="space-y-2">
+              {leaderboardData.map((entry: LeaderboardRow, index: number) => {
+                const rank = index + 1;
+                const username = String(entry.username || entry.userName || 'Unknown');
+                const score = Number(entry.score || entry.totalContribution || 0);
+                const contributions = entry.contributions || {};
+
+                return (
+                  <Card key={entry.userId || index} className={`p-4 ${rank <= 3 ? 'border-yellow-300 bg-yellow-50' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                          rank === 1 ? 'bg-yellow-400 text-black' :
+                          rank === 2 ? 'bg-gray-300 text-black' :
+                          rank === 3 ? 'bg-orange-400 text-black' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {rank}
+                        </div>
+                        <div>
+                          <div className="font-medium">{username}</div>
+                          <div className="text-sm text-gray-500">
+                            {Object.keys(contributions).length > 0 ? (
+                              Object.entries(contributions).map(([key, value]: [string, unknown]) => (
+                                <span key={key} className="mr-2">
+                                  {key}: {Number(value || 0)}
+                                </span>
+                              ))
+                            ) : (
+                              'Chưa có đóng góp'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-lg">{score.toLocaleString()}</div>
+                        <div className="text-sm text-gray-500">điểm</div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {!isLoading && !error && (!leaderboardData || !Array.isArray(leaderboardData) || leaderboardData.length === 0) && (
+            <div className="text-center py-8 text-gray-500">
+              Chưa có dữ liệu bảng xếp hạng
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StoryViewer({ ev, onClose }: { ev: Record<string, unknown> | null; onClose: () => void }) {
+  if (!ev) return null;
+
+  // Process HTML to add target="_blank" and rel for external links
+  const processHtml = (html: string) => {
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    // Find all links and add target="_blank" and rel attributes
+    const links = tempDiv.querySelectorAll('a');
+    links.forEach(link => {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+    });
+
+    return tempDiv.innerHTML;
+  };
+
+  // Sanitize and process contentHtml
+  const rawHtml = String(ev['contentHtml'] || ev['descriptionHtml'] || ev['description'] || '');
+  const safe = sanitizeHtml(rawHtml);
+  const processedHtml = processHtml(safe);
+
+  return (
+    <div className="fixed inset-0 bg-[rgba(0,0,0,0.6)] z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-[var(--card)] text-[var(--card-foreground)] max-w-3xl w-full p-6 rounded" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">{String(ev['title'] || ev['name'] || '')}</h3>
+          <button onClick={onClose} className="text-sm">✕</button>
+        </div>
+        <div className="tiptap max-h-[60vh] overflow-auto" dangerouslySetInnerHTML={{ __html: processedHtml }} />
+      </div>
+    </div>
+  );
 }
 
 interface QuestCardProps {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   User,
   UserTotalCoreAttributes,
@@ -385,6 +386,29 @@ class ApiService {
   // Item APIs (catalog)
   async getItems(): Promise<Item[]> {
     return this.request<Item[]>('/items');
+  }
+
+  // Story Events (public list for players)
+  async getStoryEvents(): Promise<any[]> {
+    return this.request<any[]>('/story-events');
+  }
+
+  async getStoryEventsHistory(): Promise<any[]> {
+    return this.request<any[]>('/story-events/history');
+  }
+
+  async getStoryEventGlobalProgress(eventId: number): Promise<{ totalDungeonClears: number; totalEnemyKills: number; totalItemsContributed: number }> {
+    return this.request<{ totalDungeonClears: number; totalEnemyKills: number; totalItemsContributed: number }>(`/story-events/${eventId}/global-progress`);
+  }
+
+  // Player contribution to story event: contribute an item (authenticated)
+  // Backend route: POST /story-events/:eventId/contribute-item
+  // Body: { userId?: number; itemId: number; quantity?: number }
+  async contributeToStoryEvent(eventId: number, body: { userId?: number; itemId: number; quantity?: number }) {
+    return this.request(`/story-events/${eventId}/contribute-item`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   // Pet APIs
