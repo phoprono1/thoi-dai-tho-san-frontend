@@ -39,7 +39,10 @@ export class DirectApiClient {
       headers?: Record<string, string>;
     }
   ): Promise<T> {
-    const url = `${this.baseUrl}/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    // Check if baseUrl already ends with /api to avoid duplicate /api
+    const baseHasApi = this.baseUrl.endsWith('/api');
+    const apiPrefix = baseHasApi ? '' : '/api';
+    const url = `${this.baseUrl}${apiPrefix}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
     const headers = {
       ...this.getAuthHeaders(),

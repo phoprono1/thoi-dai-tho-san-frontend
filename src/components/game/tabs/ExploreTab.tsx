@@ -181,15 +181,7 @@ export default function ExploreTab() {
           </DialogContent>
         </Dialog>
 
-        {/* Placeholder for more activities */}
-        <Button
-          variant="outline"
-          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 hover:border-gray-300"
-          disabled
-        >
-          <Zap className="h-8 w-8 text-gray-400" />
-          <span className="font-medium text-gray-400">Sắp có</span>
-        </Button>
+
 
         {/* Khu Giải Trí (Entertainment Area) */}
         <Button
@@ -199,6 +191,15 @@ export default function ExploreTab() {
         >
           <Play className="h-8 w-8 text-pink-600" />
           <span className="font-medium">Khu Giải Trí</span>
+        </Button>
+        {/* Placeholder for more activities */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 hover:border-gray-300"
+          disabled
+        >
+          <Zap className="h-8 w-8 text-gray-400" />
+          <span className="font-medium text-gray-400">Sắp có</span>
         </Button>
       </div>
     </div>
