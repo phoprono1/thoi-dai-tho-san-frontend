@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { adminApiEndpoints } from '@/lib/admin-api';
 import { toast } from 'sonner';
+import { resolveAssetUrl } from '@/lib/asset';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,23 +25,30 @@ export default function AdminMarket() {
   const [itemId, setItemId] = useState<number>(0);
   const [price, setPrice] = useState<number>(0);
   const [quantity, setQuantity] = useState<number>(1);
-  interface ItemFull {
-    id: number;
-    name?: string;
-    rarity?: number;
-    price?: number;
-    type?: string;
-    consumableType?: string;
-    consumableValue?: number;
-    duration?: number;
-    stats?: { [k: string]: number };
-  }
-
-  const [items, setItems] = useState<ItemFull[]>([]);
+interface ItemFull {
+  id: number;
+  name?: string;
+  rarity?: number;
+  price?: number;
+  type?: string;
+  consumableType?: string;
+  consumableValue?: number;
+  duration?: number;
+  stats?: { [k: string]: number };
+  imageUrl?: string;
+}  const [items, setItems] = useState<ItemFull[]>([]);
   const [query, setQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const selectedItem = useMemo(() => items.find((it) => it.id === itemId) || null, [items, itemId]);
   const getItemName = (id: number) => items.find((it) => it.id === id)?.name || `Item ${id}`;
+
+  const itemById = useMemo(() => {
+    const m = new Map<number, ItemFull>();
+    items.forEach((it) => m.set(it.id, it));
+    return m;
+  }, [items]);
+
+  const getItemInfo = (id: number) => itemById.get(id);
 
   const { data: shopItems, refetch } = useQuery({
     queryKey: ['adminShopItems'],
@@ -127,6 +135,7 @@ export default function AdminMarket() {
             consumableValue: typeof o['consumableValue'] === 'number' ? (o['consumableValue'] as number) : undefined,
             duration: typeof o['duration'] === 'number' ? (o['duration'] as number) : undefined,
             stats: (o['stats'] as { [k: string]: number } | undefined) || {},
+            imageUrl: resolveAssetUrl(o['imageUrl'] as string),
           } as ItemFull;
         });
         setItems(list);
@@ -210,7 +219,7 @@ export default function AdminMarket() {
                           .map((it) => (
                             <div
                               key={it.id}
-                              className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded cursor-pointer"
+                              className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded cursor-pointer flex items-center gap-2"
                               onMouseDown={(ev) => {
                                 ev.preventDefault();
                                 setItemId(it.id);
@@ -218,8 +227,13 @@ export default function AdminMarket() {
                                 setShowDropdown(false);
                               }}
                             >
-                              <div className="text-sm font-medium">{it.name}</div>
-                              <div className="text-xs text-gray-500">ID: {it.id}</div>
+                              {it.imageUrl && (
+                                <img src={it.imageUrl} alt={it.name} className="w-8 h-8 object-contain rounded" />
+                              )}
+                              <div>
+                                <div className="text-sm font-medium">{it.name}</div>
+                                <div className="text-xs text-gray-500">ID: {it.id}</div>
+                              </div>
                             </div>
                           ))}
                         {items.length === 0 && <div className="text-sm text-gray-500">No items</div>}
@@ -249,8 +263,15 @@ export default function AdminMarket() {
               <CardContent>
                 {selectedItem ? (
                   <div className="space-y-2">
-                    <div className="font-semibold">{selectedItem.name} {selectedItem.rarity ? `• Rarity ${selectedItem.rarity}` : ''}</div>
-                    <div className="text-sm text-gray-500">Type: {selectedItem.type || '—'}</div>
+                    <div className="flex items-center gap-3">
+                      {selectedItem.imageUrl && (
+                        <img src={selectedItem.imageUrl} alt={selectedItem.name} className="w-16 h-16 object-contain rounded" />
+                      )}
+                      <div>
+                        <div className="font-semibold">{selectedItem.name} {selectedItem.rarity ? `• Rarity ${selectedItem.rarity}` : ''}</div>
+                        <div className="text-sm text-gray-500">Type: {selectedItem.type || '—'}</div>
+                      </div>
+                    </div>
                     {selectedItem.consumableType && (
                       <div className="text-sm text-blue-600">Consumable: {selectedItem.consumableType} • Value: {selectedItem.consumableValue ?? '—'} • Duration: {selectedItem.duration ?? '—'}</div>
                     )}
@@ -284,28 +305,37 @@ export default function AdminMarket() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {shopItems?.map((s: ShopItem) => (
-                    <div key={s.id} className="flex items-center justify-between p-2 border rounded">
-                      <div>
-              <div className="font-medium">{getItemName(s.itemId)} <span className="text-xs text-gray-400">(ID: {s.itemId})</span></div>
-              <div className="text-sm text-gray-500">Price: {s.price} • Qty: {s.quantity ?? 1} • Active: {s.active ? 'Yes' : 'No'}</div>
+                  {shopItems?.map((s: ShopItem) => {
+                    const itemInfo = getItemInfo(s.itemId);
+                    return (
+                      <div key={s.id} className="flex items-center gap-3 p-3 border rounded">
+                        {itemInfo?.imageUrl && (
+                          <img src={itemInfo.imageUrl} alt={itemInfo.name} className="w-12 h-12 object-contain rounded" />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium">{getItemName(s.itemId)} <span className="text-xs text-gray-400">(ID: {s.itemId})</span></div>
+                          <div className="text-sm text-gray-500">Price: {s.price} • Qty: {s.quantity ?? 1} • Active: {s.active ? 'Yes' : 'No'}</div>
+                          {itemInfo?.rarity && (
+                            <div className="text-xs text-blue-600">Rarity: {itemInfo.rarity}</div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={async () => {
+                            const newPrice = Number(prompt('New price (leave empty to keep)', String(s.price)) || s.price);
+                            const newQty = Number((prompt('New quantity (leave empty to keep)', String(s.quantity ?? 1)) || String(s.quantity ?? 1)));
+                            try {
+                              await adminApiEndpoints.updateShopItem(s.id, { price: newPrice, quantity: newQty });
+                              toast.success('Updated');
+                              refetch();
+                            } catch {
+                              toast.error('Update failed');
+                            }
+                          }}>Edit</Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleRemove(s.id)}>Remove</Button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={async () => {
-                          const newPrice = Number(prompt('New price (leave empty to keep)', String(s.price)) || s.price);
-                          const newQty = Number((prompt('New quantity (leave empty to keep)', String(s.quantity ?? 1)) || String(s.quantity ?? 1)));
-                          try {
-                            await adminApiEndpoints.updateShopItem(s.id, { price: newPrice, quantity: newQty });
-                            toast.success('Updated');
-                            refetch();
-                          } catch {
-                            toast.error('Update failed');
-                          }
-                        }}>Edit</Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleRemove(s.id)}>Remove</Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {(!shopItems || shopItems.length === 0) && (
                     <div className="text-gray-500">No shop items</div>
                   )}
@@ -326,12 +356,23 @@ export default function AdminMarket() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-64 overflow-auto">
-                  {listings?.map((l: Listing) => (
-                    <div key={l.id} className="p-2 border rounded">
-                      <div className="font-medium">Listing #{l.id} - Item {l.itemId}</div>
-                      <div className="text-sm text-gray-500">Người bán: {getUserName(l.sellerId)} • Giá: {l.price} • Hoạt động: {l.active ? 'Có' : 'Không'}</div>
-                    </div>
-                  ))}
+                  {listings?.map((l: Listing) => {
+                    const itemInfo = getItemInfo(l.itemId);
+                    return (
+                      <div key={l.id} className="p-2 border rounded flex items-center gap-3">
+                        {itemInfo?.imageUrl && (
+                          <img src={itemInfo.imageUrl} alt={itemInfo.name} className="w-10 h-10 object-contain rounded" />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium">Listing #{l.id} - {getItemName(l.itemId)}</div>
+                          <div className="text-sm text-gray-500">Người bán: {getUserName(l.sellerId)} • Giá: {l.price} • Hoạt động: {l.active ? 'Có' : 'Không'}</div>
+                          {itemInfo?.rarity && (
+                            <div className="text-xs text-blue-600">Rarity: {itemInfo.rarity}</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                   {!listings || listings.length === 0 ? <div className="text-gray-500">No listings</div> : null}
                 </div>
               </CardContent>
@@ -363,12 +404,20 @@ export default function AdminMarket() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-80 overflow-auto">
-                  {history?.map((h: PurchaseHistoryEntry) => (
-                    <div key={h.id} className="p-2 border rounded">
-                      <div className="font-medium">#{h.id} Item {h.itemId}</div>
-                      <div className="text-sm text-gray-500">Người mua: {getUserName(h.buyerId)} • Người bán: {getUserName(h.sellerId)} • Giá: {h.price}</div>
-                    </div>
-                  ))}
+                  {history?.map((h: PurchaseHistoryEntry) => {
+                    const itemInfo = getItemInfo(h.itemId);
+                    return (
+                      <div key={h.id} className="p-2 border rounded flex items-center gap-3">
+                        {itemInfo?.imageUrl && (
+                          <img src={itemInfo.imageUrl} alt={itemInfo.name} className="w-8 h-8 object-contain rounded" />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium">#{h.id} {getItemName(h.itemId)}</div>
+                          <div className="text-sm text-gray-500">Người mua: {getUserName(h.buyerId)} • Người bán: {getUserName(h.sellerId)} • Giá: {h.price}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                   {!history || history.length === 0 ? <div className="text-gray-500">No history</div> : null}
                 </div>
               </CardContent>

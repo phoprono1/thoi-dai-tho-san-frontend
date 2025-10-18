@@ -7,7 +7,7 @@ interface Offer { id: number; listingId: number; buyerId: number; amount: number
 
 interface Listing { id: number; itemId: number; sellerId: number; price: number; active: boolean; quantity?: number }
 
-interface ItemFull { id: number; name?: string }
+interface ItemFull { id: number; name?: string; imageUrl?: string }
 
 interface Props {
   open: boolean;
@@ -32,16 +32,23 @@ export default function MyItemsModal({ open, onOpenChange, listings, itemById, o
           {listings.length === 0 ? (
             <div className="text-sm text-gray-500">Bạn chưa có listing đang bán</div>
           ) : (
-            listings.map((l) => (
-              <div key={l.id} className="p-2 border rounded">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{itemById.get(l.itemId)?.name || `Item ${l.itemId}`}</div>
-                    <div className="text-xs text-gray-500">Listing #{l.id} • Giá: {l.price} • Qty: {l.quantity ?? 1}</div>
+            listings.map((l) => {
+              const item = itemById.get(l.itemId);
+              return (
+                <div key={l.id} className="p-2 border rounded">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      {item?.imageUrl && (
+                        <img src={item.imageUrl} alt={item.name} className="w-10 h-10 object-contain rounded" />
+                      )}
+                      <div>
+                        <div className="font-medium">{item?.name || `Item ${l.itemId}`}</div>
+                        <div className="text-xs text-gray-500">Listing #{l.id} • Giá: {l.price} • Qty: {l.quantity ?? 1}</div>
+                      </div>
+                    </div>
+                    <div className="text-sm">Người bán: {getUserName ? getUserName(l.sellerId) : `#${l.sellerId}`}</div>
                   </div>
-                  <div className="text-sm">Người bán: {getUserName ? getUserName(l.sellerId) : `#${l.sellerId}`}</div>
-                </div>
-                <div className="mt-2">
+                  <div className="mt-2">
                   <div className="text-xs font-medium mb-1">Offers</div>
                   {(offersByListing[l.id] || []).length === 0 ? (
                     <div className="text-sm text-gray-500">Chưa có offer</div>
@@ -68,9 +75,10 @@ export default function MyItemsModal({ open, onOpenChange, listings, itemById, o
                       ));
                     })()
                   )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         <div className="flex justify-end mt-4">

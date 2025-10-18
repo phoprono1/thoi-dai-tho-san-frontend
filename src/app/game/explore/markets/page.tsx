@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { isAxiosError } from 'axios';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
-import { isAxiosError } from 'axios';
+import { resolveAssetUrl } from '@/lib/asset';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -27,9 +28,9 @@ function isMsgObject(v: unknown): v is { message?: string } {
   return typeof v === 'object' && v !== null && 'message' in v;
 }
 
-interface ShopItem { id: number; itemId: number; price: number; active: boolean }
-interface Listing { id: number; itemId: number; sellerId: number; price: number; active: boolean; quantity?: number }
-interface ItemFull { id: number; name?: string; type?: string; rarity?: number; stats?: Record<string, number> }
+interface ShopItem { id: number; itemId: number; price: number; quantity: number; active: boolean; createdAt: string; item: { name: string; imageUrl: string; rarity: number; type: string } }
+interface Listing { id: number; itemId: number; sellerId: number; price: number; quantity: number; active: boolean; createdAt: string; item: { name: string; imageUrl: string; rarity: number; type: string } }
+interface ItemFull { id: number; name?: string; type?: string; rarity?: number; stats?: Record<string, number>; imageUrl?: string }
 interface Offer { id: number; listingId: number; buyerId: number; amount: number; accepted: boolean; cancelled: boolean; quantity?: number }
 
 export default function MarketsPage() {
@@ -84,6 +85,7 @@ export default function MarketsPage() {
         type: (o['type'] as string) || undefined,
         rarity: typeof o['rarity'] === 'number' ? (o['rarity'] as number) : undefined,
         stats: (o['stats'] as Record<string, number> | undefined) || {},
+        imageUrl: resolveAssetUrl(o['imageUrl'] as string),
       }));
       setItems(mapped);
     } catch {
@@ -98,7 +100,8 @@ export default function MarketsPage() {
     try {
       // Fetch public shop items (only active ones) for players
       const res = await api.get('/market/shop/public');
-      setShopItems(res.data || []);
+      const data = res.data || [];
+      setShopItems(data);
     } catch {
       toast.error('Không tải được shop');
     } finally {
@@ -472,23 +475,30 @@ export default function MarketsPage() {
             {loadingShop || loadingItems ? <div>Loading...</div> : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredShop.map((s) => {
-                  const it = itemById.get(s.itemId);
+                  const it = s.item;
                   return (
                     <Card key={s.id}>
                       <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle>{it?.name || `Item ${s.itemId}`}</CardTitle>
-                            <div className="text-sm text-gray-500">{it?.type || '—'}</div>
-                          </div>
-                          <div className="text-right">
-                            <Badge>{it?.rarity ? `R${it.rarity}` : 'R0'}</Badge>
+                        <div className="flex items-center gap-3">
+                          {it?.imageUrl && (
+                            <img src={resolveAssetUrl(it.imageUrl!)} alt={it?.name || ''} className="w-12 h-12 object-contain rounded" />
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <CardTitle>{it?.name || `Item ${s.itemId}`}</CardTitle>
+                                <div className="text-sm text-gray-500">{it?.type || '—'}</div>
+                              </div>
+                              <div className="text-right">
+                                <Badge>{it?.rarity ? `R${it.rarity}` : 'R0'}</Badge>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent>
                         <div>Giá: <strong>{s.price}</strong></div>
-                        <div>Hoạt động: {s.active ? 'Có' : 'Không'}</div>
+                        <div>Số lượng: <strong>{s.quantity}</strong></div>
                         <div className="mt-2 flex items-center gap-2">
                           <Input type="number" min={1} defaultValue={1} onChange={(e) => setBuyingQuantity(e.target.value ? Number(e.target.value) : 1)} className="w-20" />
                           <Button size="sm" onClick={() => handleBuy(s.id, buyingQuantity)} disabled={buyLoading && buyingId === s.id}>
@@ -510,17 +520,24 @@ export default function MarketsPage() {
             {loadingListings || loadingItems ? <div>Loading...</div> : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredListings.map((l) => {
-                  const it = itemById.get(l.itemId);
+                  const it = l.item;
                   return (
                     <Card key={l.id}>
                       <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle>{it?.name || `Item ${l.itemId}`}</CardTitle>
-                            <div className="text-sm text-gray-500">{it?.type || '—'}</div>
-                          </div>
-                          <div className="text-right">
-                            <Badge>{it?.rarity ? `R${it.rarity}` : 'R0'}</Badge>
+                        <div className="flex items-center gap-3">
+                          {it?.imageUrl && (
+                            <img src={resolveAssetUrl(it.imageUrl!)} alt={it?.name || ''} className="w-12 h-12 object-contain rounded" />
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <CardTitle>{it?.name || `Item ${l.itemId}`}</CardTitle>
+                                <div className="text-sm text-gray-500">{it?.type || '—'}</div>
+                              </div>
+                              <div className="text-right">
+                                <Badge>{it?.rarity ? `R${it.rarity}` : 'R0'}</Badge>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </CardHeader>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api-client';
+import { api, itemsApi } from '@/lib/api-client';
 import { useUIStore } from '@/stores';
 import { useMailboxStore } from '@/stores/useMailboxStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,11 +18,17 @@ interface MailItem {
   createdAt?: string;
 }
 
+interface Item {
+  id: number;
+  name: string;
+}
+
 export default function MailboxModal() {
   const { modalOpen, modalType, closeModal } = useUIStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mails, setMails] = useState<MailItem[]>([]);
+  const [itemsMap, setItemsMap] = useState<Map<number, string>>(new Map());
   const latestMail = useMailboxStore((s) => s.latestMail);
   const unreadCount = useMailboxStore((s) => s.unreadCount);
 
@@ -33,6 +39,27 @@ export default function MailboxModal() {
       loadMails();
     }
   }, [modalOpen, modalType]);
+
+  // Load items on mount
+  useEffect(() => {
+    const loadItems = async () => {
+      try {
+        const res = await itemsApi.getItems();
+        const map = new Map<number, string>();
+        if (Array.isArray(res)) {
+          res.forEach((item: Item) => {
+            if (typeof item.id === 'number' && typeof item.name === 'string') {
+              map.set(item.id, item.name);
+            }
+          });
+        }
+        setItemsMap(map);
+      } catch (error) {
+        console.error('Load items error:', error);
+      }
+    };
+    loadItems();
+  }, []);
 
   // When the global mailbox store reports a new mail, reload if modal is open
   useEffect(() => {
@@ -91,6 +118,31 @@ export default function MailboxModal() {
     closeModal();
   };
 
+  const handleClaimAll = async () => {
+    const claimableMails = mails.filter(m => m.rewards && (m.rewards.gold || m.rewards.exp || (m.rewards.items && m.rewards.items.length > 0)));
+    if (claimableMails.length === 0) {
+      toast.info('Không có thư nào có thưởng để nhận');
+      return;
+    }
+
+    try {
+      // Claim từng mail
+      for (const mail of claimableMails) {
+        await api.post(`/mailbox/${mail.id}/claim`);
+      }
+      toast.success(`Đã nhận thưởng từ ${claimableMails.length} thư`);
+      // Remove từ UI
+      setMails((prev) => prev.filter((m) => !claimableMails.some((cm) => cm.id === m.id)));
+
+      // Update unread count
+      const ures = await api.get('/mailbox/unread-count');
+      const count = ures.data?.unreadCount ?? 0;
+      useMailboxStore.getState().setUnread(count);
+    } catch {
+      toast.error('Nhận thưởng thất bại');
+    }
+  };
+
   const handleClaim = async (mailId: number) => {
     try {
   await api.post(`/mailbox/${mailId}/claim`);
@@ -116,14 +168,19 @@ export default function MailboxModal() {
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Mailbox</DialogTitle>
+          <div className="flex justify-between items-center">
+            <DialogTitle>Mailbox</DialogTitle>
+            <Button size="sm" onClick={handleClaimAll} disabled={loading || mails.length === 0}>
+              Claim All
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
           {loading ? (
             <div>Loading...</div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
               {mails.length === 0 ? (
                 <div className="text-sm text-gray-500">Không có thư</div>
               ) : (
@@ -142,7 +199,10 @@ export default function MailboxModal() {
                           {m.rewards?.gold ? <div>Gold: {m.rewards.gold}</div> : null}
                           {m.rewards?.exp ? <div>EXP: {m.rewards.exp}</div> : null}
                           {m.rewards?.items && m.rewards.items.length > 0 ? (
-                            <div>Items: {m.rewards.items.map((it) => `${it.itemId} x${it.qty}`).join(', ')}</div>
+                            <div>Items: {m.rewards.items.map((it) => {
+                              const itemName = itemsMap.get(it.itemId) || `Item ${it.itemId}`;
+                              return `${itemName} x${it.qty}`;
+                            }).join(', ')}</div>
                           ) : null}
                         </div>
                         <div>

@@ -16,9 +16,9 @@ const getApiBaseUrl = () => {
     return envUrl;
   }
   
-  // Fallback to same domain with /api path for production
+  // Fallback to same domain for production (without /api, interceptor will add it)
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.host}/api`;
+    return `${window.location.protocol}//${window.location.host}`;
   }
   
   // SSR fallback
@@ -43,20 +43,15 @@ export const api = axios.create({
 
 // Request interceptor để xử lý /api prefix và auth token
 api.interceptors.request.use((config) => {
-  // Xử lý /api prefix logic (tương tự api-service.ts)
+  // Xử lý /api prefix logic
   if (config.url && config.baseURL) {
     const base = config.baseURL.replace(/\/$/, '');
     const baseHasApi = /\/api(?:$|\/)/.test(base);
     
     let path = config.url.startsWith('/') ? config.url : `/${config.url}`;
     
-    if (baseHasApi) {
-      // strip leading '/api' from path if present to avoid /api/api
-      if (path.startsWith('/api/')) {
-        path = path.replace(/^\/api/, '');
-      }
-    } else {
-      // ensure path starts with '/api/'
+    if (!baseHasApi) {
+      // Nếu baseURL không có /api, thêm /api vào path
       if (!path.startsWith('/api/')) {
         path = `/api${path}`;
       }

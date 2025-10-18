@@ -46,7 +46,8 @@ import {
   RefreshCw,
   Loader2,
   Hand,
-  Footprints
+  Footprints,
+  Share2
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -85,6 +86,7 @@ interface GachaBoxPublic {
   entries: Array<Record<string, unknown>>;
 }
 import { useUserStatusStore } from '@/stores/user-status.store';
+import { useChatStore } from '@/stores/useChatStore';
 
 export default function InventoryTab() {
   const [selectedItem, setSelectedItem] = useState<UserItem | null>(null);
@@ -532,6 +534,23 @@ export default function InventoryTab() {
     }
   };
 
+  const handleShareItem = async () => {
+    if (!selectedItem) return;
+    const isConnected = useChatStore.getState().isConnected;
+    if (!isConnected) {
+      toast.error('Bạn cần kết nối chat thế giới để khoe đồ');
+      return;
+    }
+    const item = selectedItem.item;
+    const imageUrl = resolveAssetUrl(item.image);
+    // Send only base stats for now to debug
+    const statsJson = JSON.stringify(item.stats || {});
+    console.log('handleShareItem:', { itemStats: item.stats, selectedItemUpgradeStats: selectedItem.upgradeStats, statsJson });
+    const message = `[ITEM_SHOWCASE|${item.id}|${item.name}|${item.level || 1}|${item.rarity || 1}|${imageUrl || ''}|${statsJson}]`;
+    useChatStore.getState().sendMessage(message);
+    toast.success('Đã khoe đồ lên chat thế giới!');
+  };
+
   const handleSellItem = async () => {
     // Open sell modal for selected item
     if (!selectedItem) return toast.error('Chưa chọn vật phẩm để bán');
@@ -931,6 +950,14 @@ export default function InventoryTab() {
                   <div className="flex-1" />
                   )
                 )}
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleShareItem()}
+                >
+                  <Share2 className="h-4 w-4 mr-1" />
+                  Khoe đồ
+                </Button>
                 <Button
                   variant="outline"
                   className="flex-1"

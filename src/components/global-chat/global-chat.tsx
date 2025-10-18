@@ -12,6 +12,7 @@ import { useChatStore, ChatMessage } from '@/stores/useChatStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useJoinGuild } from '@/hooks/use-api';
+import Image from 'next/image';
 
 // Add CSS animations for title effects (same as StatusTab)
 const titleAnimationStyles = `
@@ -390,6 +391,79 @@ export function GlobalChat({ embedded = false }: { embedded?: boolean }) {
                       <p className="text-sm break-words pl-1 text-gray-700 dark:text-gray-300">{msg.message}</p>
                     </div>
                   );
+                }
+              }
+
+              // Render item showcase messages: format [ITEM_SHOWCASE|<itemId>|<itemName>|<level>|<rarity>|<imageUrl>|<statsJson>]
+              if (rec['message'] && String(rec['message']).startsWith('[ITEM_SHOWCASE|')) {
+                try {
+                  const parts = String(rec['message']).split('|');
+                  console.log('ITEM_SHOWCASE parts:', parts);
+                  const itemName = parts[2] || 'Vật phẩm';
+                  const level = Number(parts[3]) || 1;
+                  const rarity = Number(parts[4]) || 1;
+                  const imageUrl = parts[5] || '';
+                  const statsJson = (parts[6] || '{}').replace(/\]$/, '');
+                  console.log('ITEM_SHOWCASE statsJson:', statsJson);
+                  let stats: Record<string, number> = {};
+                  try {
+                    stats = JSON.parse(statsJson) as Record<string, number>;
+                    console.log('ITEM_SHOWCASE parsed stats:', stats);
+                  } catch (e) {
+                    console.log('ITEM_SHOWCASE parse error:', e);
+                    // ignore
+                  }
+                  console.log('ITEM_SHOWCASE stats keys length:', Object.keys(stats).length);
+
+                  // Rarity styles
+                  const rarityStyles = {
+                    1: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', glow: '' },
+                    2: { bg: 'bg-green-50', border: 'border-green-400', text: 'text-green-700', glow: '' },
+                    3: { bg: 'bg-blue-50', border: 'border-blue-400', text: 'text-blue-700', glow: '' },
+                    4: { bg: 'bg-purple-50', border: 'border-purple-500', text: 'text-purple-700', glow: 'shadow-lg' },
+                    5: { bg: 'bg-yellow-50', border: 'border-yellow-400', text: 'text-yellow-700', glow: 'shadow-xl ring-2 ring-yellow-300' },
+                  };
+                  const style = rarityStyles[rarity as keyof typeof rarityStyles] || rarityStyles[1];
+
+                  return (
+                    <div key={`item-showcase-${computedKey}`} className={`w-full p-3 ${style.bg} border ${style.border} rounded-md ${style.glow}`}>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="font-bold text-blue-500 truncate">{msg.username}</span>
+                          <span className="text-xs text-gray-500">khoe đồ</span>
+                        </div>
+                        <span className="text-xs text-gray-400 flex-shrink-0">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-3">
+                        {imageUrl && (
+                          <div className="w-16 h-16 bg-white/50 rounded flex items-center justify-center overflow-hidden">
+                            <Image src={imageUrl} alt={itemName} width={64} height={64} className="object-contain" unoptimized />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className={`font-semibold ${style.text}`}>{itemName}</div>
+                          {Object.keys(stats).length > 0 ? (
+                            <div className="text-xs text-gray-600 mt-1">
+                              {Object.entries(stats).map(([k, v]) => {
+                                const shortKey = {
+                                  strength: 'str',
+                                  intelligence: 'int',
+                                  vitality: 'vit',
+                                  dexterity: 'dex',
+                                  luck: 'luk'
+                                }[k] || k;
+                                return `${shortKey}: +${v}`;
+                              }).join(', ')}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">Level: {level}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } catch {
+                  // fall back to normal message
                 }
               }
 

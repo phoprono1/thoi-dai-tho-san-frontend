@@ -7,7 +7,7 @@ export const adminApi = axios.create({
   // prefix of '/api' so include it in the default base URL to avoid 404s when
   // code calls endpoints like '/gacha'. In production NEXT_PUBLIC_API_URL can
   // include the full '/api' path if desired.
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -15,6 +15,24 @@ export const adminApi = axios.create({
 
 // Simple request interceptor to add admin headers if needed
 adminApi.interceptors.request.use((config) => {
+  // Ensure baseURL has no trailing slash
+  const base = (config.baseURL || '').replace(/\/$/, '');
+  // If base already ends with '/api', avoid adding another '/api' to the path
+  const baseHasApi = /\/api(?:$|\/)/.test(base);
+
+  // Normalize url to start with '/'
+  const path = config.url?.startsWith('/') ? config.url : `/${config.url || ''}`;
+
+  if (baseHasApi) {
+    // base already has /api, just append path
+    config.url = `${base}${path}`;
+  } else {
+    // base doesn't have /api, add it
+    config.url = `${base}/api${path}`;
+  }
+  // Remove baseURL since we're building the full URL in config.url
+  config.baseURL = '';
+
   // Add admin-specific headers here if backend requires them
   config.headers['X-Admin-Access'] = 'true';
   // Copy Authorization token from regular api client storage if present
