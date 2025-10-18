@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sword, MapPin, Trophy, Target, Crown, Shield, Zap, ShoppingCart, ShieldHalf, Hammer, Sparkles } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 
@@ -188,6 +189,16 @@ export default function ExploreTab() {
         >
           <Zap className="h-8 w-8 text-gray-400" />
           <span className="font-medium text-gray-400">Sắp có</span>
+        </Button>
+
+        {/* Khu Giải Trí (Entertainment Area) */}
+        <Button
+          variant="outline"
+          className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-pink-50 hover:border-pink-300"
+          onClick={() => router.push('/game/explore/casino')}
+        >
+          <Play className="h-8 w-8 text-pink-600" />
+          <span className="font-medium">Khu Giải Trí</span>
         </Button>
       </div>
     </div>

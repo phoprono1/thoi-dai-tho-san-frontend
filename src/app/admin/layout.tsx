@@ -30,7 +30,8 @@ import {
   Crosshair,
   Building2,
   Sparkles,
-  Hammer
+  Hammer,
+  Coins
 } from 'lucide-react';
 import AdminLogin from '@/components/admin/AdminLogin';
 import { useAdmin } from '@/components/providers/AdminProvider';
@@ -62,6 +63,7 @@ const navigation = [
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Items', href: '/admin/items', icon: Sword },
   { name: 'Pets', href: '/admin/pets', icon: PawPrint },
+  { name: 'Casino', href: '/admin/casino', icon: Coins },
   { name: 'Gacha', href: '/admin/gacha', icon: Shield },
   { name: 'Crafting', href: '/admin/crafting', icon: Hammer },
   { name: 'Skills', href: '/admin/skills', icon: Sparkles },

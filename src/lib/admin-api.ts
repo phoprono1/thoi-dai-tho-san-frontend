@@ -1,13 +1,115 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from 'axios';
 
+// Get API base URL from environment
+export const getApiBaseUrl = () => {
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+};
+
+// Simple fetch-based API client for direct backend calls
+export class DirectApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl || getApiBaseUrl();
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    try {
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return headers;
+  }
+
+  private async request<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    endpoint: string,
+    options?: {
+      body?: any;
+      headers?: Record<string, string>;
+    }
+  ): Promise<T> {
+    const url = `${this.baseUrl}/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+    const headers = {
+      ...this.getAuthHeaders(),
+      ...options?.headers,
+    };
+
+    const config: RequestInit = {
+      method,
+      headers,
+    };
+
+    if (options?.body && method !== 'GET') {
+      if (options.body instanceof FormData) {
+        // Don't set Content-Type for FormData, let browser set it
+        delete headers['Content-Type'];
+        config.body = options.body;
+      } else {
+        // Ensure Content-Type is set so backend JSON body parser will parse the body
+        headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+        config.body = JSON.stringify(options.body);
+      }
+    }
+
+    const response = await fetch(url, config);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error ${response.status}: ${errorText}`);
+    }
+
+    // Handle empty responses
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    } else {
+      return response.text() as any;
+    }
+  }
+
+  async get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>('GET', endpoint, { headers });
+  }
+
+  async post<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>('POST', endpoint, { body, headers });
+  }
+
+  async put<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>('PUT', endpoint, { body, headers });
+  }
+
+  async patch<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>('PATCH', endpoint, { body, headers });
+  }
+
+  async delete<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>('DELETE', endpoint, { headers });
+  }
+}
+
+// Export a default instance
+export const directApi = new DirectApiClient();
+
 // Admin-specific API client without auth interceptors
 export const adminApi = axios.create({
   // Ensure adminApi talks to the backend API prefix. The backend sets a global
   // prefix of '/api' so include it in the default base URL to avoid 404s when
   // code calls endpoints like '/gacha'. In production NEXT_PUBLIC_API_URL can
   // include the full '/api' path if desired.
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -34,17 +136,19 @@ adminApi.interceptors.request.use((config) => {
   config.baseURL = '';
 
   // Add admin-specific headers here if backend requires them
-  config.headers['X-Admin-Access'] = 'true';
-  // Copy Authorization token from regular api client storage if present
-  try {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
+  // config.headers['X-Admin-Access'] = 'true';
+  // Only add Authorization token from localStorage if not already set
+  if (!config.headers['Authorization']) {
+    try {
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token');
+        if (token) {
+          config.headers['Authorization'] = `Bearer ${token}`;
+        }
       }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
   return config;
 });
